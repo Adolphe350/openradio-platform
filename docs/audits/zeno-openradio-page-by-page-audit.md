@@ -233,6 +233,44 @@ Safe parity approach:
 
 ## 10) Verification notes
 
-- Code changes: none (production/runtime code untouched).
-- Deliverable added: `docs/audits/zeno-openradio-page-by-page-audit.md`.
-- Lint/typecheck executed separately after doc creation.
+- Initial audit snapshot captured before parity implementation and focused on baseline inventory/gaps.
+- Post-audit parity implementation details are tracked in section 11.
+- Quality gates (`lint`, `typecheck`, `build`) are now part of the parity-pass completion checklist.
+
+## 11) Parity pass update (May 7, 2026 UTC)
+
+This section tracks what was implemented after the initial audit to close highest-impact gaps while preserving original OpenRadio branding, copy, code, and UX composition.
+
+### 11.1 Completed in this pass
+
+- Listener discovery baseline:
+  - Added public `/explore` with search + filters (name/query, genre, language, country, sort).
+  - Added public-safe discovery API `GET /api/explore`.
+  - Added discovery entry links across public navigation/footer and landing CTAs.
+  - Enriched `/stations/[slug]` with related/recent station cards.
+- Creator marketing funnels:
+  - Added original pages: `/streaming`, `/automation`, `/pricing`.
+  - Linked new funnel pages from landing, header, footer, and dashboard sidebar.
+- Creator onboarding + activation:
+  - Added first-broadcast checklist on dashboard and station studio.
+  - Added station status update control (`DRAFT`, `ACTIVE`, `PAUSED`) in station studio.
+  - Added stream diagnostics panel with explicit `Live` vs `Planned` capability labels.
+- Library/playlist CRUD completion:
+  - Added track update/delete API routes:
+    - `PATCH /api/stations/:stationId/tracks/:trackId`
+    - `DELETE /api/stations/:stationId/tracks/:trackId`
+  - Added playlist update/delete API routes:
+    - `PATCH /api/stations/:stationId/playlists/:playlistId`
+    - `DELETE /api/stations/:stationId/playlists/:playlistId`
+  - Wired minimal station-studio controls for updating/deleting tracks and playlists.
+- Analytics placeholder improvement:
+  - Replaced `--` placeholders with deterministic seeded sample metrics when live records are absent.
+  - Labeled analytics cards and public station metrics as `Live`, `Sample`, or `Planned`.
+
+### 11.2 Remaining major gaps after this pass
+
+- No schedule-block automation engine yet (queue workers, rule sets, clock templates still pending).
+- No first-party media upload/transcoding pipeline yet.
+- No event-level analytics ingestion pipeline (current model remains sampled/seeded).
+- No billing/subscription entitlements backend yet.
+- No team/roles collaboration model yet.

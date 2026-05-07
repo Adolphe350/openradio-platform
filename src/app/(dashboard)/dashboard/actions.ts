@@ -1,6 +1,7 @@
 "use server";
 
 import crypto from "crypto";
+import { StationStatus } from "@prisma/client";
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -23,6 +24,42 @@ async function ensureOwnedStation(stationId: string, userId: string) {
   }
 
   return station;
+}
+
+async function ensureOwnedTrack(trackId: string, stationId: string, userId: string) {
+  const track = await db.track.findFirst({
+    where: {
+      id: trackId,
+      stationId,
+      station: {
+        ownerId: userId
+      }
+    }
+  });
+
+  if (!track) {
+    throw new Error("Track not found");
+  }
+
+  return track;
+}
+
+async function ensureOwnedPlaylist(playlistId: string, stationId: string, userId: string) {
+  const playlist = await db.playlist.findFirst({
+    where: {
+      id: playlistId,
+      stationId,
+      station: {
+        ownerId: userId
+      }
+    }
+  });
+
+  if (!playlist) {
+    throw new Error("Playlist not found");
+  }
+
+  return playlist;
 }
 
 async function generateUniqueStationSlug(name: string) {
@@ -110,6 +147,28 @@ export async function updateStationMetadataAction(formData: FormData) {
   revalidatePath(`/dashboard/stations/${stationId}`);
 }
 
+export async function updateStationStatusAction(formData: FormData) {
+  const user = await requireUser();
+  const stationId = valueAsString(formData, "stationId");
+  const statusCandidate = valueAsString(formData, "status").toUpperCase();
+  const status = Object.values(StationStatus).find((value) => value === statusCandidate);
+
+  if (!status) {
+    redirect(`/dashboard/stations/${stationId}?error=Invalid%20station%20status`);
+  }
+
+  await ensureOwnedStation(stationId, user.id);
+
+  await db.station.update({
+    where: { id: stationId },
+    data: {
+      status
+    }
+  });
+
+  revalidatePath(`/dashboard/stations/${stationId}`);
+}
+
 export async function deleteStationAction(formData: FormData) {
   const user = await requireUser();
   const stationId = valueAsString(formData, "stationId");
@@ -153,6 +212,54 @@ export async function createTrackAction(formData: FormData) {
   revalidatePath(`/dashboard/stations/${stationId}`);
 }
 
+export async function updateTrackAction(formData: FormData) {
+  const user = await requireUser();
+
+  const stationId = valueAsString(formData, "stationId");
+  const trackId = valueAsString(formData, "trackId");
+  const title = valueAsString(formData, "title");
+  const artist = valueAsString(formData, "artist");
+  const album = valueAsString(formData, "album") || null;
+  const durationRaw = valueAsString(formData, "durationSec");
+  const fileUrl = valueAsString(formData, "fileUrl") || null;
+
+  if (title.length < 1 || artist.length < 1) {
+    redirect(`/dashboard/stations/${stationId}?error=Track%20title%20and%20artist%20are%20required`);
+  }
+
+  await ensureOwnedStation(stationId, user.id);
+  await ensureOwnedTrack(trackId, stationId, user.id);
+
+  await db.track.update({
+    where: { id: trackId },
+    data: {
+      title,
+      artist,
+      album,
+      durationSec: durationRaw ? Number(durationRaw) : null,
+      fileUrl
+    }
+  });
+
+  revalidatePath(`/dashboard/stations/${stationId}`);
+}
+
+export async function deleteTrackAction(formData: FormData) {
+  const user = await requireUser();
+
+  const stationId = valueAsString(formData, "stationId");
+  const trackId = valueAsString(formData, "trackId");
+
+  await ensureOwnedStation(stationId, user.id);
+  await ensureOwnedTrack(trackId, stationId, user.id);
+
+  await db.track.delete({
+    where: { id: trackId }
+  });
+
+  revalidatePath(`/dashboard/stations/${stationId}`);
+}
+
 export async function createPlaylistAction(formData: FormData) {
   const user = await requireUser();
 
@@ -178,6 +285,64 @@ export async function createPlaylistAction(formData: FormData) {
   } catch {
     redirect(`/dashboard/stations/${stationId}?error=Playlist%20name%20already%20exists`);
   }
+
+  revalidatePath(`/dashboard/stations/${stationId}`);
+}
+
+export async function updatePlaylistAction(formData: FormData) {
+  const user = await requireUser();
+
+  const stationId = valueAsString(formData, "stationId");
+  const playlistId = valueAsString(formData, "playlistId");
+  const name = valueAsString(formData, "name");
+  const description = valueAsString(formData, "description") || null;
+
+  await ensureOwnedStation(stationId, user.id);
+  await ensureOwnedPlaylist(playlistId, stationId, user.id);
+
+  if (name.length < 2) {
+    redirect(`/dashboard/stations/${stationId}?error=Playlist%20name%20must%20be%20at%20least%202%20characters`);
+  }
+
+  try {
+    await db.playlist.update({
+      where: { id: playlistId },
+      data: {
+        name,
+        description
+      }
+    });
+  } catch {
+    redirect(`/dashboard/stations/${stationId}?error=Playlist%20name%20already%20exists`);
+  }
+
+  revalidatePath(`/dashboard/stations/${stationId}`);
+}
+
+export async function deletePlaylistAction(formData: FormData) {
+  const user = await requireUser();
+
+  const stationId = valueAsString(formData, "stationId");
+  const playlistId = valueAsString(formData, "playlistId");
+
+  await ensureOwnedStation(stationId, user.id);
+  const playlist = await ensureOwnedPlaylist(playlistId, stationId, user.id);
+
+  if (playlist.isDefault) {
+    redirect(`/dashboard/stations/${stationId}?error=Default%20playlist%20cannot%20be%20deleted`);
+  }
+
+  const playlistCount = await db.playlist.count({
+    where: { stationId }
+  });
+
+  if (playlistCount <= 1) {
+    redirect(`/dashboard/stations/${stationId}?error=At%20least%20one%20playlist%20must%20remain`);
+  }
+
+  await db.playlist.delete({
+    where: { id: playlistId }
+  });
 
   revalidatePath(`/dashboard/stations/${stationId}`);
 }
@@ -252,6 +417,50 @@ export async function movePlaylistTrackAction(formData: FormData) {
     db.playlistTrack.update({ where: { id: current.id }, data: { position: target.position } }),
     db.playlistTrack.update({ where: { id: target.id }, data: { position: current.position } })
   ]);
+
+  revalidatePath(`/dashboard/stations/${stationId}`);
+}
+
+export async function removePlaylistTrackAction(formData: FormData) {
+  const user = await requireUser();
+
+  const stationId = valueAsString(formData, "stationId");
+  const playlistId = valueAsString(formData, "playlistId");
+  const playlistTrackId = valueAsString(formData, "playlistTrackId");
+
+  await ensureOwnedStation(stationId, user.id);
+  await ensureOwnedPlaylist(playlistId, stationId, user.id);
+
+  const playlistTrack = await db.playlistTrack.findFirst({
+    where: {
+      id: playlistTrackId,
+      playlistId
+    }
+  });
+
+  if (!playlistTrack) {
+    redirect(`/dashboard/stations/${stationId}?error=Playlist%20track%20not%20found`);
+  }
+
+  await db.playlistTrack.delete({
+    where: { id: playlistTrack.id }
+  });
+
+  const remainingTracks = await db.playlistTrack.findMany({
+    where: { playlistId },
+    orderBy: { position: "asc" }
+  });
+
+  if (remainingTracks.length > 0) {
+    await db.$transaction(
+      remainingTracks.map((track, index) =>
+        db.playlistTrack.update({
+          where: { id: track.id },
+          data: { position: index + 1 }
+        })
+      )
+    );
+  }
 
   revalidatePath(`/dashboard/stations/${stationId}`);
 }

@@ -25,6 +25,12 @@ export function DashboardShell({ userName, children }: DashboardShellProps) {
             <Link href="/dashboard/stations/new" className="btn secondary" style={{ justifyContent: "flex-start" }}>
               Create station
             </Link>
+            <Link href="/explore" className="btn secondary" style={{ justifyContent: "flex-start" }}>
+              Explore
+            </Link>
+            <Link href="/streaming" className="btn secondary" style={{ justifyContent: "flex-start" }}>
+              Streaming guide
+            </Link>
             <Link href="/" className="btn secondary" style={{ justifyContent: "flex-start" }}>
               Landing page
             </Link>

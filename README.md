@@ -7,14 +7,24 @@ It is **not affiliated with or copied from Zeno.fm**. This project intentionally
 ## MVP Scope
 
 - Landing page with product positioning, feature highlights, how-it-works, OSS/self-hosted pitch, and pricing-style comparison tiers.
+- Dedicated creator-funnel pages:
+  - `/streaming`
+  - `/automation`
+  - `/pricing`
+- Listener discovery baseline:
+  - `/explore` public station directory with search + filters
+  - `/api/explore` public-safe discovery query endpoint
 - Credentials auth: sign up, sign in, sign out.
 - Dashboard:
   - Station list and create station workflow.
+  - First-broadcast checklist and station activation status controls.
   - Station detail with live source credentials (Icecast-compatible encoder settings).
+  - Stream diagnostics panel with live vs planned indicators.
   - AutoDJ data model + UI for tracks and playlists.
   - Playlist track ordering controls.
-  - Analytics placeholder cards (current listeners, peak listeners, listening hours, uptime, storage).
-- Public station page with built-in HTML audio player.
+  - Track and playlist update/delete controls.
+  - Analytics cards labeled as `Live`, `Sample`, or `Planned`.
+- Public station page with built-in HTML audio player, metric source labels, and related/recent station recommendations.
 - API routes for station/track/playlist CRUD primitives.
 - Docker Compose stack for Coolify-friendly deployment with:
   - Next.js app
@@ -140,6 +150,11 @@ To support per-station AutoDJ in production:
 
 ## API Endpoints (MVP)
 
+Public:
+
+- `GET /api/health`
+- `GET /api/explore`
+
 Authenticated routes use session cookie:
 
 - `GET /api/stations`
@@ -149,10 +164,20 @@ Authenticated routes use session cookie:
 - `DELETE /api/stations/:stationId`
 - `GET /api/stations/:stationId/tracks`
 - `POST /api/stations/:stationId/tracks`
+- `PATCH /api/stations/:stationId/tracks/:trackId`
+- `DELETE /api/stations/:stationId/tracks/:trackId`
 - `GET /api/stations/:stationId/playlists`
 - `POST /api/stations/:stationId/playlists`
+- `PATCH /api/stations/:stationId/playlists/:playlistId`
+- `DELETE /api/stations/:stationId/playlists/:playlistId`
 - `POST /api/playlists/:playlistId/tracks`
 - `POST /api/playlists/:playlistId/tracks/:playlistTrackId/move`
+
+## Parity Guardrails
+
+- Keep workflow parity goals focused on outcomes, not copied visuals or text.
+- Do not copy third-party branding, marketing copy, CSS, assets, or proprietary API contracts.
+- Build original information architecture, naming, and implementation for equivalent creator/listener flows.
 
 ## Quality Gates
 

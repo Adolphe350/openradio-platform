@@ -1,5 +1,8 @@
 import Link from "next/link";
 
+import { SiteFooter } from "@/components/site-footer";
+import { SiteHeader } from "@/components/site-header";
+
 const features = [
   {
     title: "Live Broadcasting",
@@ -9,7 +12,11 @@ const features = [
   {
     title: "AutoDJ Playlists",
     description:
-      "Upload and organize tracks into reusable rotations, then hand them to Liquidsoap-backed automation."
+      "Organize tracks into reusable rotations, then hand them to the Liquidsoap-backed baseline automation layer."
+  },
+  {
+    title: "Listener Discovery",
+    description: "Surface stations on Explore with searchable genres, languages, and countries for easy discovery."
   },
   {
     title: "Public Station Pages",
@@ -21,13 +28,9 @@ const features = [
       "Deploy the full stack on your own servers using Docker Compose and Coolify with no vendor lock-in."
   },
   {
-    title: "Scalable Streaming",
+    title: "Scalable Foundation",
     description:
       "Start with Icecast + Liquidsoap, then extend toward relays, HLS packaging, and region-aware delivery."
-  },
-  {
-    title: "Team-Friendly Foundation",
-    description: "Role and multi-user controls are planned in a schema designed for growth from day one."
   }
 ];
 
@@ -45,8 +48,26 @@ const steps = [
     description: "Add tracks and playlists so your stream continues automatically between live shows."
   },
   {
-    title: "Share and Improve",
-    description: "Publish your station page, monitor listener metrics, and iterate with open-source control."
+    title: "Publish and Share",
+    description: "Mark your station active, share your public page, and improve with analytics feedback."
+  }
+];
+
+const creatorFunnels = [
+  {
+    href: "/streaming",
+    title: "Streaming",
+    description: "Understand encoder connection, stream credentials, and activation flow for first go-live."
+  },
+  {
+    href: "/automation",
+    title: "Automation",
+    description: "Map your track library into playlists and see what AutoDJ controls are available now vs planned."
+  },
+  {
+    href: "/pricing",
+    title: "Pricing",
+    description: "Review open-source self-hosting tiers and a practical path from personal to production operations."
   }
 ];
 
@@ -89,45 +110,7 @@ const tiers = [
 export default function LandingPage() {
   return (
     <main>
-      <header style={{ borderBottom: "1px solid #e2e8f0", backdropFilter: "blur(8px)" }}>
-        <div
-          className="container"
-          style={{
-            minHeight: "74px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "1rem"
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <div
-              aria-hidden
-              style={{
-                width: "36px",
-                height: "36px",
-                borderRadius: "10px",
-                background:
-                  "conic-gradient(from 220deg at 50% 50%, #0284c7 0deg, #0ea5e9 160deg, #1e3a8a 300deg, #0284c7 360deg)"
-              }}
-            />
-            <div>
-              <strong style={{ fontSize: "1rem" }}>OpenRadio Cloud</strong>
-              <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>
-                Open-source internet radio stack
-              </p>
-            </div>
-          </div>
-          <nav style={{ display: "flex", gap: "0.65rem", flexWrap: "wrap" }}>
-            <Link href="/sign-in" className="btn secondary">
-              Sign in
-            </Link>
-            <Link href="/sign-up" className="btn primary">
-              Get started
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <SiteHeader />
 
       <section style={{ padding: "4.7rem 0 4rem" }}>
         <div className="container hero-grid">
@@ -137,12 +120,15 @@ export default function LandingPage() {
               Launch and grow internet radio stations on infrastructure you control.
             </h1>
             <p className="muted" style={{ fontSize: "1.08rem", marginBottom: "1.5rem", maxWidth: "62ch" }}>
-              OpenRadio Cloud is a self-hosted platform for live broadcasting, AutoDJ scheduling, and public station pages.
+              OpenRadio Cloud is a self-hosted platform for live broadcasting, AutoDJ scheduling, and listener discovery.
               Keep full ownership of your stream, your data, and your roadmap.
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.7rem" }}>
               <Link className="btn primary" href="/sign-up">
                 Create your station
+              </Link>
+              <Link className="btn secondary" href="/explore">
+                Explore stations
               </Link>
               <Link className="btn secondary" href="/dashboard">
                 Open dashboard
@@ -192,12 +178,39 @@ export default function LandingPage() {
         <div className="container grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1rem" }}>
           {features.map((feature) => (
             <article className="card" key={feature.title} style={{ padding: "1rem" }}>
-              <h3 style={{ marginBottom: "0.45rem" }}>{feature.title}</h3>
+              <h2 style={{ marginBottom: "0.45rem", fontSize: "1.08rem" }}>{feature.title}</h2>
               <p className="muted" style={{ margin: 0 }}>
                 {feature.description}
               </p>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section style={{ padding: "2.4rem 0" }}>
+        <div className="container" style={{ display: "grid", gap: "1rem" }}>
+          <div className="section-heading">
+            <span className="badge">Creator funnels</span>
+            <h2 style={{ margin: 0 }}>Choose your path based on what you need right now</h2>
+            <p className="muted" style={{ margin: 0 }}>
+              Dedicated workflow pages explain streaming setup, automation capabilities, and operational pricing options.
+            </p>
+          </div>
+          <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))" }}>
+            {creatorFunnels.map((funnel) => (
+              <article key={funnel.href} className="card" style={{ padding: "1rem", display: "grid", gap: "0.6rem" }}>
+                <h2 style={{ margin: 0, fontSize: "1.1rem" }}>{funnel.title}</h2>
+                <p className="muted" style={{ margin: 0 }}>
+                  {funnel.description}
+                </p>
+                <div>
+                  <Link className="btn secondary" href={funnel.href}>
+                    Open {funnel.title}
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -244,13 +257,12 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section style={{ padding: "2rem 0 4rem" }}>
+      <section style={{ padding: "2rem 0 1.5rem" }}>
         <div
           className="container card"
           style={{
             padding: "1.3rem",
-            background:
-              "linear-gradient(135deg, rgba(2, 132, 199, 0.13), rgba(30, 58, 138, 0.12)), #fff",
+            background: "linear-gradient(135deg, rgba(2, 132, 199, 0.13), rgba(30, 58, 138, 0.12)), #fff",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -268,12 +280,17 @@ export default function LandingPage() {
             <Link href="/sign-up" className="btn primary">
               Create account
             </Link>
+            <Link href="/explore" className="btn secondary">
+              Browse stations
+            </Link>
             <Link href="/dashboard" className="btn secondary">
               Go to dashboard
             </Link>
           </div>
         </div>
       </section>
+
+      <SiteFooter />
     </main>
   );
 }
