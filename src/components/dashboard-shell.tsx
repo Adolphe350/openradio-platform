@@ -1,48 +1,89 @@
 import Link from "next/link";
-
 import { signOutAction } from "@/app/(auth)/auth-actions";
 
-type DashboardShellProps = {
-  userName: string;
-  children: React.ReactNode;
-};
+type Props = { userName: string; children: React.ReactNode };
 
-export function DashboardShell({ userName, children }: DashboardShellProps) {
+const navSections = [
+  {
+    label: "Studio",
+    links: [
+      { href: "/dashboard", icon: "🏠", label: "Overview" },
+      { href: "/dashboard/stations/new", icon: "＋", label: "Create Station" },
+      { href: "/dashboard/analytics", icon: "📊", label: "Analytics" },
+    ],
+  },
+  {
+    label: "Discover",
+    links: [
+      { href: "/explore", icon: "🌍", label: "Explore" },
+      { href: "/pricing", icon: "💳", label: "Pricing" },
+    ],
+  },
+  {
+    label: "Account",
+    links: [
+      { href: "/dashboard/settings", icon: "⚙️", label: "Settings" },
+    ],
+  },
+];
+
+export function DashboardShell({ userName, children }: Props) {
+  const initials = userName
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
     <div className="dashboard-shell">
+      {/* ── Sidebar ─────────────────────────────────────────────── */}
       <aside className="dashboard-sidebar">
-        <div style={{ display: "grid", gap: "1rem", position: "sticky", top: 16 }}>
-          <div>
-            <p style={{ margin: 0, fontWeight: 700, fontSize: "1.03rem" }}>OpenRadio Cloud</p>
-            <p className="muted" style={{ margin: "0.2rem 0 0" }}>
-              {userName}
-            </p>
+        {/* Logo */}
+        <Link href="/" className="sidebar-logo">
+          <div className="sidebar-logo-icon">Z</div>
+          <span className="sidebar-logo-text">openradio</span>
+        </Link>
+
+        {/* Nav */}
+        <nav className="sidebar-nav">
+          {navSections.map((section) => (
+            <div key={section.label}>
+              <p className="sidebar-section-label">{section.label}</p>
+              {section.links.map((link) => (
+                <Link key={link.href} href={link.href} className="sidebar-link">
+                  <span style={{ fontSize: "0.95rem", width: 20, textAlign: "center", flexShrink: 0 }}>
+                    {link.icon}
+                  </span>
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          ))}
+        </nav>
+
+        {/* Bottom: user + sign out */}
+        <div className="sidebar-bottom">
+          <div className="sidebar-user">
+            <div className="sidebar-avatar">{initials}</div>
+            <div style={{ minWidth: 0 }}>
+              <p className="sidebar-user-name">{userName}</p>
+              <p className="sidebar-user-role">Creator</p>
+            </div>
           </div>
-          <nav style={{ display: "grid", gap: "0.4rem" }}>
-            <Link href="/dashboard" className="btn secondary" style={{ justifyContent: "flex-start" }}>
-              Stations
-            </Link>
-            <Link href="/dashboard/stations/new" className="btn secondary" style={{ justifyContent: "flex-start" }}>
-              Create station
-            </Link>
-            <Link href="/explore" className="btn secondary" style={{ justifyContent: "flex-start" }}>
-              Explore
-            </Link>
-            <Link href="/streaming" className="btn secondary" style={{ justifyContent: "flex-start" }}>
-              Streaming guide
-            </Link>
-            <Link href="/" className="btn secondary" style={{ justifyContent: "flex-start" }}>
-              Landing page
-            </Link>
-          </nav>
-          <form action={signOutAction}>
-            <button className="btn secondary" type="submit" style={{ width: "100%", justifyContent: "flex-start" }}>
+          <form action={signOutAction} style={{ marginTop: "0.4rem" }}>
+            <button className="sidebar-link" type="submit" style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.825rem" }}>
+              <span style={{ fontSize: "0.9rem", width: 20, textAlign: "center" }}>→</span>
               Sign out
             </button>
           </form>
         </div>
       </aside>
-      <div style={{ padding: "1rem 1.2rem" }}>{children}</div>
+
+      {/* ── Content ─────────────────────────────────────────────── */}
+      <div className="dashboard-content">
+        {children}
+      </div>
     </div>
   );
 }

@@ -1,11 +1,25 @@
 version: "3.9"
 
+# ── OpenRadio Cloud — Coolify-compatible Docker Compose ─────────────
+#
+# Coolify deployment notes:
+#   1. Point Coolify at this repo, select "Docker Compose" deploy type.
+#   2. Set all environment variables in Coolify's env editor (see .env.example).
+#   3. Coolify manages its own reverse proxy (Traefik/Caddy) — the "app"
+#      service does NOT need ports exposed; use Coolify's domain settings.
+#   4. The "nginx" service proxies Icecast with geo-blocking on port 8080.
+#      Expose it through Coolify as a separate domain (e.g. stream.yourdomain.com).
+#   5. Set STREAM_PUBLIC_BASE_URL to your nginx/stream domain in Coolify envs.
+#   6. After first deploy run: docker exec openradio-app npx prisma db push
+#
+
 services:
+
+  # ── Next.js application ──────────────────────────────────────────
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: openradio-app
     restart: unless-stopped
     depends_on:
       postgres:
@@ -14,83 +28,147 @@ services:
         condition: service_started
       icecast:
         condition: service_started
-    ports:
-      - "${APP_PORT:-3000}:3000"
+    # Coolify injects its own labels and network — no ports needed here.
+    # For local dev only, uncomment: ports: ["3000:3000"]
+    expose:
+      - "3000"
     environment:
       NODE_ENV: production
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/openradio?schema=public}
+      DATABASE_URL: ${DATABASE_URL}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-orc_session}
       SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
-      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
-      STREAM_PUBLIC_BASE_URL: ${STREAM_PUBLIC_BASE_URL:-http://localhost:8000}
-      STREAM_SOURCE_HOST: ${STREAM_SOURCE_HOST:-icecast}
-      ICECAST_SOURCE_PORT: ${ICECAST_SOURCE_PORT:-8000}
+      APP_BASE_URL: ${APP_BASE_URL}
+      STREAM_PUBLIC_BASE_URL: ${STREAM_PUBLIC_BASE_URL}
+      STREAM_SOURCE_HOST: icecast
+      ICECAST_SOURCE_PORT: 8000
       REDIS_URL: redis://redis:6379
+      METRICS_POLL_SECRET: ${METRICS_POLL_SECRET}
+      UPLOAD_DIR: /app/uploads
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-52428800}
+      LIQ_CONFIG_DIR: /app/liquidsoap-configs
+      NGINX_GEO_DIR: /app/nginx-geo
+      ICECAST_ACL_DIR: /app/icecast-acl
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@openradio.local}
+    volumes:
+      - uploads_data:/app/uploads
+      - liquidsoap_configs:/app/liquidsoap-configs
+      - nginx_geo:/app/nginx-geo
+      - icecast_acl:/app/icecast-acl
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
 
+  # ── Metrics + geo-config cron (Alpine + crond) ──────────────────
+  cron:
+    image: alpine:3.19
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      APP_BASE_URL: http://app:3000
+      METRICS_POLL_SECRET: ${METRICS_POLL_SECRET}
+    command: >
+      sh -c "
+        echo '*/5 * * * * wget -qO- \"$$APP_BASE_URL/api/cron/poll-metrics?secret=$$METRICS_POLL_SECRET\" 2>&1 && wget -qO- \"$$APP_BASE_URL/api/cron/generate-geo-config?secret=$$METRICS_POLL_SECRET\" 2>&1' | crontab - &&
+        crond -f -L /dev/stdout
+      "
+
+  # ── PostgreSQL ───────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
-    container_name: openradio-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-openradio}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+    # No external port — internal only on Coolify
+    expose:
+      - "5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-openradio}"]
       interval: 5s
       timeout: 5s
       retries: 20
 
+  # ── Redis ────────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
-    container_name: openradio-redis
     restart: unless-stopped
     command: redis-server --save 60 1 --appendonly yes
     volumes:
       - redis_data:/data
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
+    expose:
+      - "6379"
 
+  # ── Icecast2 stream server ───────────────────────────────────────
   icecast:
     build:
       context: .
       dockerfile: docker/icecast/Dockerfile
-    container_name: openradio-icecast
     restart: unless-stopped
-    ports:
-      - "${ICECAST_PORT:-8000}:8000"
     environment:
       ICECAST_HOSTNAME: ${ICECAST_HOSTNAME:-icecast}
-      ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD:-sourcepass}
-      ICECAST_ADMIN_PASSWORD: ${ICECAST_ADMIN_PASSWORD:-adminpass}
-      ICECAST_RELAY_PASSWORD: ${ICECAST_RELAY_PASSWORD:-relaypass}
+      ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD}
+      ICECAST_ADMIN_PASSWORD: ${ICECAST_ADMIN_PASSWORD}
+      ICECAST_RELAY_PASSWORD: ${ICECAST_RELAY_PASSWORD}
       ICECAST_ADMIN_USER: ${ICECAST_ADMIN_USER:-admin}
       ICECAST_ADMIN_EMAIL: ${ICECAST_ADMIN_EMAIL:-admin@openradio.local}
+    volumes:
+      - icecast_acl:/etc/icecast2/acl
+    expose:
+      - "8000"
 
+  # ── nginx — Icecast reverse proxy with geo-blocking ─────────────
+  # Expose this as a separate domain in Coolify (e.g. stream.yourdomain.com).
+  nginx:
+    image: nginx:1.25-alpine
+    restart: unless-stopped
+    depends_on:
+      - icecast
+    expose:
+      - "8080"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - nginx_geo:/etc/nginx/geoblock.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── Liquidsoap AutoDJ ────────────────────────────────────────────
   liquidsoap:
     image: savonet/liquidsoap:v2.3.3
-    container_name: openradio-liquidsoap
     restart: unless-stopped
     depends_on:
       - icecast
     environment:
-      LIQ_ICECAST_HOST: ${LIQ_ICECAST_HOST:-icecast}
-      LIQ_ICECAST_PORT: ${LIQ_ICECAST_PORT:-8000}
-      LIQ_ICECAST_PASSWORD: ${LIQ_ICECAST_PASSWORD:-sourcepass}
-      LIQ_STREAM_MOUNT: ${LIQ_STREAM_MOUNT:-/demo.mp3}
-      LIQ_STREAM_NAME: ${LIQ_STREAM_NAME:-OpenRadio Demo}
-      LIQ_STREAM_DESCRIPTION: ${LIQ_STREAM_DESCRIPTION:-Baseline AutoDJ stream}
-      LIQ_STREAM_GENRE: ${LIQ_STREAM_GENRE:-Mixed}
-      LIQ_STREAM_URL: ${LIQ_STREAM_URL:-http://localhost:3000}
+      LIQ_ICECAST_HOST: icecast
+      LIQ_ICECAST_PORT: 8000
+      LIQ_ICECAST_PASSWORD: ${ICECAST_SOURCE_PASSWORD}
+      LIQ_APP_BASE_URL: http://app:3000
+      LIQ_POLL_SECRET: ${METRICS_POLL_SECRET}
     volumes:
       - ./docker/liquidsoap/start.sh:/opt/openradio/start.sh:ro
       - ./docker/liquidsoap/media:/media:ro
+      - uploads_data:/uploads:ro
+      - liquidsoap_configs:/configs:ro
     command: ["sh", "/opt/openradio/start.sh"]
 
 volumes:
   postgres_data:
   redis_data:
+  uploads_data:
+  liquidsoap_configs:
+  nginx_geo:
+  icecast_acl:

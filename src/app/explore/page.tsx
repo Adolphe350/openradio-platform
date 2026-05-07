@@ -2,198 +2,254 @@ import Link from "next/link";
 
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { getExploreFilters, getExploreStations, parseExploreSearchParams } from "@/lib/explore";
+import { getExploreFilters, getExploreStations, parseExploreSearchParams, type ExploreStation } from "@/lib/explore";
 
 export const metadata = {
-  title: "Explore stations",
-  description: "Find active OpenRadio stations by name, genre, language, and country."
+  title: "Explore Radio Stations",
+  description: "Discover live radio stations from around the world. Browse by genre, language, and country.",
 };
 
-type ExplorePageProps = {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
+type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-const sortOptions = [
-  { value: "trending", label: "Trending" },
-  { value: "recent", label: "Recently updated" },
-  { value: "name", label: "Name (A-Z)" }
-] as const;
+const trendingSearches = ["united states", "brazil", "mexico", "hip hop", "news", "christian", "jazz", "reggaeton", "80s", "pop"];
 
-export default async function ExplorePage({ searchParams }: ExplorePageProps) {
+function stationColor(id: string) {
+  const h1 = (id.charCodeAt(0) * 47 + id.charCodeAt(1) * 31) % 360;
+  const h2 = (h1 + 40) % 360;
+  return `linear-gradient(135deg,hsl(${h1},55%,48%),hsl(${h2},60%,35%))`;
+}
+
+function StationCard({ s }: { s: ExploreStation }) {
+  return (
+    <Link href={`/stations/${s.slug}`} className="station-card">
+      <div
+        className="station-card-thumb"
+        style={{ background: s.logoUrl ? undefined : stationColor(s.id), position: "relative" }}
+      >
+        {s.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={s.logoUrl} alt={s.name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        ) : (
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem" }}>📻</div>
+        )}
+        {s.status === "ACTIVE" && (
+          <span
+            style={{
+              position: "absolute", top: 7, right: 7,
+              background: "rgba(0,0,0,0.55)", color: "#fff",
+              fontSize: "0.65rem", fontWeight: 700,
+              padding: "0.12rem 0.45rem", borderRadius: "999px",
+              display: "flex", alignItems: "center", gap: "0.3rem",
+            }}
+          >
+            <span className="live-dot" style={{ width: 6, height: 6 }} />LIVE
+          </span>
+        )}
+      </div>
+      <div className="station-card-body">
+        <p className="station-card-title">{s.name}</p>
+        <p className="station-card-meta">{s.genre ?? "Radio"}{s.country ? ` · ${s.country}` : ""}</p>
+      </div>
+    </Link>
+  );
+}
+
+export default async function ExplorePage({ searchParams }: Props) {
   const params = parseExploreSearchParams(await searchParams);
-  const filters = {
-    ...params,
-    sort: params.sort ?? "trending",
-    limit: 30
-  };
+  const hasFilter = !!(params.q || params.genre || params.language || params.country);
+  const filters = { ...params, sort: params.sort ?? "trending", limit: 48 };
 
-  const [stations, facetOptions] = await Promise.all([getExploreStations(filters), getExploreFilters()]);
+  const [stations, facets, trending, top] = await Promise.all([
+    getExploreStations(filters),
+    getExploreFilters(),
+    hasFilter ? Promise.resolve([]) : getExploreStations({ sort: "trending", limit: 16 }),
+    hasFilter ? Promise.resolve([]) : getExploreStations({ sort: "recent", limit: 8 }),
+  ]);
 
   return (
-    <main>
+    <main style={{ background: "var(--bg-page)", minHeight: "100vh" }}>
       <SiteHeader />
 
-      <section style={{ padding: "2.5rem 0 1.5rem" }}>
-        <div className="container" style={{ display: "grid", gap: "0.8rem" }}>
-          <span className="badge">Listener discovery</span>
-          <h1 style={{ margin: 0, fontSize: "clamp(1.8rem, 4.5vw, 2.7rem)" }}>Explore public stations</h1>
-          <p className="muted" style={{ margin: 0, maxWidth: "70ch" }}>
-            Search by name and filter by genre, language, and country. Results only include discoverable stations
-            currently marked active or paused.
-          </p>
+      {/* ── Page header ──────────────────────────────────────────── */}
+      <div style={{ background: "var(--bg)", borderBottom: "1px solid var(--border)", padding: "1.5rem 0 0" }}>
+        <div className="container">
+          <h1 style={{ fontSize: "1.6rem", fontWeight: 800, margin: "0 0 1rem" }}>Explore</h1>
+
+          {/* Tabs: All / Radio */}
+          <div className="tabs">
+            <Link href="/explore" className={`tab${!params.q && !params.genre && !params.language && !params.country ? " active" : ""}`}>All</Link>
+            <Link href="/explore?genre=Music" className={`tab${params.genre === "Music" ? " active" : ""}`}>Radio</Link>
+            <Link href="/explore?genre=Podcast" className="tab">Podcasts</Link>
+          </div>
         </div>
-      </section>
+      </div>
 
-      <section style={{ padding: "0 0 1.5rem" }}>
-        <div className="container card" style={{ padding: "1rem" }}>
-          <form method="GET" className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>
-            <div className="field" style={{ gridColumn: "span 2" }}>
-              <label htmlFor="q">Search stations</label>
-              <input
-                id="q"
-                className="input"
-                type="search"
-                name="q"
-                defaultValue={params.q ?? ""}
-                placeholder="Station name, genre, or description"
-              />
-            </div>
+      <div className="container" style={{ padding: "1.5rem 0 4rem" }}>
 
-            <div className="field">
-              <label htmlFor="genre">Genre</label>
-              <select id="genre" name="genre" defaultValue={params.genre ?? ""}>
-                <option value="">All genres</option>
-                {facetOptions.genres.map((genre) => (
-                  <option key={genre} value={genre}>
-                    {genre}
-                  </option>
-                ))}
-              </select>
-            </div>
+        {/* ── Search bar ─────────────────────────────────────────── */}
+        <form method="GET" style={{ marginBottom: "1.25rem" }}>
+          <div style={{
+            display: "flex", gap: 0, background: "var(--bg)",
+            border: "1.5px solid var(--border)", borderRadius: "var(--radius-lg)",
+            overflow: "hidden", boxShadow: "var(--shadow-sm)",
+          }}>
+            <input
+              name="q"
+              type="search"
+              defaultValue={params.q ?? ""}
+              placeholder="Search stations…"
+              style={{
+                flex: 1, border: "none", padding: "0.75rem 1rem",
+                fontSize: "0.9rem", background: "transparent", outline: "none",
+                color: "var(--text)",
+              }}
+            />
+            <button
+              type="submit"
+              style={{
+                background: "var(--brand)", color: "#fff", border: "none",
+                padding: "0 1.25rem", fontWeight: 600, fontSize: "0.875rem",
+                cursor: "pointer", fontFamily: "inherit",
+              }}
+            >
+              Search
+            </button>
+          </div>
+        </form>
 
-            <div className="field">
-              <label htmlFor="language">Language</label>
-              <select id="language" name="language" defaultValue={params.language ?? ""}>
-                <option value="">All languages</option>
-                {facetOptions.languages.map((language) => (
-                  <option key={language} value={language}>
-                    {language}
-                  </option>
-                ))}
-              </select>
-            </div>
+        {/* ── Trending searches ───────────────────────────────────── */}
+        {!hasFilter && (
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "2rem" }}>
+            <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--text-muted)" }}>Trending Searches:</span>
+            {trendingSearches.map((t) => (
+              <Link key={t} href={`/explore?q=${encodeURIComponent(t)}`} className="trending-tag">{t}</Link>
+            ))}
+          </div>
+        )}
 
-            <div className="field">
-              <label htmlFor="country">Country</label>
-              <select id="country" name="country" defaultValue={params.country ?? ""}>
-                <option value="">All countries</option>
-                {facetOptions.countries.map((country) => (
-                  <option key={country} value={country}>
-                    {country}
-                  </option>
-                ))}
-              </select>
+        {/* ── Advanced filters (when active) ─────────────────────── */}
+        {hasFilter && (
+          <form method="GET" style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "1rem", marginBottom: "1.5rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: "0.75rem" }}>
+              <div className="field">
+                <label htmlFor="genre">Genre</label>
+                <select id="genre" name="genre" defaultValue={params.genre ?? ""}>
+                  <option value="">All genres</option>
+                  {facets.genres.map((g) => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="language">Language</label>
+                <select id="language" name="language" defaultValue={params.language ?? ""}>
+                  <option value="">All languages</option>
+                  {facets.languages.map((l) => <option key={l} value={l}>{l}</option>)}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="country">Country</label>
+                <select id="country" name="country" defaultValue={params.country ?? ""}>
+                  <option value="">All countries</option>
+                  {facets.countries.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="sort">Sort by</label>
+                <select id="sort" name="sort" defaultValue={filters.sort}>
+                  <option value="trending">Trending</option>
+                  <option value="recent">Recently updated</option>
+                  <option value="name">Name A–Z</option>
+                </select>
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: "0.5rem" }}>
+                <button className="btn btn-primary btn-sm" type="submit">Apply</button>
+                <Link href="/explore" className="btn btn-secondary btn-sm">Reset</Link>
+              </div>
             </div>
-
-            <div className="field">
-              <label htmlFor="sort">Sort</label>
-              <select id="sort" name="sort" defaultValue={filters.sort}>
-                {sortOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div style={{ display: "flex", alignItems: "flex-end", gap: "0.55rem", flexWrap: "wrap" }}>
-              <button className="btn primary" type="submit">
-                Apply filters
-              </button>
-              <Link href="/explore" className="btn secondary">
-                Reset
-              </Link>
-            </div>
+            {params.q && <input type="hidden" name="q" value={params.q} />}
           </form>
-        </div>
-      </section>
+        )}
 
-      <section style={{ padding: "0 0 1.25rem" }}>
-        <div className="container" style={{ display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
-          <p className="muted" style={{ margin: 0 }}>
-            {stations.length} station{stations.length === 1 ? "" : "s"} found
-          </p>
-          <p className="muted" style={{ margin: 0 }}>
-            Public API: <code>/api/explore</code>
-          </p>
-        </div>
-      </section>
+        {/* ── No-filter home view ─────────────────────────────────── */}
+        {!hasFilter && (
+          <>
+            {trending.length > 0 && (
+              <section style={{ marginBottom: "2.5rem" }}>
+                <div className="section-row">
+                  <h2 className="section-title">Trending Stations</h2>
+                  <Link href="/explore?sort=trending" style={{ fontSize: "0.85rem", color: "var(--brand)", fontWeight: 600 }}>Show all</Link>
+                </div>
+                <div className="grid-cards">
+                  {trending.map((s) => <StationCard key={s.id} s={s} />)}
+                </div>
+              </section>
+            )}
 
-      <section style={{ paddingBottom: "1rem" }}>
-        <div className="container grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(245px, 1fr))" }}>
-          {stations.map((station) => (
-            <article key={station.id} className="card" style={{ padding: "1rem", display: "grid", gap: "0.5rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.6rem" }}>
-                <span className="badge">{station.status}</span>
-                <p className="muted" style={{ margin: 0, fontSize: "0.78rem" }}>
-                  {station.metricSource === "live" ? "Live stats" : "Sample stats"}
+            {top.length > 0 && (
+              <section style={{ marginBottom: "2.5rem" }}>
+                <div className="section-row">
+                  <h2 className="section-title">Top Stations</h2>
+                  <Link href="/explore?sort=recent" style={{ fontSize: "0.85rem", color: "var(--brand)", fontWeight: 600 }}>Show all</Link>
+                </div>
+                <div className="grid-cards">
+                  {top.map((s) => <StationCard key={s.id} s={s} />)}
+                </div>
+              </section>
+            )}
+          </>
+        )}
+
+        {/* ── Filter results ──────────────────────────────────────── */}
+        {hasFilter && (
+          <section>
+            <div className="section-row">
+              <div>
+                <h2 className="section-title">
+                  {params.genre ? `${params.genre} Radio` : params.q ? `Results for "${params.q}"` : "All Stations"}
+                </h2>
+                <p style={{ margin: "0.2rem 0 0", fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                  {stations.length} station{stations.length !== 1 ? "s" : ""} found
                 </p>
               </div>
-              <h2 style={{ margin: 0, fontSize: "1.1rem" }}>{station.name}</h2>
-              <p className="muted" style={{ margin: 0 }}>
-                {station.description ?? "Independent internet radio station"}
-              </p>
-              <p style={{ margin: 0, fontSize: "0.88rem" }}>
-                Genre: <strong>{station.genre ?? "Mixed"}</strong>
-              </p>
-              <p style={{ margin: 0, fontSize: "0.88rem" }}>
-                Language: <strong>{station.language}</strong>
-                {station.country ? (
-                  <>
-                    {" "}· Country: <strong>{station.country}</strong>
-                  </>
-                ) : null}
-              </p>
-              <div className="grid" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "0.45rem" }}>
-                <article className="card" style={{ padding: "0.55rem" }}>
-                  <p className="muted" style={{ margin: 0, fontSize: "0.74rem" }}>
-                    Current listeners
-                  </p>
-                  <strong style={{ fontSize: "1.05rem" }}>{station.currentListeners}</strong>
-                </article>
-                <article className="card" style={{ padding: "0.55rem" }}>
-                  <p className="muted" style={{ margin: 0, fontSize: "0.74rem" }}>
-                    Peak listeners
-                  </p>
-                  <strong style={{ fontSize: "1.05rem" }}>{station.peakListeners}</strong>
-                </article>
-              </div>
-              <div style={{ display: "flex", gap: "0.55rem", flexWrap: "wrap" }}>
-                <Link href={`/stations/${station.slug}`} className="btn secondary">
-                  Open station
-                </Link>
-                <a className="btn secondary" href={station.streamUrl} target="_blank" rel="noreferrer">
-                  Stream URL
-                </a>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
+            </div>
 
-      {stations.length === 0 ? (
-        <section style={{ padding: "0 0 1.5rem" }}>
-          <div className="container card" style={{ padding: "1rem" }}>
-            <h2 style={{ marginBottom: "0.35rem" }}>No stations matched your filters</h2>
-            <p className="muted" style={{ marginTop: 0 }}>
-              Try removing one or more filters, or check back after creators publish new stations.
+            {stations.length > 0 ? (
+              <div className="grid-cards">
+                {stations.map((s) => <StationCard key={s.id} s={s} />)}
+              </div>
+            ) : (
+              <div className="empty-state card">
+                <span className="empty-icon">📻</span>
+                <h3 style={{ margin: 0 }}>No stations found</h3>
+                <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.9rem" }}>Try adjusting your filters or search term.</p>
+                <Link href="/explore" className="btn btn-secondary btn-sm">Clear filters</Link>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ── All stations (no filter, bottom) ───────────────────── */}
+        {!hasFilter && stations.length > 0 && (
+          <section>
+            <div className="section-row">
+              <h2 className="section-title">All Stations</h2>
+            </div>
+            <div className="grid-cards">
+              {stations.map((s) => <StationCard key={s.id} s={s} />)}
+            </div>
+          </section>
+        )}
+
+        {!hasFilter && stations.length === 0 && trending.length === 0 && (
+          <div className="empty-state card">
+            <span className="empty-icon">📻</span>
+            <h3 style={{ margin: 0 }}>No stations yet</h3>
+            <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.9rem" }}>
+              Be the first to create and publish a station.
             </p>
-            <Link href="/explore" className="btn secondary">
-              Clear filters
-            </Link>
+            <Link href="/sign-up" className="btn btn-primary">Create a Station</Link>
           </div>
-        </section>
-      ) : null}
+        )}
+      </div>
 
       <SiteFooter />
     </main>

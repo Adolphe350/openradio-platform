@@ -4,64 +4,102 @@ type SiteHeaderProps = {
   showAuthActions?: boolean;
 };
 
-const marketingLinks = [
-  { href: "/explore", label: "Explore" },
-  { href: "/streaming", label: "Streaming" },
-  { href: "/automation", label: "Automation" },
-  { href: "/pricing", label: "Pricing" }
-];
+const genres = ["Pop","Rock","Hip-Hop","Electronic","Jazz","Classical","R&B","Country","Reggae","Metal","Blues","Soul","Latin","Dance","Indie"];
+const locations = ["United States","Brazil","United Kingdom","Mexico","France","Germany","India","Australia","Canada","Spain","Portugal","Nigeria","South Africa","Japan","Argentina"];
+const languages = ["English","Spanish","Portuguese","French","Arabic","Hindi","German","Italian","Russian","Japanese","Korean","Dutch","Polish","Turkish","Swedish"];
 
 export function SiteHeader({ showAuthActions = true }: SiteHeaderProps) {
   return (
-    <header style={{ borderBottom: "1px solid #e2e8f0", backdropFilter: "blur(8px)", background: "rgba(255,255,255,0.8)" }}>
-      <div
-        className="container"
-        style={{
-          minHeight: "74px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "1rem",
-          flexWrap: "wrap",
-          padding: "0.45rem 0"
-        }}
-      >
-        <Link href="/" style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <div
-            aria-hidden
-            style={{
-              width: "36px",
-              height: "36px",
-              borderRadius: "10px",
-              background:
-                "conic-gradient(from 220deg at 50% 50%, #0284c7 0deg, #0ea5e9 160deg, #1e3a8a 300deg, #0284c7 360deg)"
-            }}
-          />
-          <div>
-            <strong style={{ fontSize: "1rem" }}>OpenRadio Cloud</strong>
-            <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>
-              Open-source internet radio stack
-            </p>
-          </div>
-        </Link>
+    <header className="site-nav">
+      <div className="container">
+        <div className="site-nav-inner">
+          {/* Logo */}
+          <Link href="/" className="nav-logo">
+            <div className="nav-logo-icon">Z</div>
+            <span className="nav-logo-name">openradio</span>
+          </Link>
 
-        <nav style={{ display: "flex", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
-          {marketingLinks.map((link) => (
-            <Link key={link.href} href={link.href} className="btn secondary" style={{ padding: "0.54rem 0.95rem" }}>
-              {link.label}
-            </Link>
-          ))}
+          <div className="nav-divider" />
+
+          {/* Create a Station */}
+          <Link href="/sign-up" className="nav-link" style={{ fontWeight: 600, color: "var(--text)" }}>
+            Create a Station
+          </Link>
+
+          {/* Explore */}
+          <Link href="/explore" className="nav-link">
+            Explore
+          </Link>
+
+          {/* Religious */}
+          <Link href="/explore?genre=Religious" className="nav-link">
+            Religious
+          </Link>
+
+          {/* Music */}
+          <Link href="/explore?genre=Music" className="nav-link">
+            Music
+          </Link>
+
+          {/* News */}
+          <Link href="/explore?genre=News" className="nav-link">
+            News
+          </Link>
+
+          {/* By Genre dropdown */}
+          <div className="nav-dropdown">
+            <button className="nav-link" style={{ cursor: "pointer" }}>
+              By Genre ▾
+            </button>
+            <div className="nav-dropdown-menu" style={{ columnCount: 2, columnGap: "0.25rem", minWidth: "280px" }}>
+              {genres.map((g) => (
+                <Link key={g} href={`/explore?genre=${encodeURIComponent(g)}`} className="nav-dropdown-item">
+                  {g}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* By Location dropdown */}
+          <div className="nav-dropdown">
+            <button className="nav-link" style={{ cursor: "pointer" }}>
+              By Location ▾
+            </button>
+            <div className="nav-dropdown-menu" style={{ minWidth: "220px" }}>
+              {locations.map((l) => (
+                <Link key={l} href={`/explore?country=${encodeURIComponent(l)}`} className="nav-dropdown-item">
+                  {l}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* By Language dropdown */}
+          <div className="nav-dropdown">
+            <button className="nav-link" style={{ cursor: "pointer" }}>
+              By Language ▾
+            </button>
+            <div className="nav-dropdown-menu" style={{ minWidth: "200px" }}>
+              {languages.map((l) => (
+                <Link key={l} href={`/explore?language=${encodeURIComponent(l)}`} className="nav-dropdown-item">
+                  {l}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* Right side */}
           {showAuthActions ? (
-            <>
-              <Link href="/sign-in" className="btn secondary">
-                Sign in
+            <div className="nav-right">
+              <Link href="/sign-in" className="nav-link" style={{ padding: "0 0.75rem" }}>
+                Log in
               </Link>
-              <Link href="/sign-up" className="btn primary">
-                Get started
+              <Link href="/sign-up" className="nav-link-create btn">
+                Sign up
               </Link>
-            </>
+            </div>
           ) : null}
-        </nav>
+        </div>
       </div>
     </header>
   );

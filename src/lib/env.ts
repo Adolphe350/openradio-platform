@@ -10,7 +10,19 @@ const envSchema = z.object({
   APP_BASE_URL: z.string().url().default("http://localhost:3000"),
   STREAM_PUBLIC_BASE_URL: z.string().url().default("http://localhost:8000"),
   STREAM_SOURCE_HOST: z.string().default("icecast"),
-  ICECAST_SOURCE_PORT: z.coerce.number().int().positive().default(8000)
+  ICECAST_SOURCE_PORT: z.coerce.number().int().positive().default(8000),
+  METRICS_POLL_SECRET: z.string().default("openradio-internal"),
+  UPLOAD_DIR: z.string().default("/tmp/openradio-uploads"),
+  MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(52428800),
+  LIQ_CONFIG_DIR: z.string().default("/app/liquidsoap-configs"),
+  NGINX_GEO_DIR: z.string().default("/app/nginx-geo"),
+  ICECAST_ACL_DIR: z.string().default("/app/icecast-acl"),
+  // Email — all optional; if unset, reset links are logged to stdout
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().default("noreply@openradio.local"),
 });
 
 const parsed = envSchema.safeParse(process.env);

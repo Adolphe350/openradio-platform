@@ -29,6 +29,7 @@ export type ExploreStation = {
   status: StationStatus;
   mountPath: string;
   streamUrl: string;
+  logoUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
   trackCount: number;
@@ -168,6 +169,7 @@ export async function getExploreStations(input: ExploreQueryInput = {}) {
       status: station.status,
       mountPath: station.mountPath,
       streamUrl: getPublicStreamUrl(station.mountPath),
+      logoUrl: station.logoUrl,
       createdAt: station.createdAt,
       updatedAt: station.updatedAt,
       trackCount: station._count.tracks,

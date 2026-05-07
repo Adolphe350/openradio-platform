@@ -14,28 +14,29 @@ enum StationStatus {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
+  id           String   @id @default(cuid())
+  email        String   @unique
   name         String
   passwordHash String
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  sessions      Session[]
-  stations      Station[]
-  playlists     Playlist[]
-  createdTracks Track[]
+  sessions           Session[]
+  stations           Station[]
+  playlists          Playlist[]
+  createdTracks      Track[]
+  passwordResetTokens PasswordResetToken[]
 }
 
 model Session {
-  id             String   @id @default(cuid())
-  userId         String
-  sessionToken   String   @unique
-  expiresAt      DateTime
-  createdAt      DateTime @default(now())
-  lastActiveAt   DateTime @default(now())
-  userAgent      String?
-  ipAddress      String?
+  id           String   @id @default(cuid())
+  userId       String
+  sessionToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  lastActiveAt DateTime @default(now())
+  userAgent    String?
+  ipAddress    String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -54,18 +55,26 @@ model Station {
   timezone          String        @default("UTC")
   country           String?
   status            StationStatus @default(DRAFT)
+  logoUrl           String?
   mountPath         String
   sourceUsername    String        @default("source")
   sourcePassword    String
   publicWebsiteUrl  String?
   streamDescription String?
+  websiteUrl        String?
+  facebookUrl       String?
+  twitterUrl        String?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
-  owner      User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  tracks     Track[]
-  playlists  Playlist[]
-  metrics    ListenerMetric[]
+  owner        User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tracks       Track[]
+  playlists    Playlist[]
+  metrics      ListenerMetric[]
+  geoBlocks    GeoBlock[]
+  relayStreams  RelayStream[]
+  playLogs     PlayLog[]
+  schedules    ScheduleBlock[]
 
   @@index([ownerId])
 }
@@ -79,12 +88,16 @@ model Track {
   album           String?
   durationSec     Int?
   fileUrl         String?
+  filePath        String?
+  fileSizeBytes   Int?
+  mimeType        String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   station   Station         @relation(fields: [stationId], references: [id], onDelete: Cascade)
   createdBy User?           @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
   playlists PlaylistTrack[]
+  playLogs  PlayLog[]
 
   @@index([stationId])
 }
@@ -102,6 +115,7 @@ model Playlist {
   station   Station         @relation(fields: [stationId], references: [id], onDelete: Cascade)
   createdBy User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
   tracks    PlaylistTrack[]
+  schedules ScheduleBlock[]
 
   @@unique([stationId, name])
   @@index([stationId])
@@ -136,4 +150,84 @@ model ListenerMetric {
   station Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
 
   @@index([stationId, sampledAt])
+}
+
+// Password reset tokens
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Countries blocked from listening to this station
+model GeoBlock {
+  id          String   @id @default(cuid())
+  stationId   String
+  countryCode String   // ISO 3166-1 alpha-2, e.g. "US"
+  countryName String
+  createdAt   DateTime @default(now())
+
+  station Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@unique([stationId, countryCode])
+  @@index([stationId])
+}
+
+// Relay / re-broadcast streams for this station
+model RelayStream {
+  id          String   @id @default(cuid())
+  stationId   String
+  name        String
+  url         String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  station Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@index([stationId])
+}
+
+// Every track that was played (for royalty reports)
+model PlayLog {
+  id        String   @id @default(cuid())
+  stationId String
+  trackId   String?
+  title     String
+  artist    String
+  playedAt  DateTime @default(now())
+  durationSec Int?
+
+  station Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  track   Track?  @relation(fields: [trackId], references: [id], onDelete: SetNull)
+
+  @@index([stationId, playedAt])
+}
+
+// Time-based schedule blocks (AutoDJ scheduling)
+model ScheduleBlock {
+  id         String   @id @default(cuid())
+  stationId  String
+  playlistId String?
+  name       String
+  dayOfWeek  Int      // 0=Sun … 6=Sat, -1=every day
+  startHour  Int      // 0–23
+  startMin   Int      @default(0)
+  endHour    Int
+  endMin     Int      @default(0)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  station  Station   @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  playlist Playlist? @relation(fields: [playlistId], references: [id], onDelete: SetNull)
+
+  @@index([stationId])
 }

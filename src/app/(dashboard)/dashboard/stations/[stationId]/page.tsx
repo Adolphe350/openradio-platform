@@ -3,10 +3,10 @@ import { StationStatus } from "@prisma/client";
 import { notFound } from "next/navigation";
 
 import { requireUser } from "@/lib/auth";
-import { metricSourceLabel, resolveStationMetric } from "@/lib/analytics";
+import { resolveStationMetric } from "@/lib/analytics";
 import { db } from "@/lib/db";
 import { getPublicStreamUrl, getSourceEndpoint } from "@/lib/stream";
-import { fallbackValue, formatDuration } from "@/lib/utils";
+import { formatDuration } from "@/lib/utils";
 
 import {
   addTrackToPlaylistAction,
@@ -17,603 +17,710 @@ import {
   deleteTrackAction,
   movePlaylistTrackAction,
   removePlaylistTrackAction,
-  updatePlaylistAction,
   updateStationMetadataAction,
   updateStationStatusAction,
-  updateTrackAction
 } from "../../actions";
 
-type StationDetailPageProps = {
+import {
+  addGeoBlockAction,
+  removeGeoBlockAction,
+  addRelayAction,
+  removeRelayAction,
+  toggleRelayAction,
+  addScheduleBlockAction,
+  removeScheduleBlockAction,
+} from "./station-actions";
+
+import { UploadTrackForm } from "@/components/upload-track-form";
+
+type Props = {
   params: Promise<{ stationId: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ tab?: string; error?: string }>;
 };
 
-const statusOptions: StationStatus[] = ["DRAFT", "ACTIVE", "PAUSED"];
+const DAYS = ["Every day", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const STATUS_OPTIONS: StationStatus[] = ["DRAFT", "ACTIVE", "PAUSED"];
 
-export default async function StationDetailPage({ params, searchParams }: StationDetailPageProps) {
+function pad(n: number) { return String(n).padStart(2, "0"); }
+
+export default async function StationDetailPage({ params, searchParams }: Props) {
   const user = await requireUser();
   const { stationId } = await params;
-  const { error } = await searchParams;
+  const { tab = "overview", error } = await searchParams;
 
   const station = await db.station.findFirst({
-    where: {
-      id: stationId,
-      ownerId: user.id
-    },
+    where: { id: stationId, ownerId: user.id },
     include: {
-      metrics: {
-        orderBy: { sampledAt: "desc" },
-        take: 1
-      },
-      tracks: {
-        orderBy: { createdAt: "desc" }
-      },
+      metrics: { orderBy: { sampledAt: "desc" }, take: 1 },
+      tracks: { orderBy: { createdAt: "desc" } },
       playlists: {
         orderBy: { createdAt: "asc" },
-        include: {
-          tracks: {
-            orderBy: { position: "asc" },
-            include: {
-              track: true
-            }
-          }
-        }
-      }
-    }
+        include: { tracks: { orderBy: { position: "asc" }, include: { track: true } } },
+      },
+      geoBlocks: { orderBy: { countryName: "asc" } },
+      relayStreams: { orderBy: { createdAt: "asc" } },
+      schedules: {
+        orderBy: [{ dayOfWeek: "asc" }, { startHour: "asc" }],
+        include: { playlist: { select: { id: true, name: true } } },
+      },
+    },
   });
 
-  if (!station) {
-    notFound();
-  }
+  if (!station) notFound();
 
   const source = getSourceEndpoint(station.mountPath);
-  const publicStreamUrl = getPublicStreamUrl(station.mountPath);
+  const streamUrl = getPublicStreamUrl(station.mountPath);
 
   const metricState = resolveStationMetric({
     stationId: station.id,
     trackCount: station.tracks.length,
     playlistCount: station.playlists.length,
     createdAt: station.createdAt,
-    metric: station.metrics[0]
-      ? {
-          currentListeners: station.metrics[0].currentListeners,
-          peakListeners: station.metrics[0].peakListeners,
-          totalListeningHours: station.metrics[0].totalListeningHours,
-          uptimePercent: station.metrics[0].uptimePercent,
-          storageUsedMb: station.metrics[0].storageUsedMb,
-          sampledAt: station.metrics[0].sampledAt
-        }
-      : null
+    metric: station.metrics[0] ?? null,
   });
 
-  const analytics = [
-    {
-      label: "Current listeners",
-      value: metricState.metric.currentListeners.toString(),
-      state: metricSourceLabel(metricState.source),
-      hint: metricState.source === "live" ? "Listener metric sample" : "Seeded sample until live ingestion"
-    },
-    {
-      label: "Peak listeners",
-      value: metricState.metric.peakListeners.toString(),
-      state: metricSourceLabel(metricState.source),
-      hint: metricState.source === "live" ? "Latest peak sample" : "Seeded sample until live ingestion"
-    },
-    {
-      label: "Total listening hours",
-      value: metricState.metric.totalListeningHours.toFixed(1),
-      state: metricSourceLabel(metricState.source),
-      hint: metricState.source === "live" ? "Aggregated sample" : "Seeded sample until live ingestion"
-    },
-    {
-      label: "Uptime",
-      value: `${metricState.metric.uptimePercent.toFixed(1)}%`,
-      state: metricSourceLabel(metricState.source),
-      hint: metricState.source === "live" ? "Recent sample window" : "Seeded sample until live ingestion"
-    },
-    {
-      label: "Storage used",
-      value: `${metricState.metric.storageUsedMb.toFixed(0)} MB`,
-      state: metricSourceLabel(metricState.source),
-      hint: metricState.source === "live" ? "Track storage sample" : "Seeded estimate from library metadata"
-    },
-    {
-      label: "Top listener countries",
-      value: "Planned",
-      state: "Planned",
-      hint: "Geo analytics pipeline is not implemented in this MVP"
-    }
+  const checklist = [
+    { label: "Station created", done: true },
+    { label: "Connect encoder", done: station.status !== StationStatus.DRAFT },
+    { label: "Add tracks", done: station.tracks.length > 0 },
+    { label: "Create playlist", done: station.playlists.length > 0 },
+    { label: "Go live", done: station.status === StationStatus.ACTIVE },
+  ];
+  const checkDone = checklist.filter((c) => c.done).length;
+
+  const tabs = [
+    { id: "overview",     label: "Overview" },
+    { id: "tracks",       label: `Tracks (${station.tracks.length})` },
+    { id: "playlists",    label: `Playlists (${station.playlists.length})` },
+    { id: "schedule",     label: "Schedule" },
+    { id: "relays",       label: `Relays (${station.relayStreams.length})` },
+    { id: "geo",          label: `Geo-blocking (${station.geoBlocks.length})` },
+    { id: "credentials",  label: "Credentials" },
+    { id: "settings",     label: "Settings" },
   ];
 
-  const firstBroadcastChecklist = [
-    {
-      label: "Create station",
-      done: true,
-      detail: "Station created and studio access enabled"
-    },
-    {
-      label: "Connect encoder",
-      done: station.status !== StationStatus.DRAFT,
-      detail: station.status !== StationStatus.DRAFT ? "Station status indicates encoder setup is in progress/live" : "Switch status to ACTIVE once encoder is connected"
-    },
-    {
-      label: "Add track",
-      done: station.tracks.length > 0,
-      detail: station.tracks.length > 0 ? `${station.tracks.length} tracks in library` : "Add at least one track metadata entry"
-    },
-    {
-      label: "Create playlist",
-      done: station.playlists.length > 0,
-      detail: station.playlists.length > 0 ? `${station.playlists.length} playlists configured` : "Create your first playlist"
-    },
-    {
-      label: "Publish and share page",
-      done: station.status === StationStatus.ACTIVE,
-      detail: station.status === StationStatus.ACTIVE ? "Public page is ready to share" : "Set station status to ACTIVE"
-    }
-  ];
-
-  const completedChecklistCount = firstBroadcastChecklist.filter((item) => item.done).length;
-
-  const diagnostics = [
-    {
-      label: "Station lifecycle",
-      state: "Live",
-      detail: `Current status: ${station.status}`
-    },
-    {
-      label: "Encoder credential pack",
-      state: "Live",
-      detail: "Host, port, mount path, username, and source password are generated."
-    },
-    {
-      label: "Stream ingest probes",
-      state: "Planned",
-      detail: "Automated Icecast ingest health checks are planned; validate manually in MVP."
-    },
-    {
-      label: "AutoDJ worker diagnostics",
-      state: "Planned",
-      detail: "Per-station worker telemetry is planned while baseline Liquidsoap mode is active."
-    }
-  ];
+  const gradH1 = (station.id.charCodeAt(0) * 47 + station.id.charCodeAt(1) * 31) % 360;
+  const gradH2 = (gradH1 + 40) % 360;
+  const grad = `linear-gradient(135deg,hsl(${gradH1},55%,48%),hsl(${gradH2},60%,35%))`;
 
   return (
-    <main className="container" style={{ width: "100%", margin: 0, padding: "0.5rem 0 2rem", display: "grid", gap: "1rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
-        <div>
-          <span className="badge">Station studio</span>
-          <h1 style={{ margin: "0.5rem 0 0.2rem" }}>{station.name}</h1>
-          <p className="muted" style={{ margin: 0 }}>
-            Slug: <code>{station.slug}</code> · Status: <strong>{station.status}</strong>
-          </p>
+    <div className="dash-page" style={{ gap: "1.25rem" }}>
+
+      {/* ── Header ───────────────────────────────────────────────── */}
+      <div className="dash-page-header">
+        <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+          <div style={{ width: 44, height: 44, borderRadius: 10, background: station.logoUrl ? undefined : grad, overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.4rem" }}>
+            {station.logoUrl
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <img src={station.logoUrl} alt={station.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              : "📻"}
+          </div>
+          <div>
+            <h1 className="dash-page-title" style={{ fontSize: "1.25rem" }}>{station.name}</h1>
+            <p className="dash-page-sub">{station.slug} · {station.status}</p>
+          </div>
         </div>
-        <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
-          <Link href="/dashboard" className="btn secondary">
-            Back to stations
-          </Link>
-          <Link href={`/stations/${station.slug}`} className="btn secondary">
-            Public page
-          </Link>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+          <Link href={`/stations/${station.slug}`} className="btn btn-secondary btn-sm">Public page</Link>
+          <Link href={`/embed/${station.slug}`} className="btn btn-secondary btn-sm" target="_blank">Embed</Link>
+          <Link href={`/dashboard/stations/${stationId}/royalties`} className="btn btn-secondary btn-sm">Royalties</Link>
+          <Link href="/dashboard" className="btn btn-secondary btn-sm">← Dashboard</Link>
         </div>
       </div>
 
-      {error ? <p className="error">{error}</p> : null}
+      {error && <div className="alert alert-error">{decodeURIComponent(error)}</div>}
 
-      <section className="card" style={{ padding: "1rem" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}>
-          <div>
-            <h2 style={{ marginBottom: "0.25rem" }}>First broadcast checklist</h2>
-            <p className="muted" style={{ margin: 0 }}>
-              {completedChecklistCount}/{firstBroadcastChecklist.length} steps complete.
-            </p>
-          </div>
-
-          <form action={updateStationStatusAction} style={{ display: "flex", gap: "0.45rem", alignItems: "center", flexWrap: "wrap" }}>
-            <input type="hidden" name="stationId" value={station.id} />
-            <label htmlFor="status" style={{ fontWeight: 600, fontSize: "0.9rem" }}>
-              Station status
-            </label>
-            <select id="status" name="status" defaultValue={station.status}>
-              {statusOptions.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-            <button className="btn secondary" type="submit">
-              Update status
-            </button>
-          </form>
-        </div>
-
-        <div className="grid" style={{ marginTop: "0.8rem", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.65rem" }}>
-          {firstBroadcastChecklist.map((item) => (
-            <article key={item.label} className="card" style={{ padding: "0.75rem" }}>
-              <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700 }}>{item.done ? "[x]" : "[ ]"} {item.label}</p>
-              <p className="muted" style={{ margin: "0.25rem 0 0", fontSize: "0.8rem" }}>
-                {item.detail}
-              </p>
-            </article>
+      {/* ── Tab nav ──────────────────────────────────────────────── */}
+      <div style={{ overflowX: "auto" }}>
+        <div className="tabs" style={{ flexWrap: "nowrap", minWidth: "max-content" }}>
+          {tabs.map((t) => (
+            <Link key={t.id} href={`/dashboard/stations/${stationId}?tab=${t.id}`} className={`tab${tab === t.id ? " active" : ""}`}>
+              {t.label}
+            </Link>
           ))}
         </div>
-      </section>
+      </div>
 
-      <section className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))" }}>
-        {analytics.map((item) => (
-          <article key={item.label} className="card" style={{ padding: "0.9rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-              <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>
-                {item.label}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* TAB: OVERVIEW                                             */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {tab === "overview" && (
+        <div style={{ display: "grid", gap: "1.25rem" }}>
+
+          {/* Status control */}
+          <div className="card" style={{ padding: "1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+            <div>
+              <h2 style={{ fontSize: "0.95rem", margin: "0 0 0.15rem" }}>Station Status</h2>
+              <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--text-muted)" }}>
+                {checkDone}/{checklist.length} checklist steps complete
               </p>
-              <span className="badge">{item.state}</span>
             </div>
-            <strong style={{ fontSize: "1.45rem" }}>{item.value}</strong>
-            <p className="muted" style={{ margin: "0.25rem 0 0", fontSize: "0.78rem" }}>
-              {item.hint}
-            </p>
-          </article>
-        ))}
-      </section>
+            <form action={updateStationStatusAction} style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+              <input type="hidden" name="stationId" value={station.id} />
+              <select name="status" defaultValue={station.status} style={{ borderRadius: 8, padding: "0.45rem 0.7rem", fontSize: "0.875rem" }}>
+                {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <button className="btn btn-primary btn-sm" type="submit">Update</button>
+            </form>
+          </div>
 
-      <section className="card" style={{ padding: "1rem" }}>
-        <h2 style={{ marginBottom: "0.4rem" }}>Stream diagnostics</h2>
-        <p className="muted" style={{ marginTop: 0 }}>
-          Diagnostics are explicit about what is live in the MVP versus planned for later parity phases.
-        </p>
-        <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.65rem" }}>
-          {diagnostics.map((item) => (
-            <article key={item.label} className="card" style={{ padding: "0.75rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-                <h3 style={{ margin: 0, fontSize: "0.98rem" }}>{item.label}</h3>
-                <span className="badge">{item.state}</span>
+          {/* Stats */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: "1rem" }}>
+            {[
+              { label: "Current Listeners", value: metricState.metric.currentListeners },
+              { label: "Peak Listeners", value: metricState.metric.peakListeners },
+              { label: "Total Hours", value: `${metricState.metric.totalListeningHours.toFixed(1)}h` },
+              { label: "Uptime", value: `${metricState.metric.uptimePercent.toFixed(1)}%` },
+              { label: "Storage", value: `${metricState.metric.storageUsedMb.toFixed(0)} MB` },
+              { label: "Tracks", value: station.tracks.length },
+            ].map((s) => (
+              <div key={s.label} className="stat-card">
+                <div className="stat-value">{s.value}</div>
+                <div className="stat-label">{s.label}</div>
+                <div style={{ fontSize: "0.7rem", color: "var(--text-light)", marginTop: "0.1rem" }}>
+                  {metricState.source === "live" ? "live" : "sample"}
+                </div>
               </div>
-              <p className="muted" style={{ margin: "0.3rem 0 0", fontSize: "0.82rem" }}>
-                {item.detail}
-              </p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="card" style={{ padding: "1rem" }}>
-        <h2 style={{ marginBottom: "0.4rem" }}>Live source connection (Icecast compatible)</h2>
-        <p className="muted" style={{ marginTop: 0 }}>
-          Use these settings in RadioBOSS, BUTT, Mixxx, Liquidsoap, or any Icecast-compatible encoder.
-        </p>
-        <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.65rem" }}>
-          <article className="card" style={{ padding: "0.75rem" }}>
-            <p className="muted" style={{ margin: 0, fontSize: "0.77rem" }}>Host</p>
-            <code>{source.host}</code>
-          </article>
-          <article className="card" style={{ padding: "0.75rem" }}>
-            <p className="muted" style={{ margin: 0, fontSize: "0.77rem" }}>Port</p>
-            <code>{source.port}</code>
-          </article>
-          <article className="card" style={{ padding: "0.75rem" }}>
-            <p className="muted" style={{ margin: 0, fontSize: "0.77rem" }}>Mount</p>
-            <code>{source.mountPath}</code>
-          </article>
-          <article className="card" style={{ padding: "0.75rem" }}>
-            <p className="muted" style={{ margin: 0, fontSize: "0.77rem" }}>Source username</p>
-            <code>{station.sourceUsername}</code>
-          </article>
-          <article className="card" style={{ padding: "0.75rem" }}>
-            <p className="muted" style={{ margin: 0, fontSize: "0.77rem" }}>Source password</p>
-            <code>{station.sourcePassword}</code>
-          </article>
-          <article className="card" style={{ padding: "0.75rem" }}>
-            <p className="muted" style={{ margin: 0, fontSize: "0.77rem" }}>Public stream URL</p>
-            <code>{publicStreamUrl}</code>
-          </article>
-        </div>
-        <p className="muted" style={{ marginBottom: 0, marginTop: "0.7rem" }}>
-          Encoder URL format: <code>{source.sourceUrl}</code>
-        </p>
-      </section>
-
-      <section className="card" style={{ padding: "1rem" }}>
-        <h2 style={{ marginBottom: "0.4rem" }}>Station metadata</h2>
-        <form action={updateStationMetadataAction} className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
-          <input type="hidden" name="stationId" value={station.id} />
-          <div className="field">
-            <label htmlFor="genre">Genre</label>
-            <input id="genre" name="genre" className="input" defaultValue={station.genre ?? ""} />
+            ))}
           </div>
-          <div className="field">
-            <label htmlFor="description">Description</label>
-            <input id="description" name="description" className="input" defaultValue={station.description ?? ""} />
-          </div>
-          <div className="field" style={{ gridColumn: "1 / -1" }}>
-            <label htmlFor="streamDescription">Stream metadata description</label>
-            <input
-              id="streamDescription"
-              name="streamDescription"
-              className="input"
-              defaultValue={station.streamDescription ?? ""}
-              placeholder="Optional text shown by some players"
-            />
-          </div>
-          <div>
-            <button className="btn primary" type="submit">
-              Save metadata
-            </button>
-          </div>
-        </form>
-      </section>
 
-      <section className="station-split">
-        <article className="card" style={{ padding: "1rem" }}>
-          <h2 style={{ marginBottom: "0.45rem" }}>AutoDJ tracks</h2>
-          <p className="muted" style={{ marginTop: 0 }}>
-            MVP metadata storage for tracks. Replace <code>fileUrl</code> with storage integration in a future phase.
-          </p>
-
-          <form action={createTrackAction} className="grid" style={{ marginBottom: "1rem" }}>
-            <input type="hidden" name="stationId" value={station.id} />
-            <div className="field">
-              <label htmlFor="title">Title</label>
-              <input id="title" className="input" name="title" required maxLength={120} />
+          {/* Checklist */}
+          <div className="card" style={{ padding: "1.25rem" }}>
+            <h2 style={{ fontSize: "0.95rem", margin: "0 0 0.85rem" }}>First broadcast checklist</h2>
+            <div style={{ height: 4, background: "var(--border)", borderRadius: 999, marginBottom: "0.9rem", overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${(checkDone / checklist.length) * 100}%`, background: "var(--brand)", borderRadius: 999 }} />
             </div>
-            <div className="field">
-              <label htmlFor="artist">Artist</label>
-              <input id="artist" className="input" name="artist" required maxLength={120} />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: "0.6rem" }}>
+              {checklist.map((c) => (
+                <div key={c.label} className="checklist-item" style={{ background: c.done ? "#ecfdf5" : undefined, borderColor: c.done ? "#a7f3d0" : undefined }}>
+                  <div className={`checklist-circle${c.done ? " done" : ""}`}>{c.done ? "✓" : ""}</div>
+                  <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 600 }}>{c.label}</p>
+                </div>
+              ))}
             </div>
-            <div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+          </div>
+
+          {/* Quick links */}
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            <Link href={`/dashboard/stations/${stationId}?tab=credentials`} className="btn btn-secondary btn-sm">Encoder credentials</Link>
+            <Link href={`/dashboard/stations/${stationId}?tab=tracks`} className="btn btn-secondary btn-sm">Manage tracks</Link>
+            <Link href={`/dashboard/stations/${stationId}?tab=schedule`} className="btn btn-secondary btn-sm">Set schedule</Link>
+            <Link href={`/dashboard/stations/${stationId}/royalties`} className="btn btn-secondary btn-sm">Royalty report</Link>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* TAB: TRACKS                                               */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {tab === "tracks" && (
+        <div style={{ display: "grid", gap: "1.25rem" }}>
+
+          {/* Upload form — client component with progress bar */}
+          <div className="card" style={{ padding: "1.25rem" }}>
+            <h2 style={{ fontSize: "1rem", margin: "0 0 0.2rem" }}>Upload Audio File</h2>
+            <UploadTrackForm stationId={station.id} />
+          </div>
+
+          {/* Add by URL */}
+          <div className="card" style={{ padding: "1.25rem" }}>
+            <h2 style={{ fontSize: "1rem", margin: "0 0 0.2rem" }}>Add Track by URL</h2>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>Link to an external audio file or enter metadata only</p>
+            <form action={createTrackAction} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: "0.75rem" }}>
+              <input type="hidden" name="stationId" value={station.id} />
+              <div className="field">
+                <label htmlFor="title">Title *</label>
+                <input id="title" name="title" required maxLength={120} />
+              </div>
+              <div className="field">
+                <label htmlFor="artist">Artist *</label>
+                <input id="artist" name="artist" required maxLength={120} />
+              </div>
               <div className="field">
                 <label htmlFor="album">Album</label>
-                <input id="album" className="input" name="album" maxLength={120} />
+                <input id="album" name="album" maxLength={120} />
               </div>
               <div className="field">
-                <label htmlFor="durationSec">Duration (seconds)</label>
-                <input id="durationSec" className="input" name="durationSec" type="number" min={1} />
+                <label htmlFor="durationSec">Duration (sec)</label>
+                <input id="durationSec" name="durationSec" type="number" min={1} />
               </div>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label htmlFor="fileUrl">File URL</label>
+                <input id="fileUrl" name="fileUrl" type="url" placeholder="https://..." />
+              </div>
+              <div>
+                <button className="btn btn-primary" type="submit">Add track</button>
+              </div>
+            </form>
+          </div>
+
+          {/* Track library */}
+          <div className="card" style={{ overflow: "hidden" }}>
+            <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h2 style={{ fontSize: "1rem", margin: 0 }}>Track Library ({station.tracks.length})</h2>
             </div>
-            <div className="field">
-              <label htmlFor="fileUrl">File URL</label>
-              <input id="fileUrl" className="input" name="fileUrl" placeholder="https://..." type="url" />
-            </div>
-            <button className="btn primary" type="submit">
-              Add track
-            </button>
-          </form>
-
-          <div style={{ maxHeight: "440px", overflowY: "auto", borderTop: "1px solid #e2e8f0", paddingTop: "0.7rem" }}>
-            {station.tracks.map((track) => (
-              <article key={track.id} className="card" style={{ padding: "0.7rem", marginBottom: "0.55rem" }}>
-                <strong>{track.title}</strong>
-                <p className="muted" style={{ margin: "0.2rem 0" }}>
-                  {track.artist} · {fallbackValue(track.album)} · {formatDuration(track.durationSec)}
-                </p>
-                {track.fileUrl ? (
-                  <p style={{ margin: "0.15rem 0", fontSize: "0.8rem" }}>
-                    <a href={track.fileUrl} target="_blank" rel="noreferrer">
-                      {track.fileUrl}
-                    </a>
-                  </p>
-                ) : null}
-
-                <details style={{ marginTop: "0.45rem" }}>
-                  <summary style={{ cursor: "pointer", fontWeight: 600 }}>Edit track</summary>
-                  <form action={updateTrackAction} className="grid" style={{ marginTop: "0.5rem" }}>
-                    <input type="hidden" name="stationId" value={station.id} />
-                    <input type="hidden" name="trackId" value={track.id} />
-                    <div className="field">
-                      <label htmlFor={`title-${track.id}`}>Title</label>
-                      <input id={`title-${track.id}`} className="input" name="title" defaultValue={track.title} required maxLength={120} />
-                    </div>
-                    <div className="field">
-                      <label htmlFor={`artist-${track.id}`}>Artist</label>
-                      <input id={`artist-${track.id}`} className="input" name="artist" defaultValue={track.artist} required maxLength={120} />
-                    </div>
-                    <div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-                      <div className="field">
-                        <label htmlFor={`album-${track.id}`}>Album</label>
-                        <input id={`album-${track.id}`} className="input" name="album" defaultValue={track.album ?? ""} maxLength={120} />
-                      </div>
-                      <div className="field">
-                        <label htmlFor={`duration-${track.id}`}>Duration (seconds)</label>
-                        <input
-                          id={`duration-${track.id}`}
-                          className="input"
-                          name="durationSec"
-                          type="number"
-                          min={1}
-                          defaultValue={track.durationSec ?? ""}
-                        />
-                      </div>
-                    </div>
-                    <div className="field">
-                      <label htmlFor={`file-${track.id}`}>File URL</label>
-                      <input id={`file-${track.id}`} className="input" name="fileUrl" type="url" defaultValue={track.fileUrl ?? ""} />
-                    </div>
-                    <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-                      <button className="btn secondary" type="submit">
-                        Save track
-                      </button>
-                    </div>
-                  </form>
-                </details>
-
-                <form action={deleteTrackAction} style={{ marginTop: "0.55rem" }}>
-                  <input type="hidden" name="stationId" value={station.id} />
-                  <input type="hidden" name="trackId" value={track.id} />
-                  <button className="btn secondary" type="submit" style={{ borderColor: "#fecaca", color: "#b91c1c" }}>
-                    Delete track
-                  </button>
-                </form>
-              </article>
-            ))}
             {station.tracks.length === 0 ? (
-              <p className="muted" style={{ margin: 0 }}>
-                No tracks yet.
-              </p>
-            ) : null}
-          </div>
-        </article>
-
-        <article className="card" style={{ padding: "1rem" }}>
-          <h2 style={{ marginBottom: "0.45rem" }}>Playlists</h2>
-          <form action={createPlaylistAction} className="grid" style={{ marginBottom: "1rem" }}>
-            <input type="hidden" name="stationId" value={station.id} />
-            <div className="field">
-              <label htmlFor="playlistName">Playlist name</label>
-              <input id="playlistName" className="input" name="name" required maxLength={80} />
-            </div>
-            <div className="field">
-              <label htmlFor="playlistDescription">Description</label>
-              <input id="playlistDescription" className="input" name="description" maxLength={200} />
-            </div>
-            <button className="btn primary" type="submit">
-              Create playlist
-            </button>
-          </form>
-
-          <div style={{ display: "grid", gap: "0.8rem", maxHeight: "590px", overflowY: "auto" }}>
-            {station.playlists.map((playlist) => (
-              <article key={playlist.id} className="card" style={{ padding: "0.8rem" }}>
-                <h3 style={{ marginBottom: "0.2rem", fontSize: "1rem" }}>
-                  {playlist.name} {playlist.isDefault ? <span className="badge">Default</span> : null}
-                </h3>
-                <p className="muted" style={{ marginTop: 0 }}>
-                  {playlist.description ?? "No description"}
-                </p>
-
-                <details style={{ marginBottom: "0.7rem" }}>
-                  <summary style={{ cursor: "pointer", fontWeight: 600 }}>Edit playlist</summary>
-                  <div className="grid" style={{ marginTop: "0.5rem", gap: "0.45rem" }}>
-                    <form action={updatePlaylistAction} className="grid">
-                      <input type="hidden" name="stationId" value={station.id} />
-                      <input type="hidden" name="playlistId" value={playlist.id} />
-                      <div className="field">
-                        <label htmlFor={`playlist-name-${playlist.id}`}>Playlist name</label>
-                        <input
-                          id={`playlist-name-${playlist.id}`}
-                          className="input"
-                          name="name"
-                          required
-                          maxLength={80}
-                          defaultValue={playlist.name}
-                        />
-                      </div>
-                      <div className="field">
-                        <label htmlFor={`playlist-description-${playlist.id}`}>Description</label>
-                        <input
-                          id={`playlist-description-${playlist.id}`}
-                          className="input"
-                          name="description"
-                          maxLength={200}
-                          defaultValue={playlist.description ?? ""}
-                        />
-                      </div>
-                      <div>
-                        <button className="btn secondary" type="submit">
-                          Save playlist
-                        </button>
-                      </div>
-                    </form>
-                    {!playlist.isDefault ? (
-                      <form action={deletePlaylistAction}>
-                        <input type="hidden" name="stationId" value={station.id} />
-                        <input type="hidden" name="playlistId" value={playlist.id} />
-                        <button className="btn secondary" type="submit" style={{ borderColor: "#fecaca", color: "#b91c1c" }}>
-                          Delete playlist
-                        </button>
-                      </form>
-                    ) : null}
-                  </div>
-                </details>
-
-                <form action={addTrackToPlaylistAction} className="grid" style={{ gridTemplateColumns: "1fr auto" }}>
-                  <input type="hidden" name="stationId" value={station.id} />
-                  <input type="hidden" name="playlistId" value={playlist.id} />
-                  <select name="trackId" required>
-                    <option value="">Select track</option>
-                    {station.tracks.map((track) => (
-                      <option key={track.id} value={track.id}>
-                        {track.artist} - {track.title}
-                      </option>
-                    ))}
-                  </select>
-                  <button className="btn secondary" type="submit">
-                    Add
-                  </button>
-                </form>
-
-                <div style={{ marginTop: "0.6rem", display: "grid", gap: "0.45rem" }}>
-                  {playlist.tracks.map((playlistTrack, index) => (
-                    <article
-                      key={playlistTrack.id}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr auto",
-                        alignItems: "center",
-                        gap: "0.6rem",
-                        padding: "0.55rem",
-                        border: "1px solid #dbe3ed",
-                        borderRadius: "10px",
-                        background: "#fff"
-                      }}
-                    >
-                      <div>
-                        <strong style={{ fontSize: "0.93rem" }}>{playlistTrack.track.title}</strong>
-                        <p className="muted" style={{ margin: 0, fontSize: "0.84rem" }}>
-                          {playlistTrack.track.artist}
-                        </p>
-                      </div>
-                      <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
-                        <form action={movePlaylistTrackAction}>
+              <p style={{ padding: "1.5rem 1.25rem", color: "var(--text-muted)", margin: 0, fontSize: "0.875rem" }}>No tracks yet. Upload or add one above.</p>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Artist</th>
+                    <th>Album</th>
+                    <th style={{ textAlign: "center" }}>Duration</th>
+                    <th style={{ textAlign: "center" }}>File</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {station.tracks.map((track) => (
+                    <tr key={track.id}>
+                      <td style={{ fontWeight: 600 }}>{track.title}</td>
+                      <td>{track.artist}</td>
+                      <td style={{ color: "var(--text-muted)" }}>{track.album ?? "—"}</td>
+                      <td style={{ textAlign: "center", color: "var(--text-muted)" }}>{track.durationSec ? formatDuration(track.durationSec) : "—"}</td>
+                      <td style={{ textAlign: "center" }}>
+                        {track.fileUrl || track.filePath ? (
+                          <a href={track.fileUrl ?? "#"} target="_blank" rel="noreferrer" style={{ color: "var(--brand)", fontSize: "0.8rem" }}>▶ Play</a>
+                        ) : <span style={{ color: "var(--text-light)", fontSize: "0.8rem" }}>No file</span>}
+                      </td>
+                      <td>
+                        <form action={deleteTrackAction} style={{ display: "inline" }}>
                           <input type="hidden" name="stationId" value={station.id} />
-                          <input type="hidden" name="playlistId" value={playlist.id} />
-                          <input type="hidden" name="playlistTrackId" value={playlistTrack.id} />
-                          <input type="hidden" name="direction" value="up" />
-                          <button className="btn secondary" type="submit" disabled={index === 0}>
-                            ↑
-                          </button>
+                          <input type="hidden" name="trackId" value={track.id} />
+                          <button className="btn btn-danger btn-sm" type="submit">Delete</button>
                         </form>
-                        <form action={movePlaylistTrackAction}>
-                          <input type="hidden" name="stationId" value={station.id} />
-                          <input type="hidden" name="playlistId" value={playlist.id} />
-                          <input type="hidden" name="playlistTrackId" value={playlistTrack.id} />
-                          <input type="hidden" name="direction" value="down" />
-                          <button className="btn secondary" type="submit" disabled={index === playlist.tracks.length - 1}>
-                            ↓
-                          </button>
-                        </form>
-                        <form action={removePlaylistTrackAction}>
-                          <input type="hidden" name="stationId" value={station.id} />
-                          <input type="hidden" name="playlistId" value={playlist.id} />
-                          <input type="hidden" name="playlistTrackId" value={playlistTrack.id} />
-                          <button className="btn secondary" type="submit" style={{ borderColor: "#fecaca", color: "#b91c1c" }}>
-                            Remove
-                          </button>
-                        </form>
-                      </div>
-                    </article>
+                      </td>
+                    </tr>
                   ))}
-
-                  {playlist.tracks.length === 0 ? <p className="muted">No tracks in this playlist yet.</p> : null}
-                </div>
-              </article>
-            ))}
-
-            {station.playlists.length === 0 ? <p className="muted">No playlists yet.</p> : null}
+                </tbody>
+              </table>
+            )}
           </div>
-        </article>
-      </section>
+        </div>
+      )}
 
-      <section className="card" style={{ padding: "1rem" }}>
-        <h2 style={{ marginBottom: "0.35rem", color: "#b91c1c" }}>Danger zone</h2>
-        <p className="muted" style={{ marginTop: 0 }}>
-          Delete the station and all associated tracks, playlists, and metrics.
-        </p>
-        <form action={deleteStationAction}>
-          <input type="hidden" name="stationId" value={station.id} />
-          <button className="btn secondary" type="submit" style={{ borderColor: "#fecaca", color: "#b91c1c" }}>
-            Delete station
-          </button>
-        </form>
-      </section>
-    </main>
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* TAB: PLAYLISTS                                            */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {tab === "playlists" && (
+        <div style={{ display: "grid", gap: "1.25rem" }}>
+
+          {/* Create playlist */}
+          <div className="card" style={{ padding: "1.25rem" }}>
+            <h2 style={{ fontSize: "1rem", margin: "0 0 1rem" }}>Create Playlist</h2>
+            <form action={createPlaylistAction} style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: "0.75rem", alignItems: "end" }}>
+              <input type="hidden" name="stationId" value={station.id} />
+              <div className="field">
+                <label>Name *</label>
+                <input name="name" required maxLength={80} placeholder="e.g. Morning Mix" />
+              </div>
+              <div className="field">
+                <label>Description</label>
+                <input name="description" maxLength={200} placeholder="Optional" />
+              </div>
+              <button className="btn btn-primary" type="submit">Create</button>
+            </form>
+          </div>
+
+          {/* Playlist list */}
+          {station.playlists.length === 0 ? (
+            <div className="card empty-state"><span className="empty-icon">📋</span><h3 style={{ margin: 0 }}>No playlists yet</h3></div>
+          ) : station.playlists.map((pl) => (
+            <div key={pl.id} className="card" style={{ overflow: "hidden" }}>
+              <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "0.975rem" }}>{pl.name} {pl.isDefault && <span style={{ fontSize: "0.7rem", background: "var(--brand-light)", color: "var(--brand-dark)", padding: "0.1rem 0.5rem", borderRadius: 999, marginLeft: 6 }}>Default</span>}</h3>
+                  {pl.description && <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--text-muted)" }}>{pl.description}</p>}
+                </div>
+                <div style={{ display: "flex", gap: "0.4rem" }}>
+                  {/* Add track to playlist */}
+                  <form action={addTrackToPlaylistAction} style={{ display: "flex", gap: "0.4rem" }}>
+                    <input type="hidden" name="stationId" value={station.id} />
+                    <input type="hidden" name="playlistId" value={pl.id} />
+                    <select name="trackId" required style={{ borderRadius: 8, padding: "0.35rem 0.6rem", fontSize: "0.82rem" }}>
+                      <option value="">Add track…</option>
+                      {station.tracks.map((t) => <option key={t.id} value={t.id}>{t.artist} – {t.title}</option>)}
+                    </select>
+                    <button className="btn btn-primary btn-sm" type="submit">Add</button>
+                  </form>
+                  {!pl.isDefault && (
+                    <form action={deletePlaylistAction}>
+                      <input type="hidden" name="stationId" value={station.id} />
+                      <input type="hidden" name="playlistId" value={pl.id} />
+                      <button className="btn btn-danger btn-sm" type="submit">Delete</button>
+                    </form>
+                  )}
+                </div>
+              </div>
+
+              {/* Tracks in playlist */}
+              {pl.tracks.length === 0 ? (
+                <p style={{ padding: "0.85rem 1.25rem", color: "var(--text-muted)", margin: 0, fontSize: "0.85rem" }}>No tracks in this playlist yet.</p>
+              ) : pl.tracks.map((pt, i) => (
+                <div key={pt.id} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.65rem 1.25rem", borderBottom: i < pl.tracks.length - 1 ? "1px solid var(--border)" : "none" }}>
+                  <span style={{ width: 24, textAlign: "center", fontSize: "0.75rem", color: "var(--text-muted)", flexShrink: 0 }}>{i + 1}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontWeight: 600, fontSize: "0.875rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pt.track.title}</p>
+                    <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--text-muted)" }}>{pt.track.artist}</p>
+                  </div>
+                  <div style={{ display: "flex", gap: "0.3rem" }}>
+                    <form action={movePlaylistTrackAction}>
+                      <input type="hidden" name="stationId" value={station.id} />
+                      <input type="hidden" name="playlistId" value={pl.id} />
+                      <input type="hidden" name="playlistTrackId" value={pt.id} />
+                      <input type="hidden" name="direction" value="up" />
+                      <button className="btn btn-secondary btn-sm" disabled={i === 0} style={{ padding: "0.3rem 0.6rem" }}>↑</button>
+                    </form>
+                    <form action={movePlaylistTrackAction}>
+                      <input type="hidden" name="stationId" value={station.id} />
+                      <input type="hidden" name="playlistId" value={pl.id} />
+                      <input type="hidden" name="playlistTrackId" value={pt.id} />
+                      <input type="hidden" name="direction" value="down" />
+                      <button className="btn btn-secondary btn-sm" disabled={i === pl.tracks.length - 1} style={{ padding: "0.3rem 0.6rem" }}>↓</button>
+                    </form>
+                    <form action={removePlaylistTrackAction}>
+                      <input type="hidden" name="stationId" value={station.id} />
+                      <input type="hidden" name="playlistId" value={pl.id} />
+                      <input type="hidden" name="playlistTrackId" value={pt.id} />
+                      <button className="btn btn-danger btn-sm" type="submit" style={{ padding: "0.3rem 0.6rem" }}>✕</button>
+                    </form>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* TAB: SCHEDULE                                             */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {tab === "schedule" && (
+        <div style={{ display: "grid", gap: "1.25rem" }}>
+          <div className="card" style={{ padding: "1.25rem" }}>
+            <h2 style={{ fontSize: "1rem", margin: "0 0 0.25rem" }}>Add Schedule Block</h2>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
+              Define time-based programming slots. The AutoDJ will play the selected playlist during each block.
+            </p>
+            <form action={addScheduleBlockAction} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: "0.75rem" }}>
+              <input type="hidden" name="stationId" value={station.id} />
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label>Block name *</label>
+                <input name="name" required maxLength={80} placeholder="e.g. Morning Show" />
+              </div>
+              <div className="field">
+                <label>Day</label>
+                <select name="dayOfWeek">
+                  <option value="-1">Every day</option>
+                  {[0,1,2,3,4,5,6].map((d) => <option key={d} value={d}>{DAYS[d + 1]}</option>)}
+                </select>
+              </div>
+              <div className="field">
+                <label>Start hour (0–23)</label>
+                <input name="startHour" type="number" min={0} max={23} required defaultValue={8} />
+              </div>
+              <div className="field">
+                <label>Start min</label>
+                <input name="startMin" type="number" min={0} max={59} defaultValue={0} />
+              </div>
+              <div className="field">
+                <label>End hour (0–23)</label>
+                <input name="endHour" type="number" min={0} max={23} required defaultValue={10} />
+              </div>
+              <div className="field">
+                <label>End min</label>
+                <input name="endMin" type="number" min={0} max={59} defaultValue={0} />
+              </div>
+              <div className="field">
+                <label>Playlist</label>
+                <select name="playlistId">
+                  <option value="">— None —</option>
+                  {station.playlists.map((pl) => <option key={pl.id} value={pl.id}>{pl.name}</option>)}
+                </select>
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-end" }}>
+                <button className="btn btn-primary" type="submit">Add block</button>
+              </div>
+            </form>
+          </div>
+
+          {station.schedules.length === 0 ? (
+            <div className="card empty-state"><span className="empty-icon">🗓</span><h3 style={{ margin: 0 }}>No schedule blocks yet</h3></div>
+          ) : (
+            <div className="card" style={{ overflow: "hidden" }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Block name</th>
+                    <th>Day</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th>Playlist</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {station.schedules.map((s) => (
+                    <tr key={s.id}>
+                      <td style={{ fontWeight: 600 }}>{s.name}</td>
+                      <td>{s.dayOfWeek === -1 ? "Every day" : DAYS[s.dayOfWeek + 1]}</td>
+                      <td>{pad(s.startHour)}:{pad(s.startMin)}</td>
+                      <td>{pad(s.endHour)}:{pad(s.endMin)}</td>
+                      <td style={{ color: "var(--text-muted)" }}>{s.playlist?.name ?? "—"}</td>
+                      <td>
+                        <form action={removeScheduleBlockAction}>
+                          <input type="hidden" name="stationId" value={station.id} />
+                          <input type="hidden" name="blockId" value={s.id} />
+                          <button className="btn btn-danger btn-sm" type="submit">Remove</button>
+                        </form>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* TAB: RELAYS                                               */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {tab === "relays" && (
+        <div style={{ display: "grid", gap: "1.25rem" }}>
+          <div className="card" style={{ padding: "1.25rem" }}>
+            <h2 style={{ fontSize: "1rem", margin: "0 0 0.25rem" }}>Add Relay Stream</h2>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
+              Point to another Icecast or SHOUTcast stream that re-broadcasts your station content.
+            </p>
+            <form action={addRelayAction} style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: "0.75rem", alignItems: "end" }}>
+              <input type="hidden" name="stationId" value={station.id} />
+              <div className="field">
+                <label>Name *</label>
+                <input name="name" required maxLength={80} placeholder="e.g. EU Relay" />
+              </div>
+              <div className="field">
+                <label>Stream URL *</label>
+                <input name="url" type="url" required placeholder="http://relay.example.com:8000/stream" />
+              </div>
+              <button className="btn btn-primary" type="submit">Add relay</button>
+            </form>
+          </div>
+
+          {station.relayStreams.length === 0 ? (
+            <div className="card empty-state"><span className="empty-icon">📡</span><h3 style={{ margin: 0 }}>No relay streams yet</h3></div>
+          ) : (
+            <div className="card" style={{ overflow: "hidden" }}>
+              <table className="data-table">
+                <thead><tr><th>Name</th><th>URL</th><th style={{ textAlign: "center" }}>Status</th><th /></tr></thead>
+                <tbody>
+                  {station.relayStreams.map((r) => (
+                    <tr key={r.id}>
+                      <td style={{ fontWeight: 600 }}>{r.name}</td>
+                      <td style={{ fontSize: "0.82rem", color: "var(--text-muted)", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis" }}>
+                        <a href={r.url} target="_blank" rel="noreferrer" style={{ color: "var(--brand)" }}>{r.url}</a>
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <form action={toggleRelayAction} style={{ display: "inline" }}>
+                          <input type="hidden" name="stationId" value={station.id} />
+                          <input type="hidden" name="relayId" value={r.id} />
+                          <input type="hidden" name="isActive" value={String(r.isActive)} />
+                          <button className={`btn btn-sm ${r.isActive ? "btn-primary" : "btn-secondary"}`} type="submit">
+                            {r.isActive ? "Active" : "Paused"}
+                          </button>
+                        </form>
+                      </td>
+                      <td>
+                        <form action={removeRelayAction}>
+                          <input type="hidden" name="stationId" value={station.id} />
+                          <input type="hidden" name="relayId" value={r.id} />
+                          <button className="btn btn-danger btn-sm" type="submit">Remove</button>
+                        </form>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* TAB: GEO-BLOCKING                                         */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {tab === "geo" && (
+        <div style={{ display: "grid", gap: "1.25rem" }}>
+          <div className="card" style={{ padding: "1.25rem" }}>
+            <h2 style={{ fontSize: "1rem", margin: "0 0 0.25rem" }}>Block a Country</h2>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
+              Listeners from blocked countries will receive a 403 response from Icecast. Use ISO 3166-1 alpha-2 codes (e.g. US, GB, FR).
+            </p>
+            <form action={addGeoBlockAction} style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: "0.75rem", alignItems: "end" }}>
+              <input type="hidden" name="stationId" value={station.id} />
+              <div className="field">
+                <label>Country code *</label>
+                <input name="countryCode" required maxLength={2} placeholder="US" style={{ textTransform: "uppercase" }} />
+              </div>
+              <div className="field">
+                <label>Country name *</label>
+                <input name="countryName" required maxLength={80} placeholder="United States" />
+              </div>
+              <button className="btn btn-primary" type="submit">Block</button>
+            </form>
+          </div>
+
+          {station.geoBlocks.length === 0 ? (
+            <div className="card empty-state">
+              <span className="empty-icon">🌍</span>
+              <h3 style={{ margin: 0 }}>No geo-blocks active</h3>
+              <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.875rem" }}>Your station is accessible from all countries.</p>
+            </div>
+          ) : (
+            <div className="card" style={{ overflow: "hidden" }}>
+              <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid var(--border)" }}>
+                <h2 style={{ fontSize: "1rem", margin: 0 }}>Blocked Countries ({station.geoBlocks.length})</h2>
+              </div>
+              <table className="data-table">
+                <thead><tr><th>Code</th><th>Country</th><th>Blocked since</th><th /></tr></thead>
+                <tbody>
+                  {station.geoBlocks.map((b) => (
+                    <tr key={b.id}>
+                      <td><span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: "0.875rem" }}>{b.countryCode}</span></td>
+                      <td>{b.countryName}</td>
+                      <td style={{ color: "var(--text-muted)", fontSize: "0.82rem" }}>{b.createdAt.toLocaleDateString()}</td>
+                      <td>
+                        <form action={removeGeoBlockAction}>
+                          <input type="hidden" name="stationId" value={station.id} />
+                          <input type="hidden" name="countryCode" value={b.countryCode} />
+                          <button className="btn btn-danger btn-sm" type="submit">Unblock</button>
+                        </form>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* TAB: CREDENTIALS                                          */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {tab === "credentials" && (
+        <div style={{ display: "grid", gap: "1rem" }}>
+          <div className="card" style={{ padding: "1.25rem" }}>
+            <h2 style={{ fontSize: "1rem", margin: "0 0 0.25rem" }}>Live Source Credentials</h2>
+            <p style={{ margin: "0 0 1.25rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
+              Use these in RadioBOSS, BUTT, Mixxx, OBS, or any Icecast-compatible encoder.
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: "0.85rem" }}>
+              {[
+                { label: "Host", value: source.host },
+                { label: "Port", value: String(source.port) },
+                { label: "Mount path", value: source.mountPath },
+                { label: "Source username", value: station.sourceUsername },
+                { label: "Source password", value: station.sourcePassword },
+                { label: "Public stream URL", value: streamUrl },
+              ].map(({ label, value }) => (
+                <div key={label} style={{ background: "var(--bg-page)", borderRadius: 10, padding: "0.85rem 1rem", border: "1px solid var(--border)" }}>
+                  <p style={{ margin: "0 0 0.25rem", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</p>
+                  <code style={{ fontSize: "0.875rem", wordBreak: "break-all" }}>{value}</code>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: "1rem", background: "var(--bg-page)", borderRadius: 10, padding: "0.85rem 1rem", border: "1px solid var(--border)" }}>
+              <p style={{ margin: "0 0 0.25rem", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Encoder URL</p>
+              <code style={{ fontSize: "0.875rem", wordBreak: "break-all" }}>{source.sourceUrl}</code>
+            </div>
+          </div>
+
+          {/* Embed code */}
+          <div className="card" style={{ padding: "1.25rem" }}>
+            <h2 style={{ fontSize: "1rem", margin: "0 0 0.25rem" }}>Embed Widget</h2>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
+              Copy this iframe to embed a player on any website.
+            </p>
+            <div style={{ background: "var(--bg-page)", borderRadius: 10, padding: "0.85rem 1rem", border: "1px solid var(--border)" }}>
+              <code style={{ fontSize: "0.82rem", wordBreak: "break-all", display: "block" }}>
+                {`<iframe src="${process.env.APP_BASE_URL ?? "http://localhost:3000"}/embed/${station.slug}" width="320" height="120" frameborder="0" allow="autoplay"></iframe>`}
+              </code>
+            </div>
+            <div style={{ marginTop: "0.75rem" }}>
+              <Link href={`/embed/${station.slug}`} className="btn btn-secondary btn-sm" target="_blank">Preview widget →</Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* TAB: SETTINGS                                             */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {tab === "settings" && (
+        <div style={{ display: "grid", gap: "1.25rem", maxWidth: 720 }}>
+          <div className="card" style={{ padding: "1.25rem" }}>
+            <h2 style={{ fontSize: "1rem", margin: "0 0 1rem" }}>Station Profile</h2>
+            <form action={updateStationMetadataAction} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: "0.85rem" }}>
+              <input type="hidden" name="stationId" value={station.id} />
+              <div className="field">
+                <label>Genre</label>
+                <input name="genre" defaultValue={station.genre ?? ""} placeholder="e.g. Pop, Hip-Hop, News" />
+              </div>
+              <div className="field">
+                <label>Language</label>
+                <input name="language" defaultValue={station.language} />
+              </div>
+              <div className="field">
+                <label>Country</label>
+                <input name="country" defaultValue={station.country ?? ""} placeholder="e.g. United States" />
+              </div>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label>Description</label>
+                <input name="description" defaultValue={station.description ?? ""} placeholder="What does your station sound like?" />
+              </div>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label>Stream metadata description</label>
+                <input name="streamDescription" defaultValue={station.streamDescription ?? ""} placeholder="Shown by some encoder clients" />
+              </div>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label>Logo URL</label>
+                <input name="logoUrl" type="url" defaultValue={station.logoUrl ?? ""} placeholder="https://… (square image, 300×300px+)" />
+                <span className="hint">Direct link to a square image. Shown on your public page and explore grid.</span>
+              </div>
+              <div className="field">
+                <label>Website URL</label>
+                <input name="websiteUrl" type="url" defaultValue={station.websiteUrl ?? ""} placeholder="https://yourstation.com" />
+              </div>
+              <div className="field">
+                <label>Facebook URL</label>
+                <input name="facebookUrl" type="url" defaultValue={station.facebookUrl ?? ""} placeholder="https://facebook.com/…" />
+              </div>
+              <div className="field">
+                <label>Twitter / X URL</label>
+                <input name="twitterUrl" type="url" defaultValue={station.twitterUrl ?? ""} placeholder="https://x.com/…" />
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <button className="btn btn-primary" type="submit">Save profile</button>
+              </div>
+            </form>
+          </div>
+
+          {/* Danger zone */}
+          <div className="card" style={{ padding: "1.25rem" }}>
+            <h2 style={{ fontSize: "1rem", margin: "0 0 0.3rem", color: "#dc2626" }}>Danger Zone</h2>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
+              Permanently delete this station and all its data. This cannot be undone.
+            </p>
+            <form action={deleteStationAction}>
+              <input type="hidden" name="stationId" value={station.id} />
+              <button className="btn btn-danger" type="submit">Delete station</button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
