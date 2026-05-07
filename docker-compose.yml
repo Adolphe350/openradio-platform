@@ -1,0 +1,96 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: openradio-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      icecast:
+        condition: service_started
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/openradio?schema=public}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-orc_session}
+      SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
+      STREAM_PUBLIC_BASE_URL: ${STREAM_PUBLIC_BASE_URL:-http://localhost:8000}
+      STREAM_SOURCE_HOST: ${STREAM_SOURCE_HOST:-icecast}
+      ICECAST_SOURCE_PORT: ${ICECAST_SOURCE_PORT:-8000}
+      REDIS_URL: redis://redis:6379
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: openradio-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-openradio}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-openradio}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: openradio-redis
+    restart: unless-stopped
+    command: redis-server --save 60 1 --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+
+  icecast:
+    build:
+      context: .
+      dockerfile: docker/icecast/Dockerfile
+    container_name: openradio-icecast
+    restart: unless-stopped
+    ports:
+      - "${ICECAST_PORT:-8000}:8000"
+    environment:
+      ICECAST_HOSTNAME: ${ICECAST_HOSTNAME:-icecast}
+      ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD:-sourcepass}
+      ICECAST_ADMIN_PASSWORD: ${ICECAST_ADMIN_PASSWORD:-adminpass}
+      ICECAST_RELAY_PASSWORD: ${ICECAST_RELAY_PASSWORD:-relaypass}
+      ICECAST_ADMIN_USER: ${ICECAST_ADMIN_USER:-admin}
+      ICECAST_ADMIN_EMAIL: ${ICECAST_ADMIN_EMAIL:-admin@openradio.local}
+
+  liquidsoap:
+    image: savonet/liquidsoap:v2.3.3
+    container_name: openradio-liquidsoap
+    restart: unless-stopped
+    depends_on:
+      - icecast
+    environment:
+      LIQ_ICECAST_HOST: ${LIQ_ICECAST_HOST:-icecast}
+      LIQ_ICECAST_PORT: ${LIQ_ICECAST_PORT:-8000}
+      LIQ_ICECAST_PASSWORD: ${LIQ_ICECAST_PASSWORD:-sourcepass}
+      LIQ_STREAM_MOUNT: ${LIQ_STREAM_MOUNT:-/demo.mp3}
+      LIQ_STREAM_NAME: ${LIQ_STREAM_NAME:-OpenRadio Demo}
+      LIQ_STREAM_DESCRIPTION: ${LIQ_STREAM_DESCRIPTION:-Baseline AutoDJ stream}
+      LIQ_STREAM_GENRE: ${LIQ_STREAM_GENRE:-Mixed}
+      LIQ_STREAM_URL: ${LIQ_STREAM_URL:-http://localhost:3000}
+    volumes:
+      - ./docker/liquidsoap/start.sh:/opt/openradio/start.sh:ro
+      - ./docker/liquidsoap/media:/media:ro
+    command: ["sh", "/opt/openradio/start.sh"]
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -1,0 +1,43 @@
+#!/bin/sh
+set -eu
+
+ICECAST_HOST="${LIQ_ICECAST_HOST:-icecast}"
+ICECAST_PORT="${LIQ_ICECAST_PORT:-8000}"
+ICECAST_PASSWORD="${LIQ_ICECAST_PASSWORD:-sourcepass}"
+STREAM_MOUNT="${LIQ_STREAM_MOUNT:-/demo.mp3}"
+STREAM_NAME="${LIQ_STREAM_NAME:-OpenRadio Demo}"
+STREAM_DESCRIPTION="${LIQ_STREAM_DESCRIPTION:-Baseline AutoDJ stream}"
+STREAM_GENRE="${LIQ_STREAM_GENRE:-Mixed}"
+STREAM_URL="${LIQ_STREAM_URL:-http://localhost:3000}"
+
+cat <<EOF_LIQ >/tmp/openradio-autodj.liq
+set("log.stdout", true)
+set("server.telnet", false)
+
+# AutoDJ playlist folder. Mount your own media files into /media.
+autodj_playlist = playlist(
+  id="openradio_autodj",
+  mode="random",
+  reload_mode="watch",
+  check_next=false,
+  "/media"
+)
+
+# Keep the mount alive even when no tracks exist yet.
+radio = fallback(track_sensitive=false, [autodj_playlist, blank()])
+
+output.icecast(
+  %mp3(bitrate=128, samplerate=44100, stereo=true),
+  host="${ICECAST_HOST}",
+  port=${ICECAST_PORT},
+  password="${ICECAST_PASSWORD}",
+  mount="${STREAM_MOUNT}",
+  name="${STREAM_NAME}",
+  description="${STREAM_DESCRIPTION}",
+  genre="${STREAM_GENRE}",
+  url="${STREAM_URL}",
+  radio
+)
+EOF_LIQ
+
+exec liquidsoap /tmp/openradio-autodj.liq

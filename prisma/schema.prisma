@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum StationStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions      Session[]
+  stations      Station[]
+  playlists     Playlist[]
+  createdTracks Track[]
+}
+
+model Session {
+  id             String   @id @default(cuid())
+  userId         String
+  sessionToken   String   @unique
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  lastActiveAt   DateTime @default(now())
+  userAgent      String?
+  ipAddress      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Station {
+  id                String        @id @default(cuid())
+  ownerId           String
+  name              String
+  slug              String        @unique
+  description       String?
+  genre             String?
+  language          String        @default("English")
+  timezone          String        @default("UTC")
+  country           String?
+  status            StationStatus @default(DRAFT)
+  mountPath         String
+  sourceUsername    String        @default("source")
+  sourcePassword    String
+  publicWebsiteUrl  String?
+  streamDescription String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  owner      User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tracks     Track[]
+  playlists  Playlist[]
+  metrics    ListenerMetric[]
+
+  @@index([ownerId])
+}
+
+model Track {
+  id              String   @id @default(cuid())
+  stationId       String
+  createdByUserId String?
+  title           String
+  artist          String
+  album           String?
+  durationSec     Int?
+  fileUrl         String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  station   Station         @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  createdBy User?           @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  playlists PlaylistTrack[]
+
+  @@index([stationId])
+}
+
+model Playlist {
+  id          String   @id @default(cuid())
+  stationId   String
+  createdById String?
+  name        String
+  description String?
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  station   Station         @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  createdBy User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  tracks    PlaylistTrack[]
+
+  @@unique([stationId, name])
+  @@index([stationId])
+}
+
+model PlaylistTrack {
+  id         String   @id @default(cuid())
+  playlistId String
+  trackId    String
+  position   Int
+  addedAt    DateTime @default(now())
+
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  track    Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([playlistId, trackId])
+  @@unique([playlistId, position])
+  @@index([playlistId, position])
+  @@index([trackId])
+}
+
+model ListenerMetric {
+  id                  String   @id @default(cuid())
+  stationId           String
+  sampledAt           DateTime @default(now())
+  currentListeners    Int      @default(0)
+  peakListeners       Int      @default(0)
+  totalListeningHours Float    @default(0)
+  uptimePercent       Float    @default(0)
+  storageUsedMb       Float    @default(0)
+
+  station Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@index([stationId, sampledAt])
+}
