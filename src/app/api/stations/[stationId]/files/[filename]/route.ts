@@ -24,7 +24,8 @@ export async function GET(
     const buf = await readFile(filePath);
     const ext = safe.split(".").pop()?.toLowerCase() ?? "mp3";
     const mime = ext === "mp3" ? "audio/mpeg" : ext === "flac" ? "audio/flac" : ext === "ogg" ? "audio/ogg" : ext === "wav" ? "audio/wav" : "audio/mpeg";
-    return new NextResponse(buf, {
+    const body = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as BodyInit;
+    return new NextResponse(body, {
       headers: {
         "Content-Type": mime,
         "Content-Length": buf.byteLength.toString(),
