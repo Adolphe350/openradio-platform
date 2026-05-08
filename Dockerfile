@@ -19,8 +19,11 @@ ENV STREAM_PUBLIC_BASE_URL=$STREAM_PUBLIC_BASE_URL
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run prisma:generate
-RUN npm run build
+RUN DATABASE_URL="${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/openradio?schema=public}" npm run prisma:generate
+RUN DATABASE_URL="${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/openradio?schema=public}" \
+    APP_BASE_URL="${APP_BASE_URL:-http://localhost:3000}" \
+    STREAM_PUBLIC_BASE_URL="${STREAM_PUBLIC_BASE_URL:-http://localhost:8080}" \
+    npm run build
 
 FROM node:22-alpine AS runner
 WORKDIR /app
