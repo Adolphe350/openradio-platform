@@ -70,6 +70,8 @@ export default async function StationDetailPage({ params, searchParams }: Props)
 
   const source = getSourceEndpoint(station.mountPath);
   const streamUrl = getPublicStreamUrl(station.mountPath);
+  const m3uUrl = `${streamUrl}.m3u`;
+  const plsUrl = `${streamUrl}.pls`;
 
   const metricState = resolveStationMetric({
     stationId: station.id,
@@ -88,15 +90,15 @@ export default async function StationDetailPage({ params, searchParams }: Props)
   ];
   const checkDone = checklist.filter((c) => c.done).length;
 
-  const tabs = [
-    { id: "overview",     label: "Overview" },
-    { id: "tracks",       label: `Tracks (${station.tracks.length})` },
-    { id: "playlists",    label: `Playlists (${station.playlists.length})` },
-    { id: "schedule",     label: "Schedule" },
-    { id: "relays",       label: `Relays (${station.relayStreams.length})` },
-    { id: "geo",          label: `Geo-blocking (${station.geoBlocks.length})` },
-    { id: "credentials",  label: "Credentials" },
-    { id: "settings",     label: "Settings" },
+  const isLive = station.status === StationStatus.ACTIVE;
+
+  const navItems = [
+    { id: "overview",  icon: "📻", label: station.name },
+    { id: "autodj",    icon: "🎵", label: "Auto DJ" },
+    { id: "tracks",    icon: "🎶", label: "Tracks" },
+    { id: "widget",    icon: "📎", label: "Widget" },
+    { id: "ctl",       icon: "🎛", label: "CTL" },
+    { id: "settings",  icon: "⚙️", label: "Settings" },
   ];
 
   const gradH1 = (station.id.charCodeAt(0) * 47 + station.id.charCodeAt(1) * 31) % 360;
@@ -104,42 +106,56 @@ export default async function StationDetailPage({ params, searchParams }: Props)
   const grad = `linear-gradient(135deg,hsl(${gradH1},55%,48%),hsl(${gradH2},60%,35%))`;
 
   return (
-    <div className="dash-page" style={{ gap: "1.25rem" }}>
+    <div className="station-detail-layout">
 
-      {/* ── Header ───────────────────────────────────────────────── */}
-      <div className="dash-page-header">
-        <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
-          <div style={{ width: 44, height: 44, borderRadius: 10, background: station.logoUrl ? undefined : grad, overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.4rem" }}>
+      {/* ── Station Sidebar ──────────────────────────────────────── */}
+      <aside className="station-sidebar">
+        <div className="station-sidebar-header">
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: station.logoUrl ? undefined : grad, overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem" }}>
             {station.logoUrl
               // eslint-disable-next-line @next/next/no-img-element
               ? <img src={station.logoUrl} alt={station.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               : "📻"}
           </div>
-          <div>
-            <h1 className="dash-page-title" style={{ fontSize: "1.25rem" }}>{station.name}</h1>
-            <p className="dash-page-sub">{station.slug} · {station.status}</p>
+          <div style={{ minWidth: 0 }}>
+            <p className="station-sidebar-name">{station.name}</p>
+            <p className="station-sidebar-owner">{user.name}</p>
           </div>
         </div>
-        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-          <Link href={`/stations/${station.slug}`} className="btn btn-secondary btn-sm">Public page</Link>
-          <Link href={`/embed/${station.slug}`} className="btn btn-secondary btn-sm" target="_blank">Embed</Link>
-          <Link href={`/dashboard/stations/${stationId}/royalties`} className="btn btn-secondary btn-sm">Royalties</Link>
-          <Link href="/dashboard" className="btn btn-secondary btn-sm">← Dashboard</Link>
-        </div>
-      </div>
 
-      {error && <div className="alert alert-error">{decodeURIComponent(error)}</div>}
-
-      {/* ── Tab nav ──────────────────────────────────────────────── */}
-      <div style={{ overflowX: "auto" }}>
-        <div className="tabs" style={{ flexWrap: "nowrap", minWidth: "max-content" }}>
-          {tabs.map((t) => (
-            <Link key={t.id} href={`/dashboard/stations/${stationId}?tab=${t.id}`} className={`tab${tab === t.id ? " active" : ""}`}>
-              {t.label}
+        <nav className="station-sidebar-nav">
+          {navItems.map((item) => (
+            <Link
+              key={item.id}
+              href={`/dashboard/stations/${stationId}?tab=${item.id}`}
+              className={`station-sidebar-link${tab === item.id ? " active" : ""}`}
+            >
+              <span className="station-sidebar-icon">{item.icon}</span>
+              {item.label}
             </Link>
           ))}
+        </nav>
+
+        <div className="station-sidebar-footer">
+          <Link href="/dashboard" className="station-sidebar-link">
+            <span className="station-sidebar-icon">←</span>
+            Back to Dashboard
+          </Link>
+          <Link href={`/stations/${station.slug}`} className="station-sidebar-link">
+            <span className="station-sidebar-icon">🌐</span>
+            Public Page
+          </Link>
+          <Link href={`/dashboard/stations/${stationId}/royalties`} className="station-sidebar-link">
+            <span className="station-sidebar-icon">📊</span>
+            Royalties
+          </Link>
         </div>
-      </div>
+      </aside>
+
+      {/* ── Main Content ─────────────────────────────────────────── */}
+      <main className="station-main">
+
+      {error && <div className="alert alert-error" style={{ margin: "0 0 1rem" }}>{decodeURIComponent(error)}</div>}
 
       {/* ══════════════════════════════════════════════════════════ */}
       {/* TAB: OVERVIEW                                             */}
@@ -147,13 +163,26 @@ export default async function StationDetailPage({ params, searchParams }: Props)
       {tab === "overview" && (
         <div style={{ display: "grid", gap: "1.25rem" }}>
 
-          {/* Status control */}
+          {/* ON AIR / OFF AIR banner */}
           <div className="card" style={{ padding: "1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
-            <div>
-              <h2 style={{ fontSize: "0.95rem", margin: "0 0 0.15rem" }}>Station Status</h2>
-              <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--text-muted)" }}>
-                {checkDone}/{checklist.length} checklist steps complete
-              </p>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+              <div style={{ width: 48, height: 48, borderRadius: 10, background: station.logoUrl ? undefined : grad, overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem" }}>
+                {station.logoUrl
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={station.logoUrl} alt={station.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  : "📻"}
+              </div>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                  <span className={`badge ${isLive ? "badge-green" : "badge-red"}`} style={{ fontSize: "0.8rem", padding: "0.3rem 0.8rem" }}>
+                    {isLive && <span className="live-dot" style={{ width: 6, height: 6, marginRight: 4 }} />}
+                    {isLive ? "ON AIR" : "OFF AIR"}
+                  </span>
+                </div>
+                <p style={{ margin: "0.3rem 0 0", fontSize: "0.82rem", color: "var(--text-muted)" }}>
+                  {station.description || `${station.genre || "Radio"} station`}
+                </p>
+              </div>
             </div>
             <form action={updateStationStatusAction} style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
               <input type="hidden" name="stationId" value={station.id} />
@@ -164,24 +193,56 @@ export default async function StationDetailPage({ params, searchParams }: Props)
             </form>
           </div>
 
-          {/* Stats */}
+          {/* Stats row */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: "1rem" }}>
             {[
-              { label: "Current Listeners", value: metricState.metric.currentListeners },
-              { label: "Peak Listeners", value: metricState.metric.peakListeners },
-              { label: "Total Hours", value: `${metricState.metric.totalListeningHours.toFixed(1)}h` },
-              { label: "Uptime", value: `${metricState.metric.uptimePercent.toFixed(1)}%` },
-              { label: "Storage", value: `${metricState.metric.storageUsedMb.toFixed(0)} MB` },
-              { label: "Tracks", value: station.tracks.length },
+              { label: "Auto DJ", value: station.schedules.length > 0 ? "Active" : "Idle" },
+              { label: "Sessions up from last week", value: `${metricState.metric.totalListeningHours.toFixed(0)}%` },
+              { label: "Countries", value: metricState.metric.peakListeners },
+              { label: "Total Listeners", value: metricState.metric.currentListeners },
             ].map((s) => (
               <div key={s.label} className="stat-card">
                 <div className="stat-value">{s.value}</div>
                 <div className="stat-label">{s.label}</div>
-                <div style={{ fontSize: "0.7rem", color: "var(--text-light)", marginTop: "0.1rem" }}>
-                  {metricState.source === "live" ? "live" : "sample"}
-                </div>
               </div>
             ))}
+          </div>
+
+          {/* Broadcast settings */}
+          <div className="card" style={{ padding: "1.25rem" }}>
+            <h2 style={{ fontSize: "1rem", margin: "0 0 1rem" }}>Broadcast settings</h2>
+
+            <h3 style={{ fontSize: "0.85rem", fontWeight: 700, margin: "0 0 0.75rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Stream URLs</h3>
+            <div style={{ display: "grid", gap: "0.6rem", marginBottom: "1.5rem" }}>
+              {[
+                { label: "MAIN", value: streamUrl },
+                { label: "M3U", value: m3uUrl },
+                { label: "PLS", value: plsUrl },
+              ].map(({ label, value }) => (
+                <div key={label} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.65rem 0.85rem", background: "var(--bg-page)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                  <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--brand-dark)", background: "var(--brand-light)", padding: "0.15rem 0.5rem", borderRadius: 4, flexShrink: 0 }}>{label}</span>
+                  <code style={{ fontSize: "0.82rem", wordBreak: "break-all", flex: 1 }}>{value}</code>
+                </div>
+              ))}
+            </div>
+
+            <h3 style={{ fontSize: "0.85rem", fontWeight: 700, margin: "0 0 0.75rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Encoder Settings</h3>
+            <p style={{ margin: "0 0 0.75rem", fontSize: "0.82rem", color: "var(--text-muted)" }}>Stream Encoder Settings (Icecast)</p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: "0.65rem" }}>
+              {[
+                { label: "Server address", value: source.host },
+                { label: "Port", value: String(source.port) },
+                { label: "Mount point", value: source.mountPath },
+                { label: "Username", value: station.sourceUsername },
+                { label: "Mount password", value: station.sourcePassword },
+                { label: "Encoding", value: "MP3 or AAC" },
+              ].map(({ label, value }) => (
+                <div key={label} style={{ padding: "0.65rem 0.85rem", background: "var(--bg-page)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                  <p style={{ margin: "0 0 0.2rem", fontSize: "0.72rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</p>
+                  <code style={{ fontSize: "0.85rem", wordBreak: "break-all" }}>{value}</code>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Checklist */}
@@ -199,24 +260,16 @@ export default async function StationDetailPage({ params, searchParams }: Props)
               ))}
             </div>
           </div>
-
-          {/* Quick links */}
-          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-            <Link href={`/dashboard/stations/${stationId}?tab=credentials`} className="btn btn-secondary btn-sm">Encoder credentials</Link>
-            <Link href={`/dashboard/stations/${stationId}?tab=tracks`} className="btn btn-secondary btn-sm">Manage tracks</Link>
-            <Link href={`/dashboard/stations/${stationId}?tab=schedule`} className="btn btn-secondary btn-sm">Set schedule</Link>
-            <Link href={`/dashboard/stations/${stationId}/royalties`} className="btn btn-secondary btn-sm">Royalty report</Link>
-          </div>
         </div>
       )}
 
       {/* ══════════════════════════════════════════════════════════ */}
-      {/* TAB: TRACKS                                               */}
+      {/* TAB: AUTO DJ (Playlists + Schedule + Tracks upload)        */}
       {/* ══════════════════════════════════════════════════════════ */}
-      {tab === "tracks" && (
+      {tab === "autodj" && (
         <div style={{ display: "grid", gap: "1.25rem" }}>
 
-          {/* Upload form — client component with progress bar */}
+          {/* Upload form */}
           <div className="card" style={{ padding: "1.25rem" }}>
             <h2 style={{ fontSize: "1rem", margin: "0 0 0.2rem" }}>Upload Audio File</h2>
             <UploadTrackForm stationId={station.id} />
@@ -254,62 +307,9 @@ export default async function StationDetailPage({ params, searchParams }: Props)
             </form>
           </div>
 
-          {/* Track library */}
-          <div className="card" style={{ overflow: "hidden" }}>
-            <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h2 style={{ fontSize: "1rem", margin: 0 }}>Track Library ({station.tracks.length})</h2>
-            </div>
-            {station.tracks.length === 0 ? (
-              <p style={{ padding: "1.5rem 1.25rem", color: "var(--text-muted)", margin: 0, fontSize: "0.875rem" }}>No tracks yet. Upload or add one above.</p>
-            ) : (
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Title</th>
-                    <th>Artist</th>
-                    <th>Album</th>
-                    <th style={{ textAlign: "center" }}>Duration</th>
-                    <th style={{ textAlign: "center" }}>File</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {station.tracks.map((track) => (
-                    <tr key={track.id}>
-                      <td style={{ fontWeight: 600 }}>{track.title}</td>
-                      <td>{track.artist}</td>
-                      <td style={{ color: "var(--text-muted)" }}>{track.album ?? "—"}</td>
-                      <td style={{ textAlign: "center", color: "var(--text-muted)" }}>{track.durationSec ? formatDuration(track.durationSec) : "—"}</td>
-                      <td style={{ textAlign: "center" }}>
-                        {track.fileUrl || track.filePath ? (
-                          <a href={track.fileUrl ?? "#"} target="_blank" rel="noreferrer" style={{ color: "var(--brand)", fontSize: "0.8rem" }}>▶ Play</a>
-                        ) : <span style={{ color: "var(--text-light)", fontSize: "0.8rem" }}>No file</span>}
-                      </td>
-                      <td>
-                        <form action={deleteTrackAction} style={{ display: "inline" }}>
-                          <input type="hidden" name="stationId" value={station.id} />
-                          <input type="hidden" name="trackId" value={track.id} />
-                          <button className="btn btn-danger btn-sm" type="submit">Delete</button>
-                        </form>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ══════════════════════════════════════════════════════════ */}
-      {/* TAB: PLAYLISTS                                            */}
-      {/* ══════════════════════════════════════════════════════════ */}
-      {tab === "playlists" && (
-        <div style={{ display: "grid", gap: "1.25rem" }}>
-
-          {/* Create playlist */}
+          {/* Playlists */}
           <div className="card" style={{ padding: "1.25rem" }}>
-            <h2 style={{ fontSize: "1rem", margin: "0 0 1rem" }}>Create Playlist</h2>
+            <h2 style={{ fontSize: "1rem", margin: "0 0 1rem" }}>Playlists</h2>
             <form action={createPlaylistAction} style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: "0.75rem", alignItems: "end" }}>
               <input type="hidden" name="stationId" value={station.id} />
               <div className="field">
@@ -324,10 +324,7 @@ export default async function StationDetailPage({ params, searchParams }: Props)
             </form>
           </div>
 
-          {/* Playlist list */}
-          {station.playlists.length === 0 ? (
-            <div className="card empty-state"><span className="empty-icon">📋</span><h3 style={{ margin: 0 }}>No playlists yet</h3></div>
-          ) : station.playlists.map((pl) => (
+          {station.playlists.map((pl) => (
             <div key={pl.id} className="card" style={{ overflow: "hidden" }}>
               <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
                 <div>
@@ -335,7 +332,6 @@ export default async function StationDetailPage({ params, searchParams }: Props)
                   {pl.description && <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--text-muted)" }}>{pl.description}</p>}
                 </div>
                 <div style={{ display: "flex", gap: "0.4rem" }}>
-                  {/* Add track to playlist */}
                   <form action={addTrackToPlaylistAction} style={{ display: "flex", gap: "0.4rem" }}>
                     <input type="hidden" name="stationId" value={station.id} />
                     <input type="hidden" name="playlistId" value={pl.id} />
@@ -354,8 +350,6 @@ export default async function StationDetailPage({ params, searchParams }: Props)
                   )}
                 </div>
               </div>
-
-              {/* Tracks in playlist */}
               {pl.tracks.length === 0 ? (
                 <p style={{ padding: "0.85rem 1.25rem", color: "var(--text-muted)", margin: 0, fontSize: "0.85rem" }}>No tracks in this playlist yet.</p>
               ) : pl.tracks.map((pt, i) => (
@@ -391,16 +385,10 @@ export default async function StationDetailPage({ params, searchParams }: Props)
               ))}
             </div>
           ))}
-        </div>
-      )}
 
-      {/* ══════════════════════════════════════════════════════════ */}
-      {/* TAB: SCHEDULE                                             */}
-      {/* ══════════════════════════════════════════════════════════ */}
-      {tab === "schedule" && (
-        <div style={{ display: "grid", gap: "1.25rem" }}>
+          {/* Schedule */}
           <div className="card" style={{ padding: "1.25rem" }}>
-            <h2 style={{ fontSize: "1rem", margin: "0 0 0.25rem" }}>Add Schedule Block</h2>
+            <h2 style={{ fontSize: "1rem", margin: "0 0 0.25rem" }}>Schedule Blocks</h2>
             <p style={{ margin: "0 0 1rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
               Define time-based programming slots. The AutoDJ will play the selected playlist during each block.
             </p>
@@ -446,9 +434,7 @@ export default async function StationDetailPage({ params, searchParams }: Props)
             </form>
           </div>
 
-          {station.schedules.length === 0 ? (
-            <div className="card empty-state"><span className="empty-icon">🗓</span><h3 style={{ margin: 0 }}>No schedule blocks yet</h3></div>
-          ) : (
+          {station.schedules.length > 0 && (
             <div className="card" style={{ overflow: "hidden" }}>
               <table className="data-table">
                 <thead>
@@ -486,12 +472,106 @@ export default async function StationDetailPage({ params, searchParams }: Props)
       )}
 
       {/* ══════════════════════════════════════════════════════════ */}
-      {/* TAB: RELAYS                                               */}
+      {/* TAB: TRACKS (Library view)                                */}
       {/* ══════════════════════════════════════════════════════════ */}
-      {tab === "relays" && (
+      {tab === "tracks" && (
+        <div style={{ display: "grid", gap: "1.25rem" }}>
+          <div className="card" style={{ overflow: "hidden" }}>
+            <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h2 style={{ fontSize: "1rem", margin: 0 }}>Track Library ({station.tracks.length})</h2>
+            </div>
+            {station.tracks.length === 0 ? (
+              <p style={{ padding: "1.5rem 1.25rem", color: "var(--text-muted)", margin: 0, fontSize: "0.875rem" }}>No tracks yet. Go to Auto DJ to upload tracks.</p>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Artist</th>
+                    <th>Album</th>
+                    <th style={{ textAlign: "center" }}>Duration</th>
+                    <th style={{ textAlign: "center" }}>File</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {station.tracks.map((track) => (
+                    <tr key={track.id}>
+                      <td style={{ fontWeight: 600 }}>{track.title}</td>
+                      <td>{track.artist}</td>
+                      <td style={{ color: "var(--text-muted)" }}>{track.album ?? "—"}</td>
+                      <td style={{ textAlign: "center", color: "var(--text-muted)" }}>{track.durationSec ? formatDuration(track.durationSec) : "—"}</td>
+                      <td style={{ textAlign: "center" }}>
+                        {track.fileUrl || track.filePath ? (
+                          <a href={track.fileUrl ?? "#"} target="_blank" rel="noreferrer" style={{ color: "var(--brand)", fontSize: "0.8rem" }}>▶ Play</a>
+                        ) : <span style={{ color: "var(--text-light)", fontSize: "0.8rem" }}>No file</span>}
+                      </td>
+                      <td>
+                        <form action={deleteTrackAction} style={{ display: "inline" }}>
+                          <input type="hidden" name="stationId" value={station.id} />
+                          <input type="hidden" name="trackId" value={track.id} />
+                          <button className="btn btn-danger btn-sm" type="submit">Delete</button>
+                        </form>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* TAB: WIDGET (Embed player)                                */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {tab === "widget" && (
         <div style={{ display: "grid", gap: "1.25rem" }}>
           <div className="card" style={{ padding: "1.25rem" }}>
-            <h2 style={{ fontSize: "1rem", margin: "0 0 0.25rem" }}>Add Relay Stream</h2>
+            <h2 style={{ fontSize: "1rem", margin: "0 0 0.25rem" }}>Embed Widget</h2>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
+              Copy this iframe to embed a player on any website.
+            </p>
+            <div style={{ background: "var(--bg-page)", borderRadius: 10, padding: "0.85rem 1rem", border: "1px solid var(--border)" }}>
+              <code style={{ fontSize: "0.82rem", wordBreak: "break-all", display: "block" }}>
+                {`<iframe src="${process.env.APP_BASE_URL ?? "http://localhost:3000"}/embed/${station.slug}" width="320" height="120" frameborder="0" allow="autoplay"></iframe>`}
+              </code>
+            </div>
+            <div style={{ marginTop: "0.75rem" }}>
+              <Link href={`/embed/${station.slug}`} className="btn btn-secondary btn-sm" target="_blank">Preview widget</Link>
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: "1.25rem" }}>
+            <h2 style={{ fontSize: "1rem", margin: "0 0 0.25rem" }}>Direct Stream Links</h2>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
+              Share these URLs with listeners or use them in external players.
+            </p>
+            <div style={{ display: "grid", gap: "0.6rem" }}>
+              {[
+                { label: "MAIN", value: streamUrl },
+                { label: "M3U", value: m3uUrl },
+                { label: "PLS", value: plsUrl },
+              ].map(({ label, value }) => (
+                <div key={label} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.65rem 0.85rem", background: "var(--bg-page)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                  <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--brand-dark)", background: "var(--brand-light)", padding: "0.15rem 0.5rem", borderRadius: 4, flexShrink: 0 }}>{label}</span>
+                  <code style={{ fontSize: "0.82rem", wordBreak: "break-all", flex: 1 }}>{value}</code>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* TAB: CTL (Control: Relays + Geo-blocking)                 */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {tab === "ctl" && (
+        <div style={{ display: "grid", gap: "1.25rem" }}>
+
+          {/* Relays */}
+          <div className="card" style={{ padding: "1.25rem" }}>
+            <h2 style={{ fontSize: "1rem", margin: "0 0 0.25rem" }}>Relay Streams</h2>
             <p style={{ margin: "0 0 1rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
               Point to another Icecast or SHOUTcast stream that re-broadcasts your station content.
             </p>
@@ -509,9 +589,7 @@ export default async function StationDetailPage({ params, searchParams }: Props)
             </form>
           </div>
 
-          {station.relayStreams.length === 0 ? (
-            <div className="card empty-state"><span className="empty-icon">📡</span><h3 style={{ margin: 0 }}>No relay streams yet</h3></div>
-          ) : (
+          {station.relayStreams.length > 0 && (
             <div className="card" style={{ overflow: "hidden" }}>
               <table className="data-table">
                 <thead><tr><th>Name</th><th>URL</th><th style={{ textAlign: "center" }}>Status</th><th /></tr></thead>
@@ -545,18 +623,12 @@ export default async function StationDetailPage({ params, searchParams }: Props)
               </table>
             </div>
           )}
-        </div>
-      )}
 
-      {/* ══════════════════════════════════════════════════════════ */}
-      {/* TAB: GEO-BLOCKING                                         */}
-      {/* ══════════════════════════════════════════════════════════ */}
-      {tab === "geo" && (
-        <div style={{ display: "grid", gap: "1.25rem" }}>
+          {/* Geo-blocking */}
           <div className="card" style={{ padding: "1.25rem" }}>
-            <h2 style={{ fontSize: "1rem", margin: "0 0 0.25rem" }}>Block a Country</h2>
+            <h2 style={{ fontSize: "1rem", margin: "0 0 0.25rem" }}>Geo-blocking</h2>
             <p style={{ margin: "0 0 1rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
-              Listeners from blocked countries will receive a 403 response from Icecast. Use ISO 3166-1 alpha-2 codes (e.g. US, GB, FR).
+              Listeners from blocked countries will receive a 403 response. Use ISO 3166-1 alpha-2 codes (e.g. US, GB, FR).
             </p>
             <form action={addGeoBlockAction} style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: "0.75rem", alignItems: "end" }}>
               <input type="hidden" name="stationId" value={station.id} />
@@ -572,13 +644,7 @@ export default async function StationDetailPage({ params, searchParams }: Props)
             </form>
           </div>
 
-          {station.geoBlocks.length === 0 ? (
-            <div className="card empty-state">
-              <span className="empty-icon">🌍</span>
-              <h3 style={{ margin: 0 }}>No geo-blocks active</h3>
-              <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.875rem" }}>Your station is accessible from all countries.</p>
-            </div>
-          ) : (
+          {station.geoBlocks.length > 0 && (
             <div className="card" style={{ overflow: "hidden" }}>
               <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid var(--border)" }}>
                 <h2 style={{ fontSize: "1rem", margin: 0 }}>Blocked Countries ({station.geoBlocks.length})</h2>
@@ -604,55 +670,6 @@ export default async function StationDetailPage({ params, searchParams }: Props)
               </table>
             </div>
           )}
-        </div>
-      )}
-
-      {/* ══════════════════════════════════════════════════════════ */}
-      {/* TAB: CREDENTIALS                                          */}
-      {/* ══════════════════════════════════════════════════════════ */}
-      {tab === "credentials" && (
-        <div style={{ display: "grid", gap: "1rem" }}>
-          <div className="card" style={{ padding: "1.25rem" }}>
-            <h2 style={{ fontSize: "1rem", margin: "0 0 0.25rem" }}>Live Source Credentials</h2>
-            <p style={{ margin: "0 0 1.25rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
-              Use these in RadioBOSS, BUTT, Mixxx, OBS, or any Icecast-compatible encoder.
-            </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: "0.85rem" }}>
-              {[
-                { label: "Host", value: source.host },
-                { label: "Port", value: String(source.port) },
-                { label: "Mount path", value: source.mountPath },
-                { label: "Source username", value: station.sourceUsername },
-                { label: "Source password", value: station.sourcePassword },
-                { label: "Public stream URL", value: streamUrl },
-              ].map(({ label, value }) => (
-                <div key={label} style={{ background: "var(--bg-page)", borderRadius: 10, padding: "0.85rem 1rem", border: "1px solid var(--border)" }}>
-                  <p style={{ margin: "0 0 0.25rem", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</p>
-                  <code style={{ fontSize: "0.875rem", wordBreak: "break-all" }}>{value}</code>
-                </div>
-              ))}
-            </div>
-            <div style={{ marginTop: "1rem", background: "var(--bg-page)", borderRadius: 10, padding: "0.85rem 1rem", border: "1px solid var(--border)" }}>
-              <p style={{ margin: "0 0 0.25rem", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Encoder URL</p>
-              <code style={{ fontSize: "0.875rem", wordBreak: "break-all" }}>{source.sourceUrl}</code>
-            </div>
-          </div>
-
-          {/* Embed code */}
-          <div className="card" style={{ padding: "1.25rem" }}>
-            <h2 style={{ fontSize: "1rem", margin: "0 0 0.25rem" }}>Embed Widget</h2>
-            <p style={{ margin: "0 0 1rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
-              Copy this iframe to embed a player on any website.
-            </p>
-            <div style={{ background: "var(--bg-page)", borderRadius: 10, padding: "0.85rem 1rem", border: "1px solid var(--border)" }}>
-              <code style={{ fontSize: "0.82rem", wordBreak: "break-all", display: "block" }}>
-                {`<iframe src="${process.env.APP_BASE_URL ?? "http://localhost:3000"}/embed/${station.slug}" width="320" height="120" frameborder="0" allow="autoplay"></iframe>`}
-              </code>
-            </div>
-            <div style={{ marginTop: "0.75rem" }}>
-              <Link href={`/embed/${station.slug}`} className="btn btn-secondary btn-sm" target="_blank">Preview widget →</Link>
-            </div>
-          </div>
         </div>
       )}
 
@@ -721,6 +738,8 @@ export default async function StationDetailPage({ params, searchParams }: Props)
           </div>
         </div>
       )}
+
+      </main>
     </div>
   );
 }
