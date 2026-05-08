@@ -34,11 +34,11 @@ services:
       - "3000"
     environment:
       NODE_ENV: production
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-openradio}?schema=public}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-orc_session}
       SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
-      APP_BASE_URL: ${APP_BASE_URL}
-      STREAM_PUBLIC_BASE_URL: ${STREAM_PUBLIC_BASE_URL}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
+      STREAM_PUBLIC_BASE_URL: ${STREAM_PUBLIC_BASE_URL:-http://localhost:8080}
       STREAM_SOURCE_HOST: icecast
       ICECAST_SOURCE_PORT: 8000
       REDIS_URL: redis://redis:6379
