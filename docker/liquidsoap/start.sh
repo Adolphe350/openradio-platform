@@ -15,7 +15,34 @@ echo "[openradio] Liquidsoap orchestrator starting..."
 
 # Generate fallback demo script if no per-station configs exist yet
 write_demo_script() {
-  cat <<EOF_LIQ >/tmp/openradio-demo.liq
+  # Create a placeholder silence file if no media exists
+  if [ ! "$(ls -A ${UPLOAD_DIR} 2>/dev/null)" ] && [ ! "$(ls -A ${MEDIA_DIR} 2>/dev/null)" ]; then
+    echo "[openradio] No media files found — generating silence placeholder"
+    # Use blank() only — no playlist needed
+    cat <<EOF_LIQ >/tmp/openradio-demo.liq
+set("log.stdout", true)
+set("server.telnet", false)
+
+radio = blank()
+
+output.icecast(
+  %mp3(bitrate=128, samplerate=44100, stereo=true),
+  host="${ICECAST_HOST}",
+  port=${ICECAST_PORT},
+  password="${ICECAST_PASSWORD}",
+  mount="/demo.mp3",
+  name="OpenRadio Demo",
+  description="Waiting for tracks — upload music to get started",
+  genre="Mixed",
+  url="${APP_BASE_URL}",
+  radio
+)
+EOF_LIQ
+  else
+    # Use whatever media is available
+    MEDIA_SRC="${UPLOAD_DIR}"
+    [ ! "$(ls -A ${UPLOAD_DIR} 2>/dev/null)" ] && MEDIA_SRC="${MEDIA_DIR}"
+    cat <<EOF_LIQ >/tmp/openradio-demo.liq
 set("log.stdout", true)
 set("server.telnet", false)
 
@@ -23,7 +50,7 @@ demo = playlist(
   id="openradio_demo",
   mode="random",
   reload_mode="watch",
-  "${MEDIA_DIR}"
+  "${MEDIA_SRC}"
 )
 
 radio = fallback(track_sensitive=false, [demo, blank()])
@@ -41,6 +68,7 @@ output.icecast(
   radio
 )
 EOF_LIQ
+  fi
   echo "[openradio] No station configs found — running demo stream on /demo.mp3"
   exec liquidsoap /tmp/openradio-demo.liq
 }
