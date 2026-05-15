@@ -6,9 +6,65 @@ import { getRequestOrigin } from "@/lib/public-url";
 
 export const dynamic = "force-dynamic";
 
+type PlaylistStation = {
+  id: string;
+  name: string;
+  slug: string;
+  mountPath: string;
+  description?: string | null;
+  genre?: string | null;
+};
+
+function normalizeMountLookup(slugOrMount: string) {
+  const decoded = decodeURIComponent(slugOrMount).trim().replace(/^\/+/, "");
+  const withoutExt = decoded.replace(/\.(m3u|pls)$/i, "");
+  const withMp3 = withoutExt.endsWith(".mp3") ? withoutExt : `${withoutExt}.mp3`;
+
+  return {
+    slug: withoutExt,
+    mountPath: `/${withMp3}`,
+  };
+}
+
+async function findStationBySlugOrMount(slugOrMount: string) {
+  const { slug, mountPath } = normalizeMountLookup(slugOrMount);
+
+  return db.station.findFirst({
+    where: {
+      OR: [
+        { slug },
+        { mountPath },
+      ],
+    },
+    select: { id: true, name: true, slug: true, mountPath: true, description: true, genre: true },
+  });
+}
+
+function stationPlaylistResponse(req: NextRequest, station: PlaylistStation, extension: "m3u" | "pls") {
+  const streamUrl = getPublicStreamUrl(station.mountPath);
+  const origin = getRequestOrigin(req);
+  const absoluteUrl = streamUrl.startsWith("/")
+    ? `${origin}${streamUrl}`
+    : streamUrl;
+
+  const body = extension === "m3u"
+    ? `#EXTM3U\n#EXTINF:-1 tvg-name="${station.name}",${station.name}\n${absoluteUrl}\n`
+    : `[playlist]\nFile1=${absoluteUrl}\nTitle1=${station.name}\nLength1=-1\nNumberOfEntries=1\nVersion=2\n`;
+
+  return new Response(body, {
+    status: 200,
+    headers: {
+      "Content-Type": extension === "m3u" ? "audio/mpegurl" : "audio/x-scpls",
+      "Content-Disposition": `attachment; filename="${station.slug}.${extension}"`,
+      "Cache-Control": "no-cache",
+      "Access-Control-Allow-Origin": "*",
+    },
+  });
+}
+
 /**
  * Proxies audio stream requests to the internal Icecast server.
- * Also serves M3U and PLS playlist files for stations by slug.
+ * Also serves M3U and PLS playlist files for stations by slug or mount name.
  */
 export async function GET(
   req: NextRequest,
@@ -17,68 +73,18 @@ export async function GET(
   const { path: segments } = await params;
   const mountPath = "/" + segments.join("/");
 
-  // Handle M3U playlist requests: /stream/[stationSlug].m3u
-  if (mountPath.endsWith(".m3u") && segments.length === 1) {
-    const slug = segments[0].replace(/\.m3u$/, "");
-    const station = await db.station.findFirst({
-      where: {
-        OR: [
-          { slug },
-          { mountPath: `/${slug}.mp3` },
-        ],
-      },
-      select: { id: true, name: true, slug: true, mountPath: true, description: true, genre: true },
-    });
-    if (!station) {
-      return new Response("Station not found", { status: 404, headers: { "Content-Type": "text/plain" } });
-    }
-    const streamUrl = getPublicStreamUrl(station.mountPath);
-    const origin = getRequestOrigin(req);
-    const absoluteUrl = streamUrl.startsWith("/")
-      ? `${origin}${streamUrl}`
-      : streamUrl;
-    const m3u = `#EXTM3U\n#EXTINF:-1 tvg-name="${station.name}",${station.name}\n${absoluteUrl}\n`;
-    return new Response(m3u, {
-      status: 200,
-      headers: {
-        "Content-Type": "audio/mpegurl",
-        "Content-Disposition": `attachment; filename="${slug}.m3u"`,
-        "Cache-Control": "no-cache",
-        "Access-Control-Allow-Origin": "*",
-      },
-    });
-  }
+  // Handle playlist requests by real station slug or mount-style slug:
+  // /stream/softvibes-fm.m3u and /stream/softvibes.m3u both resolve when
+  // station.slug = softvibes-fm and station.mountPath = /softvibes.mp3.
+  if ((mountPath.endsWith(".m3u") || mountPath.endsWith(".pls")) && segments.length === 1) {
+    const extension = mountPath.endsWith(".m3u") ? "m3u" : "pls";
+    const station = await findStationBySlugOrMount(segments[0]);
 
-  // Handle PLS playlist requests: /stream/[stationSlug].pls
-  if (mountPath.endsWith(".pls") && segments.length === 1) {
-    const slug = segments[0].replace(/\.pls$/, "");
-    const station = await db.station.findFirst({
-      where: {
-        OR: [
-          { slug },
-          { mountPath: `/${slug}.mp3` },
-        ],
-      },
-      select: { id: true, name: true, slug: true, mountPath: true },
-    });
     if (!station) {
       return new Response("Station not found", { status: 404, headers: { "Content-Type": "text/plain" } });
     }
-    const streamUrl = getPublicStreamUrl(station.mountPath);
-    const origin = getRequestOrigin(req);
-    const absoluteUrl = streamUrl.startsWith("/")
-      ? `${origin}${streamUrl}`
-      : streamUrl;
-    const pls = `[playlist]\nFile1=${absoluteUrl}\nTitle1=${station.name}\nLength1=-1\nNumberOfEntries=1\nVersion=2\n`;
-    return new Response(pls, {
-      status: 200,
-      headers: {
-        "Content-Type": "audio/x-scpls",
-        "Content-Disposition": `attachment; filename="${slug}.pls"`,
-        "Cache-Control": "no-cache",
-        "Access-Control-Allow-Origin": "*",
-      },
-    });
+
+    return stationPlaylistResponse(req, station, extension);
   }
 
   const icecastUrl = `http://${env.STREAM_SOURCE_HOST}:${env.ICECAST_SOURCE_PORT}${mountPath}`;
