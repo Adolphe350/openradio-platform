@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { resolveStationMetric } from "@/lib/analytics";
 import { getPublicStreamUrl } from "@/lib/stream";
+import { DashboardStats } from "./dashboard-stats";
 
 export const metadata = { title: "Dashboard – OpenRadio" };
 
@@ -45,6 +46,60 @@ export default async function DashboardPage() {
     }),
   }));
 
+  const stationIds = stations.map((s) => s.id);
+
+  // Weekly listener metrics for stats cards
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
+  const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 3600 * 1000);
+
+  const [thisWeekMetrics, lastWeekMetrics] = await Promise.all([
+    stationIds.length > 0
+      ? db.listenerMetric.findMany({
+          where: { stationId: { in: stationIds }, sampledAt: { gte: weekAgo } },
+          select: { sampledAt: true, currentListeners: true },
+          orderBy: { sampledAt: "asc" },
+        })
+      : Promise.resolve([]),
+    stationIds.length > 0
+      ? db.listenerMetric.findMany({
+          where: { stationId: { in: stationIds }, sampledAt: { gte: twoWeeksAgo, lt: weekAgo } },
+          select: { sampledAt: true, currentListeners: true },
+          orderBy: { sampledAt: "asc" },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const thisWeekTotal = thisWeekMetrics.reduce((s, m) => s + m.currentListeners, 0);
+  const lastWeekTotal = lastWeekMetrics.reduce((s, m) => s + m.currentListeners, 0);
+  const pctChange = lastWeekTotal > 0 ? ((thisWeekTotal - lastWeekTotal) / lastWeekTotal) * 100 : 0;
+
+  // Build daily chart data for last 7 days
+  const dayMap = new Map<string, number>();
+  for (const m of thisWeekMetrics) {
+    const day = m.sampledAt.toISOString().slice(0, 10);
+    dayMap.set(day, (dayMap.get(day) ?? 0) + m.currentListeners);
+  }
+  const prevDayMap = new Map<string, number>();
+  for (const m of lastWeekMetrics) {
+    const shifted = new Date(m.sampledAt.getTime() + 7 * 24 * 3600 * 1000);
+    const day = shifted.toISOString().slice(0, 10);
+    prevDayMap.set(day, (prevDayMap.get(day) ?? 0) + m.currentListeners);
+  }
+
+  const chartThisWeek: { label: string; value: number }[] = [];
+  const chartLastWeek: { label: string; value: number }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 24 * 3600 * 1000);
+    const day = d.toISOString().slice(0, 10);
+    const label = `${d.getMonth() + 1}/${d.getDate()}`;
+    chartThisWeek.push({ label, value: dayMap.get(day) ?? 0 });
+    chartLastWeek.push({ label, value: prevDayMap.get(day) ?? 0 });
+  }
+
+  // Sessions = metric sample points where listeners > 0 (approximation)
+  const sessions = thisWeekMetrics.filter((m) => m.currentListeners > 0).length;
+
   const totalListeners = stationsWithMetrics.reduce((n, x) => n + x.m.metric.currentListeners, 0);
   const totalTracks    = stations.reduce((n, s) => n + s._count.tracks, 0);
   const totalPlaylists = stations.reduce((n, s) => n + s._count.playlists, 0);
@@ -73,21 +128,32 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      {/* Stats row */}
+      {/* Weekly stats cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: "1rem" }}>
         {[
           { label: "Total Stations", value: stations.length, sub: `${activeCount} active` },
           { label: "Current Listeners", value: totalListeners, sub: "across all stations" },
-          { label: "Tracks", value: totalTracks, sub: "in library" },
-          { label: "Playlists", value: totalPlaylists, sub: "configured" },
+          { label: "Listeners This Week", value: thisWeekTotal.toLocaleString(), sub: pctChange !== 0 ? `${pctChange >= 0 ? "+" : ""}${pctChange.toFixed(1)}% vs last week` : "vs last week", pct: pctChange },
+          { label: "Sessions This Week", value: sessions, sub: "metric samples w/ listeners" },
         ].map((stat) => (
           <div key={stat.label} className="stat-card">
             <div className="stat-value">{stat.value}</div>
             <div className="stat-label">{stat.label}</div>
-            <div style={{ fontSize: "0.75rem", color: "var(--text-light)", marginTop: "0.15rem" }}>{stat.sub}</div>
+            <div style={{ fontSize: "0.75rem", color: "pct" in stat && stat.pct !== undefined ? (stat.pct >= 0 ? "var(--green)" : "#ef4444") : "var(--text-light)", marginTop: "0.15rem" }}>
+              {stat.sub}
+            </div>
           </div>
         ))}
       </div>
+
+      {/* Listener trend chart */}
+      <DashboardStats
+        thisWeek={chartThisWeek}
+        lastWeek={chartLastWeek}
+        thisWeekTotal={thisWeekTotal}
+        lastWeekTotal={lastWeekTotal}
+        pctChange={pctChange}
+      />
 
       {/* Onboarding checklist */}
       {done < checklist.length && (

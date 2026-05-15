@@ -82,6 +82,34 @@ export default async function StationDetailPage({ params, searchParams }: Props)
   const m3uUrl = `${streamUrl}.m3u`;
   const plsUrl = `${streamUrl}.pls`;
 
+  // Compute AutoDJ % from last 7 days of PlayLog
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000);
+  const playLogs = await db.playLog.findMany({
+    where: { stationId: station.id, playedAt: { gte: sevenDaysAgo } },
+    select: { trackId: true, durationSec: true },
+  });
+  const totalDuration = playLogs.reduce((s, l) => s + (l.durationSec ?? 0), 0);
+  const autoDjDuration = playLogs.filter((l) => l.trackId !== null).reduce((s, l) => s + (l.durationSec ?? 0), 0);
+  const autoDjPct = totalDuration > 0 ? Math.round((autoDjDuration / totalDuration) * 100) : 0;
+
+  // Source proxy connection URL for HTTPS port 443
+  const { env } = await import("@/lib/env");
+  const appHost = (() => {
+    try {
+      return new URL(env.APP_BASE_URL).hostname;
+    } catch {
+      return env.APP_BASE_URL;
+    }
+  })();
+  const appPort = (() => {
+    try {
+      const u = new URL(env.APP_BASE_URL);
+      return u.port || (u.protocol === "https:" ? "443" : "80");
+    } catch {
+      return "443";
+    }
+  })();
+
   const metricState = resolveStationMetric({
     stationId: station.id,
     trackCount: station.tracks.length,
@@ -209,9 +237,9 @@ export default async function StationDetailPage({ params, searchParams }: Props)
               <LiveListeners stationId={station.id} initialCount={metricState.metric.currentListeners} />
             </div>
             {[
-              { label: "Auto DJ", value: station.schedules.length > 0 ? "Active" : "Idle" },
-              { label: "Peak Listeners (all time)", value: metricState.metric.peakListeners },
-              { label: "Listening Hours", value: `${metricState.metric.totalListeningHours.toFixed(1)}h` },
+              { label: "Auto DJ", value: `${autoDjPct}%`, sub: "last 7 days" },
+              { label: "Peak Listeners (all time)", value: metricState.metric.peakListeners, sub: "" },
+              { label: "Listening Hours", value: `${metricState.metric.totalListeningHours.toFixed(1)}h`, sub: "" },
             ].map((s) => (
               <div key={s.label} className="stat-card">
                 <div className="stat-value">{s.value}</div>
@@ -238,9 +266,9 @@ export default async function StationDetailPage({ params, searchParams }: Props)
               ))}
             </div>
 
-            <h3 style={{ fontSize: "0.85rem", fontWeight: 700, margin: "0 0 0.75rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Encoder Settings</h3>
-            <p style={{ margin: "0 0 0.75rem", fontSize: "0.82rem", color: "var(--text-muted)" }}>Stream Encoder Settings (Icecast)</p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: "0.65rem" }}>
+            <h3 style={{ fontSize: "0.85rem", fontWeight: 700, margin: "0 0 0.75rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Encoder Settings — Direct Icecast</h3>
+            <p style={{ margin: "0 0 0.75rem", fontSize: "0.82rem", color: "var(--text-muted)" }}>Use these settings in RadioBoss, BUTT, OBS, or any Icecast-compatible encoder (internal network access).</p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: "0.65rem", marginBottom: "1.5rem" }}>
               {[
                 { label: "Server address", value: source.host },
                 { label: "Port", value: String(source.port) },
@@ -250,6 +278,26 @@ export default async function StationDetailPage({ params, searchParams }: Props)
                 { label: "Encoding", value: "MP3 or AAC" },
               ].map(({ label, value }) => (
                 <div key={label} style={{ padding: "0.65rem 0.85rem", background: "var(--bg-page)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                  <p style={{ margin: "0 0 0.2rem", fontSize: "0.72rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</p>
+                  <code style={{ fontSize: "0.85rem", wordBreak: "break-all" }}>{value}</code>
+                </div>
+              ))}
+            </div>
+
+            <h3 style={{ fontSize: "0.85rem", fontWeight: 700, margin: "0 0 0.5rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Encoder Settings — HTTPS Proxy (Port 443)</h3>
+            <p style={{ margin: "0 0 0.75rem", fontSize: "0.82rem", color: "var(--text-muted)" }}>
+              Use these settings to connect through HTTPS port 443 — works behind corporate firewalls that block port 8000. Requires encoder to support Icecast HTTP PUT mode (BUTT 0.1.30+).
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: "0.65rem" }}>
+              {[
+                { label: "Server address", value: appHost },
+                { label: "Port", value: appPort },
+                { label: "Mount / Path", value: `/api/source/${station.id}` },
+                { label: "Username", value: station.sourceUsername },
+                { label: "Mount password", value: station.sourcePassword },
+                { label: "Protocol", value: "Icecast (HTTP PUT)" },
+              ].map(({ label, value }) => (
+                <div key={label} style={{ padding: "0.65rem 0.85rem", background: "var(--bg-page)", borderRadius: 8, border: "1px solid var(--brand-light)" }}>
                   <p style={{ margin: "0 0 0.2rem", fontSize: "0.72rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</p>
                   <code style={{ fontSize: "0.85rem", wordBreak: "break-all" }}>{value}</code>
                 </div>

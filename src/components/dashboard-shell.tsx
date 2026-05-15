@@ -24,6 +24,7 @@ const navSections = [
     label: "Account",
     links: [
       { href: "/dashboard/settings", icon: "⚙️", label: "Settings" },
+      { href: "/dashboard/settings/billing", icon: "💳", label: "Billing" },
     ],
   },
 ];

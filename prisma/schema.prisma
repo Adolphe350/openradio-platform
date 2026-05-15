@@ -29,6 +29,7 @@ model User {
   teamMemberships    TeamMember[] @relation("TeamMemberships")
   teamAccounts       TeamMember[] @relation("TeamAccounts")
   podcasts           Podcast[]
+  subscriptions      UserSubscription[]
 }
 
 model Session {
@@ -317,6 +318,43 @@ model Episode {
   podcast Podcast @relation(fields: [podcastId], references: [id], onDelete: Cascade)
 
   @@index([podcastId, publishedAt])
+}
+
+// Subscription plans
+model Plan {
+  id                String   @id @default(cuid())
+  name              String
+  slug              String   @unique
+  price             Float    @default(0)
+  interval          String   @default("monthly") // monthly | yearly
+  maxStations       Int?     // null = unlimited
+  maxListeners      Int?     // null = unlimited
+  maxListeningHours Int?     // null = unlimited
+  maxBitrate        Int      @default(128)
+  features          Json     @default("[]")
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  subscriptions UserSubscription[]
+}
+
+// User plan subscriptions
+model UserSubscription {
+  id        String    @id @default(cuid())
+  userId    String
+  planId    String
+  status    String    @default("active") // active | cancelled | expired
+  startedAt DateTime  @default(now())
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([planId])
 }
 
 // Recordings of live broadcasts

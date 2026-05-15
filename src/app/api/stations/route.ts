@@ -51,6 +51,23 @@ export async function POST(request: Request) {
     return auth.error;
   }
 
+  // Enforce station limit based on plan
+  const subscription = await db.userSubscription.findFirst({
+    where: { userId: auth.user.id, status: "active" },
+    include: { plan: true },
+    orderBy: { startedAt: "desc" },
+  });
+  const maxStations: number | null = subscription?.plan.maxStations ?? 2;
+  if (maxStations !== null) {
+    const currentCount = await db.station.count({ where: { ownerId: auth.user.id } });
+    if (currentCount >= maxStations) {
+      return NextResponse.json(
+        { error: `Your plan allows a maximum of ${maxStations} station${maxStations !== 1 ? "s" : ""}. Upgrade to add more.` },
+        { status: 403 }
+      );
+    }
+  }
+
   const body = await request.json();
 
   const name = typeof body.name === "string" ? body.name.trim() : "";

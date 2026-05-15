@@ -1,91 +1,202 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState, useCallback } from "react";
 
-import { requireUser } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { resolveStationMetric } from "@/lib/analytics";
+import { LineChart, type Series } from "@/components/line-chart";
 
-export const metadata = { title: "Analytics – OpenRadio" };
+type DayPoint = { date: string; value: number };
+type StationGroup = { name: string; listeners: number; peak: number; dataPoints: { date: string; value: number }[] };
+type AnalyticsResponse =
+  | { groupBy: "day"; from: string; to: string; current: DayPoint[]; previous: DayPoint[]; summary: { thisTotal: number; prevTotal: number; pctChange: number } }
+  | { groupBy: "station"; stations: StationGroup[] };
 
-export default async function AnalyticsPage() {
-  const user = await requireUser();
+function toShortDate(iso: string) {
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
 
-  const stations = await db.station.findMany({
-    where: { ownerId: user.id },
-    include: {
-      metrics: { orderBy: { sampledAt: "desc" }, take: 1 },
-      _count: { select: { tracks: true, playlists: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+function formatNum(n: number) {
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return String(n);
+}
 
-  const rows = stations.map((s) => ({
-    s,
-    m: resolveStationMetric({
-      stationId: s.id,
-      trackCount: s._count.tracks,
-      playlistCount: s._count.playlists,
-      createdAt: s.createdAt,
-      metric: s.metrics[0]
-        ? {
-            currentListeners: s.metrics[0].currentListeners,
-            peakListeners: s.metrics[0].peakListeners,
-            totalListeningHours: s.metrics[0].totalListeningHours,
-            uptimePercent: s.metrics[0].uptimePercent,
-            storageUsedMb: s.metrics[0].storageUsedMb,
-            sampledAt: s.metrics[0].sampledAt,
-          }
-        : null,
-    }),
-  }));
+export default function AnalyticsPage() {
+  const today = new Date().toISOString().slice(0, 10);
+  const sevenDaysAgo = new Date(Date.now() - 6 * 24 * 3600 * 1000).toISOString().slice(0, 10);
 
-  const totals = {
-    listeners: rows.reduce((n, r) => n + r.m.metric.currentListeners, 0),
-    peak:      rows.reduce((n, r) => n + r.m.metric.peakListeners, 0),
-    hours:     rows.reduce((n, r) => n + r.m.metric.totalListeningHours, 0),
-    active:    stations.filter((s) => s.status === "ACTIVE").length,
+  const [from, setFrom] = useState(sevenDaysAgo);
+  const [to, setTo] = useState(today);
+  const [groupBy, setGroupBy] = useState<"day" | "station">("day");
+  const [showCompare, setShowCompare] = useState(true);
+  const [data, setData] = useState<AnalyticsResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ from, to, groupBy });
+      const res = await fetch(`/api/analytics?${params}`);
+      if (res.ok) setData(await res.json());
+    } finally {
+      setLoading(false);
+    }
+  }, [from, to, groupBy]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const setPreset = (days: number) => {
+    const t = new Date().toISOString().slice(0, 10);
+    const f = new Date(Date.now() - (days - 1) * 24 * 3600 * 1000).toISOString().slice(0, 10);
+    setFrom(f);
+    setTo(t);
   };
 
-  const statusColors: Record<string, { bg: string; color: string }> = {
-    ACTIVE: { bg: "#ecfdf5", color: "#059669" },
-    PAUSED: { bg: "#fffbeb", color: "#d97706" },
-    DRAFT:  { bg: "var(--bg-page)", color: "var(--text-muted)" },
-  };
+  let series: Series[] = [];
+  let summary: { thisTotal: number; prevTotal: number; pctChange: number } | null = null;
+
+  if (data?.groupBy === "day") {
+    const curr: Series = {
+      name: "This period",
+      color: "var(--brand)",
+      data: data.current.map((d) => ({ label: toShortDate(d.date), value: d.value })),
+    };
+    series = [curr];
+    if (showCompare) {
+      series.push({
+        name: "Previous period",
+        color: "#94a3b8",
+        data: data.previous.map((d) => ({ label: toShortDate(d.date), value: d.value })),
+      });
+    }
+    summary = data.summary;
+  } else if (data?.groupBy === "station") {
+    series = data.stations.map((s, i) => ({
+      name: s.name,
+      color: `hsl(${(i * 67) % 360},60%,50%)`,
+      data: s.dataPoints.map((d) => ({ label: toShortDate(d.date), value: d.value })),
+    }));
+  }
+
+  const pctUp = summary && summary.pctChange >= 0;
 
   return (
     <div className="dash-page">
       <div className="dash-page-header">
         <div>
           <h1 className="dash-page-title">Analytics</h1>
-          <p className="dash-page-sub">Listener stats across all your stations.</p>
+          <p className="dash-page-sub">Listener history, trends, and station breakdown.</p>
         </div>
         <Link href="/dashboard" className="btn btn-secondary btn-sm">← Dashboard</Link>
       </div>
 
-      {/* Summary stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: "1rem" }}>
-        {[
-          { label: "Current Listeners", value: totals.listeners, icon: "👂" },
-          { label: "Peak Listeners",    value: totals.peak,      icon: "📈" },
-          { label: "Listening Hours",   value: totals.hours.toFixed(1) + "h", icon: "⏱️" },
-          { label: "Active Stations",   value: totals.active,    icon: "📡" },
-        ].map((stat) => (
-          <div key={stat.label} className="stat-card">
-            <div style={{ fontSize: "1.5rem", marginBottom: "0.4rem" }}>{stat.icon}</div>
-            <div className="stat-value">{stat.value}</div>
-            <div className="stat-label">{stat.label}</div>
+      {/* Controls */}
+      <div className="card" style={{ padding: "1rem 1.25rem" }}>
+        <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+          {/* Quick presets */}
+          <div style={{ display: "flex", gap: "0.3rem" }}>
+            {[
+              { label: "7d", days: 7 },
+              { label: "14d", days: 14 },
+              { label: "30d", days: 30 },
+            ].map((p) => (
+              <button
+                key={p.label}
+                className="btn btn-secondary btn-sm"
+                onClick={() => setPreset(p.days)}
+                style={{ padding: "0.3rem 0.65rem", fontSize: "0.78rem" }}
+              >
+                {p.label}
+              </button>
+            ))}
           </div>
-        ))}
+
+          {/* Date range */}
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
+              style={{ borderRadius: 8, border: "1px solid var(--border)", padding: "0.35rem 0.6rem", fontSize: "0.85rem" }} />
+            <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>to</span>
+            <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
+              style={{ borderRadius: 8, border: "1px solid var(--border)", padding: "0.35rem 0.6rem", fontSize: "0.85rem" }} />
+          </div>
+
+          {/* Group by station toggle */}
+          <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.85rem", cursor: "pointer", userSelect: "none" }}>
+            <input
+              type="checkbox"
+              checked={groupBy === "station"}
+              onChange={(e) => setGroupBy(e.target.checked ? "station" : "day")}
+            />
+            Group by station
+          </label>
+
+          {/* Compare toggle */}
+          {groupBy === "day" && (
+            <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.85rem", cursor: "pointer", userSelect: "none" }}>
+              <input
+                type="checkbox"
+                checked={showCompare}
+                onChange={(e) => setShowCompare(e.target.checked)}
+              />
+              Compare to previous period
+            </label>
+          )}
+
+          <button className="btn btn-primary btn-sm" onClick={load} style={{ marginLeft: "auto" }}>
+            {loading ? "Loading…" : "Get Analytics"}
+          </button>
+        </div>
       </div>
 
-      {/* Per-station table */}
-      {stations.length === 0 ? (
-        <div className="card empty-state">
-          <span className="empty-icon">📡</span>
-          <h3 style={{ margin: 0 }}>No stations yet</h3>
-          <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.9rem" }}>Create a station to start seeing analytics.</p>
-          <Link href="/dashboard/stations/new" className="btn btn-primary">Create Station</Link>
+      {/* Summary stats */}
+      {summary && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: "1rem" }}>
+          <div className="stat-card">
+            <div className="stat-value">{formatNum(summary.thisTotal)}</div>
+            <div className="stat-label">This Period</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-value">{formatNum(summary.prevTotal)}</div>
+            <div className="stat-label">Previous Period</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-value" style={{ color: pctUp ? "var(--green)" : "#ef4444" }}>
+              {pctUp ? "+" : ""}{summary.pctChange.toFixed(1)}%
+            </div>
+            <div className="stat-label">Change</div>
+          </div>
         </div>
-      ) : (
+      )}
+
+      {/* Chart */}
+      <div className="card" style={{ padding: "1.25rem" }}>
+        <h2 style={{ fontSize: "1rem", margin: "0 0 1rem" }}>
+          {groupBy === "station" ? "Listeners by Station" : "Listener History"}
+        </h2>
+
+        {loading ? (
+          <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>Loading chart…</p>
+          </div>
+        ) : series.length === 0 || series.every((s) => s.data.every((d) => d.value === 0)) ? (
+          <div style={{
+            height: 200, borderRadius: "var(--radius-lg)",
+            background: "var(--bg-page)", border: "1.5px dashed var(--border)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexDirection: "column", gap: "0.5rem",
+          }}>
+            <span style={{ fontSize: "2rem" }}>📊</span>
+            <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-muted)" }}>
+              No listener data for this period. Data populates as Icecast metrics are ingested.
+            </p>
+          </div>
+        ) : (
+          <LineChart series={series} height={220} yLabel="Listeners" />
+        )}
+      </div>
+
+      {/* Station table when groupBy=station */}
+      {data?.groupBy === "station" && data.stations.length > 0 && (
         <div className="card" style={{ overflow: "hidden" }}>
           <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid var(--border)" }}>
             <h2 style={{ fontSize: "1rem", margin: 0 }}>Per-station breakdown</h2>
@@ -95,69 +206,23 @@ export default async function AnalyticsPage() {
               <thead>
                 <tr>
                   <th>Station</th>
-                  <th style={{ textAlign: "center" }}>Status</th>
-                  <th style={{ textAlign: "center" }}>Listeners</th>
-                  <th style={{ textAlign: "center" }}>Peak</th>
-                  <th style={{ textAlign: "center" }}>Hours</th>
-                  <th style={{ textAlign: "center" }}>Uptime</th>
-                  <th style={{ textAlign: "center" }}>Storage</th>
-                  <th style={{ textAlign: "center" }}>Data</th>
+                  <th style={{ textAlign: "right" }}>Total Listeners</th>
+                  <th style={{ textAlign: "right" }}>Peak</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map(({ s, m }) => {
-                  const sc = statusColors[s.status] ?? statusColors.DRAFT;
-                  return (
-                    <tr key={s.id}>
-                      <td>
-                        <Link href={`/dashboard/stations/${s.id}`} style={{ color: "var(--brand)", fontWeight: 600, fontSize: "0.875rem" }}>
-                          {s.name}
-                        </Link>
-                        <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-muted)" }}>{s.genre ?? "Mixed"}</p>
-                      </td>
-                      <td style={{ textAlign: "center" }}>
-                        <span style={{ padding: "0.18rem 0.6rem", borderRadius: "999px", fontSize: "0.72rem", fontWeight: 700, background: sc.bg, color: sc.color }}>
-                          {s.status}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: "center", fontWeight: 700 }}>{m.metric.currentListeners}</td>
-                      <td style={{ textAlign: "center" }}>{m.metric.peakListeners}</td>
-                      <td style={{ textAlign: "center" }}>{m.metric.totalListeningHours.toFixed(1)}h</td>
-                      <td style={{ textAlign: "center" }}>{m.metric.uptimePercent.toFixed(1)}%</td>
-                      <td style={{ textAlign: "center" }}>{m.metric.storageUsedMb.toFixed(0)} MB</td>
-                      <td style={{ textAlign: "center" }}>
-                        <span style={{ fontSize: "0.7rem", fontWeight: 600, color: m.source === "live" ? "var(--green)" : "var(--text-muted)" }}>
-                          {m.source}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {data.stations.map((s) => (
+                  <tr key={s.name}>
+                    <td style={{ fontWeight: 600 }}>{s.name}</td>
+                    <td style={{ textAlign: "right" }}>{formatNum(s.listeners)}</td>
+                    <td style={{ textAlign: "right" }}>{formatNum(s.peak)}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
-          <p style={{ padding: "0.75rem 1.25rem", margin: 0, fontSize: "0.75rem", color: "var(--text-light)", borderTop: "1px solid var(--border)" }}>
-            Data marked &ldquo;sample&rdquo; is seeded from station metadata until live Icecast metrics ingestion is configured.
-          </p>
         </div>
       )}
-
-      {/* Chart placeholder */}
-      <div className="card" style={{ padding: "1.25rem" }}>
-        <h2 style={{ fontSize: "1rem", margin: "0 0 0.5rem" }}>Listener History</h2>
-        <p style={{ margin: "0 0 1rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
-          Historical listener charts will populate here as your Icecast server reports data.
-        </p>
-        <div style={{
-          height: 160, borderRadius: "var(--radius-lg)",
-          background: "var(--bg-page)", border: "1.5px dashed var(--border)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          flexDirection: "column", gap: "0.5rem",
-        }}>
-          <span style={{ fontSize: "2rem" }}>📊</span>
-          <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-muted)" }}>Charts will appear once data is ingested</p>
-        </div>
-      </div>
     </div>
   );
 }
