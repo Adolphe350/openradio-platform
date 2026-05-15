@@ -13,6 +13,15 @@ UPLOAD_DIR="/uploads"
 
 echo "[openradio] Liquidsoap orchestrator starting..."
 
+with_allow_root() {
+  src="$1"
+  dst="$2"
+  {
+    printf 'set("init.allow_root", true)\n'
+    cat "$src"
+  } > "$dst"
+}
+
 # Generate fallback demo script if no per-station configs exist yet
 write_demo_script() {
   # Create a placeholder silence file if no media exists
@@ -70,7 +79,8 @@ output.icecast(
 EOF_LIQ
   fi
   echo "[openradio] No station configs found — running demo stream on /demo.mp3"
-  exec liquidsoap --allow-root /tmp/openradio-demo.liq
+  with_allow_root /tmp/openradio-demo.liq /tmp/openradio-demo-root.liq
+  exec liquidsoap /tmp/openradio-demo-root.liq
 }
 
 # Watch loop: start one liquidsoap process per .liq config file.
@@ -81,8 +91,10 @@ run_station_configs() {
   for liq_file in "${CONFIG_DIR}"/*.liq; do
     [ -f "$liq_file" ] || continue
     station_id="$(basename "$liq_file" .liq)"
+    wrapped_liq="/tmp/${station_id}.root.liq"
     echo "[openradio] Starting AutoDJ for station: ${station_id}"
-    liquidsoap --allow-root "$liq_file" &
+    with_allow_root "$liq_file" "$wrapped_liq"
+    liquidsoap "$wrapped_liq" &
     pids="$pids $!"
   done
 
