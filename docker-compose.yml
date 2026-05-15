@@ -51,6 +51,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-noreply@openradio.local}
+      SUPER_ADMIN_EMAILS: ${SUPER_ADMIN_EMAILS:-}
     volumes:
       - uploads_data:/app/uploads
       - liquidsoap_configs:/app/liquidsoap-configs
