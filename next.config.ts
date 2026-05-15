@@ -2,6 +2,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Allow large file uploads (50MB)
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "52mb",
+    },
+  },
   async headers() {
     return [
       {
