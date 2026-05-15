@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getPublicStreamUrl } from "@/lib/stream";
+import { getRequestOrigin } from "@/lib/public-url";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export async function GET(
   }
 
   const streamUrl = getPublicStreamUrl(station.mountPath);
-  const origin = req.nextUrl.origin;
+  const origin = getRequestOrigin(req);
   const absoluteUrl = streamUrl.startsWith("/") ? `${origin}${streamUrl}` : streamUrl;
 
   const pls = `[playlist]\nFile1=${absoluteUrl}\nTitle1=${station.name}\nLength1=-1\nNumberOfEntries=1\nVersion=2\n`;

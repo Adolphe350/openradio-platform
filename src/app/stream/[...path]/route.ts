@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { getPublicStreamUrl } from "@/lib/stream";
+import { getRequestOrigin } from "@/lib/public-url";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,7 @@ export async function GET(
       return new Response("Station not found", { status: 404, headers: { "Content-Type": "text/plain" } });
     }
     const streamUrl = getPublicStreamUrl(station.mountPath);
-    const origin = req.nextUrl.origin;
+    const origin = getRequestOrigin(req);
     const absoluteUrl = streamUrl.startsWith("/")
       ? `${origin}${streamUrl}`
       : streamUrl;
@@ -48,7 +49,7 @@ export async function GET(
       return new Response("Station not found", { status: 404, headers: { "Content-Type": "text/plain" } });
     }
     const streamUrl = getPublicStreamUrl(station.mountPath);
-    const origin = req.nextUrl.origin;
+    const origin = getRequestOrigin(req);
     const absoluteUrl = streamUrl.startsWith("/")
       ? `${origin}${streamUrl}`
       : streamUrl;
