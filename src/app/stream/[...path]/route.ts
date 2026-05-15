@@ -20,7 +20,15 @@ export async function GET(
   // Handle M3U playlist requests: /stream/[stationSlug].m3u
   if (mountPath.endsWith(".m3u") && segments.length === 1) {
     const slug = segments[0].replace(/\.m3u$/, "");
-    const station = await db.station.findUnique({ where: { slug }, select: { id: true, name: true, mountPath: true, description: true, genre: true } });
+    const station = await db.station.findFirst({
+      where: {
+        OR: [
+          { slug },
+          { mountPath: `/${slug}.mp3` },
+        ],
+      },
+      select: { id: true, name: true, slug: true, mountPath: true, description: true, genre: true },
+    });
     if (!station) {
       return new Response("Station not found", { status: 404, headers: { "Content-Type": "text/plain" } });
     }
@@ -44,7 +52,15 @@ export async function GET(
   // Handle PLS playlist requests: /stream/[stationSlug].pls
   if (mountPath.endsWith(".pls") && segments.length === 1) {
     const slug = segments[0].replace(/\.pls$/, "");
-    const station = await db.station.findUnique({ where: { slug }, select: { id: true, name: true, mountPath: true } });
+    const station = await db.station.findFirst({
+      where: {
+        OR: [
+          { slug },
+          { mountPath: `/${slug}.mp3` },
+        ],
+      },
+      select: { id: true, name: true, slug: true, mountPath: true },
+    });
     if (!station) {
       return new Response("Station not found", { status: 404, headers: { "Content-Type": "text/plain" } });
     }
