@@ -102,20 +102,28 @@ export function PlayerBar({ stationName, stationSlug, streamUrl, genre, logoUrl,
       setLoading(true);
       setError(false);
       setErrorMsg("");
-      
-      // Try the live stream first
-      audio.src = streamUrl;
-      audio.play().catch(() => {
-        // Stream failed — try fallback tracks
+      setCurrentTrack(null);
+
+      let fallbackStarted = false;
+      const startFallback = () => {
+        if (fallbackStarted) return;
+        fallbackStarted = true;
         if (fallbackTracks && fallbackTracks.length > 0) {
-          setCurrentTrack(null);
           playFallbackTrack(trackIndex);
         } else {
           setError(true);
           setLoading(false);
+          setPlaying(false);
           setErrorMsg("Station is offline. Check back later!");
         }
-      });
+      };
+
+      // Browsers may resolve audio.play() before the network stream fails.
+      // Listen for the live stream error once so uploaded tracks still play
+      // when a public station is active but its Icecast mount is offline.
+      audio.addEventListener("error", startFallback, { once: true });
+      audio.src = streamUrl;
+      audio.play().catch(startFallback);
     }
   }, [playing, streamUrl, fallbackTracks, trackIndex, playFallbackTrack]);
 

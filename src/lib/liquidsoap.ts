@@ -147,7 +147,7 @@ export function generateLiqScript(cfg: LiqConfig): string {
 
   lines.push(``);  
   lines.push(`# Attach on_track handler`);
-  lines.push(`radio = on_track(on_track_handler, radio)`);
+  lines.push(`radio = source.on_track(on_track_handler, radio)`);
   lines.push(``);
 
   // Live source input — allows external encoders to connect

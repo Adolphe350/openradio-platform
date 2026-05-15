@@ -4,6 +4,7 @@ import path from "path";
 import { getApiUser } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
+import { generateStationConfig } from "@/lib/generate-station-config";
 
 // Increase body size limit for file uploads (default is 1MB in Next.js)
 export const dynamic = "force-dynamic";
@@ -48,21 +49,46 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sta
     const rawArtist = (formData.get("artist") as string | null)?.trim() || "Unknown Artist";
     const rawAlbum = (formData.get("album") as string | null)?.trim() || null;
 
-    const track = await db.track.create({
-      data: {
-        stationId,
-        createdByUserId: user.id,
-        title: rawTitle,
-        artist: rawArtist,
-        album: rawAlbum,
-        filePath,
-        fileSizeBytes: file.size,
-        mimeType: file.type,
-        fileUrl: `/api/stations/${stationId}/files/${safeName}`,
-      },
+    const result = await db.$transaction(async (tx) => {
+      const track = await tx.track.create({
+        data: {
+          stationId,
+          createdByUserId: user.id,
+          title: rawTitle,
+          artist: rawArtist,
+          album: rawAlbum,
+          filePath,
+          fileSizeBytes: file.size,
+          mimeType: file.type,
+          fileUrl: `/api/stations/${stationId}/files/${safeName}`,
+        },
+      });
+
+      const playlist = await tx.playlist.upsert({
+        where: { stationId_name: { stationId, name: "Main Rotation" } },
+        update: {},
+        create: { stationId, createdById: user.id, name: "Main Rotation", isDefault: true },
+      });
+
+      const highestPosition = await tx.playlistTrack.aggregate({
+        where: { playlistId: playlist.id },
+        _max: { position: true },
+      });
+
+      await tx.playlistTrack.create({
+        data: {
+          playlistId: playlist.id,
+          trackId: track.id,
+          position: (highestPosition._max.position ?? 0) + 1,
+        },
+      });
+
+      return { track, playlistId: playlist.id };
     });
 
-    return NextResponse.json({ ok: true, track });
+    await generateStationConfig(stationId);
+
+    return NextResponse.json({ ok: true, track: result.track, playlistId: result.playlistId });
   } catch (e) {
     console.error("[upload] Error:", e);
     return NextResponse.json({ error: "Internal server error", detail: String(e) }, { status: 500 });
