@@ -94,12 +94,15 @@ export async function GET(
       );
     }
 
-    // Stream the audio response
+    // Stream the audio response.
+    // Do NOT forward hop-by-hop headers (Connection, Transfer-Encoding,
+    // Keep-Alive) — they are invalid in HTTP/2 and cause broken chunked output
+    // in production proxies.
     const responseHeaders = new Headers();
     responseHeaders.set("Content-Type", upstream.headers.get("content-type") || "audio/mpeg");
     responseHeaders.set("Access-Control-Allow-Origin", "*");
     responseHeaders.set("Cache-Control", "no-cache, no-store");
-    responseHeaders.set("Connection", "keep-alive");
+    responseHeaders.set("X-Accel-Buffering", "no");
 
     // Forward Icecast metadata headers
     const iceHeaders = ["icy-name", "icy-description", "icy-genre", "icy-br", "icy-sr"];
