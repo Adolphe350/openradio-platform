@@ -10,15 +10,19 @@ type PlayerBarProps = {
   genre?: string | null;
   logoUrl?: string | null;
   stationColor?: string;
+  fallbackTracks?: { title: string; artist: string; url: string }[];
 };
 
-export function PlayerBar({ stationName, stationSlug, streamUrl, genre, logoUrl, stationColor }: PlayerBarProps) {
+export function PlayerBar({ stationName, stationSlug, streamUrl, genre, logoUrl, stationColor, fallbackTracks }: PlayerBarProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const volumeRef = useRef(0.8);
   const [playing, setPlaying] = useState(false);
   const [volume, setVolume] = useState(0.8);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [currentTrack, setCurrentTrack] = useState<string | null>(null);
+  const [trackIndex, setTrackIndex] = useState(0);
 
   useEffect(() => {
     const audio = new Audio();
@@ -26,11 +30,16 @@ export function PlayerBar({ stationName, stationSlug, streamUrl, genre, logoUrl,
     audio.volume = volumeRef.current;
     audioRef.current = audio;
 
-    const onPlaying  = () => { setPlaying(true);  setLoading(false); setError(false); };
+    const onPlaying  = () => { setPlaying(true);  setLoading(false); setError(false); setErrorMsg(""); };
     const onPause    = () => setPlaying(false);
     const onWaiting  = () => setLoading(true);
     const onCanPlay  = () => setLoading(false);
-    const onError    = () => { setError(true); setLoading(false); setPlaying(false); };
+    const onError    = () => {
+      setError(true);
+      setLoading(false);
+      setPlaying(false);
+      setErrorMsg("Station is offline. Check back later!");
+    };
 
     audio.addEventListener("playing",  onPlaying);
     audio.addEventListener("pause",    onPause);
@@ -49,6 +58,41 @@ export function PlayerBar({ stationName, stationSlug, streamUrl, genre, logoUrl,
     };
   }, []); // intentionally runs once on mount only
 
+  const playFallbackTrack = useCallback((index: number) => {
+    const audio = audioRef.current;
+    if (!audio || !fallbackTracks || fallbackTracks.length === 0) return false;
+    
+    const safeIndex = index % fallbackTracks.length;
+    const track = fallbackTracks[safeIndex];
+    if (!track.url) return false;
+    
+    setTrackIndex(safeIndex);
+    setCurrentTrack(`${track.title} — ${track.artist}`);
+    setError(false);
+    setErrorMsg("");
+    setLoading(true);
+    audio.src = track.url;
+    audio.play().catch(() => {
+      setError(true);
+      setLoading(false);
+      setErrorMsg("Unable to play track");
+    });
+    return true;
+  }, [fallbackTracks]);
+
+  // Auto-advance to next track when current ends
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const onEnded = () => {
+      if (fallbackTracks && fallbackTracks.length > 0) {
+        playFallbackTrack(trackIndex + 1);
+      }
+    };
+    audio.addEventListener("ended", onEnded);
+    return () => audio.removeEventListener("ended", onEnded);
+  }, [trackIndex, fallbackTracks, playFallbackTrack]);
+
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -57,10 +101,23 @@ export function PlayerBar({ stationName, stationSlug, streamUrl, genre, logoUrl,
     } else {
       setLoading(true);
       setError(false);
+      setErrorMsg("");
+      
+      // Try the live stream first
       audio.src = streamUrl;
-      audio.play().catch(() => { setError(true); setLoading(false); });
+      audio.play().catch(() => {
+        // Stream failed — try fallback tracks
+        if (fallbackTracks && fallbackTracks.length > 0) {
+          setCurrentTrack(null);
+          playFallbackTrack(trackIndex);
+        } else {
+          setError(true);
+          setLoading(false);
+          setErrorMsg("Station is offline. Check back later!");
+        }
+      });
     }
-  }, [playing, streamUrl]);
+  }, [playing, streamUrl, fallbackTracks, trackIndex, playFallbackTrack]);
 
   const handleVolume = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const v = parseFloat(e.target.value);
@@ -123,12 +180,20 @@ export function PlayerBar({ stationName, stationSlug, streamUrl, genre, logoUrl,
           }}
           aria-label={playing ? "Pause" : "Play"}
         >
-          {loading ? "⟳" : error ? "!" : playing ? "⏸" : "▶"}
+          {loading ? "⟳" : error ? "⚠" : playing ? "⏸" : "▶"}
         </button>
 
-        <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.45)", whiteSpace: "nowrap" }}>
-          {genre ?? "Live Radio"}
-        </span>
+        {errorMsg && (
+          <span style={{ fontSize: "0.72rem", color: "#f87171", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {errorMsg}
+          </span>
+        )}
+
+        {!errorMsg && (
+          <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.45)", whiteSpace: "nowrap", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>
+            {currentTrack || genre || "Live Radio"}
+          </span>
+        )}
       </div>
 
       {/* Volume */}
