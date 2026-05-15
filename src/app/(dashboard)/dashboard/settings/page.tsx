@@ -73,6 +73,15 @@ export default async function SettingsPage({ searchParams }: Props) {
         </form>
       </div>
 
+      {/* Team management */}
+      <div className="card" style={{ padding: "1.5rem" }}>
+        <h2 style={{ fontSize: "1rem", margin: "0 0 0.25rem" }}>Team</h2>
+        <p style={{ margin: "0 0 1rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
+          Invite team members and manage their roles.
+        </p>
+        <Link href="/dashboard/settings/team" className="btn btn-secondary btn-sm">Manage Team</Link>
+      </div>
+
       {/* Account info */}
       <div className="card" style={{ padding: "1.5rem" }}>
         <h2 style={{ fontSize: "1rem", margin: "0 0 1rem" }}>Account Info</h2>

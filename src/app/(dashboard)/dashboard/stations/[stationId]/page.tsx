@@ -29,9 +29,16 @@ import {
   toggleRelayAction,
   addScheduleBlockAction,
   removeScheduleBlockAction,
+  addAnnouncementAction,
+  removeAnnouncementAction,
+  toggleAnnouncementAction,
+  startRecordingAction,
+  stopRecordingAction,
 } from "./station-actions";
 
 import { UploadTrackForm } from "@/components/upload-track-form";
+import { LogoUploadForm } from "@/components/logo-upload-form";
+import { LiveListeners } from "@/components/live-listeners";
 
 type Props = {
   params: Promise<{ stationId: string }>;
@@ -63,6 +70,8 @@ export default async function StationDetailPage({ params, searchParams }: Props)
         orderBy: [{ dayOfWeek: "asc" }, { startHour: "asc" }],
         include: { playlist: { select: { id: true, name: true } } },
       },
+      announcements: { orderBy: { createdAt: "desc" } },
+      recordings: { orderBy: { startedAt: "desc" }, take: 10 },
     },
   });
 
@@ -91,6 +100,7 @@ export default async function StationDetailPage({ params, searchParams }: Props)
   const checkDone = checklist.filter((c) => c.done).length;
 
   const isLive = station.status === StationStatus.ACTIVE;
+  const activeRecording = station.recordings.find((r) => r.status === "recording");
 
   const navItems = [
     { id: "overview",  icon: "📻", label: station.name },
@@ -195,11 +205,13 @@ export default async function StationDetailPage({ params, searchParams }: Props)
 
           {/* Stats row */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: "1rem" }}>
+            <div className="stat-card">
+              <LiveListeners stationId={station.id} initialCount={metricState.metric.currentListeners} />
+            </div>
             {[
               { label: "Auto DJ", value: station.schedules.length > 0 ? "Active" : "Idle" },
-              { label: "Sessions up from last week", value: `${metricState.metric.totalListeningHours.toFixed(0)}%` },
-              { label: "Countries", value: metricState.metric.peakListeners },
-              { label: "Total Listeners", value: metricState.metric.currentListeners },
+              { label: "Peak Listeners (all time)", value: metricState.metric.peakListeners },
+              { label: "Listening Hours", value: `${metricState.metric.totalListeningHours.toFixed(1)}h` },
             ].map((s) => (
               <div key={s.label} className="stat-card">
                 <div className="stat-value">{s.value}</div>
@@ -259,6 +271,52 @@ export default async function StationDetailPage({ params, searchParams }: Props)
                 </div>
               ))}
             </div>
+          </div>
+          {/* Recording */}
+          <div className="card" style={{ padding: "1.25rem" }}>
+            <h2 style={{ fontSize: "1rem", margin: "0 0 0.25rem" }}>Recording</h2>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
+              Record your live broadcast. Recordings are logged here.
+            </p>
+            <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+              {activeRecording ? (
+                <>
+                  <span style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.875rem", fontWeight: 600, color: "#dc2626" }}>
+                    <span className="live-dot" style={{ width: 8, height: 8, background: "#dc2626" }} />
+                    Recording since {activeRecording.startedAt.toLocaleTimeString()}
+                  </span>
+                  <form action={stopRecordingAction} style={{ display: "inline" }}>
+                    <input type="hidden" name="stationId" value={station.id} />
+                    <button className="btn btn-danger btn-sm" type="submit">Stop Recording</button>
+                  </form>
+                </>
+              ) : (
+                <form action={startRecordingAction} style={{ display: "inline" }}>
+                  <input type="hidden" name="stationId" value={station.id} />
+                  <button className="btn btn-primary btn-sm" type="submit">Start Recording</button>
+                </form>
+              )}
+            </div>
+            {station.recordings.filter((r) => r.status === "done").length > 0 && (
+              <div style={{ marginTop: "1rem" }}>
+                <h3 style={{ fontSize: "0.85rem", fontWeight: 700, margin: "0 0 0.5rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Recent Recordings</h3>
+                <div style={{ display: "grid", gap: "0.4rem" }}>
+                  {station.recordings.filter((r) => r.status === "done").slice(0, 5).map((r) => (
+                    <div key={r.id} style={{ display: "flex", gap: "0.75rem", alignItems: "center", padding: "0.5rem 0.75rem", background: "var(--bg-page)", borderRadius: 8, border: "1px solid var(--border)", fontSize: "0.82rem" }}>
+                      <span style={{ color: "var(--text-muted)" }}>{r.startedAt.toLocaleString()}</span>
+                      {r.endedAt && (
+                        <span style={{ color: "var(--text-muted)" }}>
+                          Duration: {Math.round((r.endedAt.getTime() - r.startedAt.getTime()) / 60000)}m
+                        </span>
+                      )}
+                      {r.fileUrl && (
+                        <a href={r.fileUrl} target="_blank" rel="noreferrer" style={{ color: "var(--brand)", marginLeft: "auto" }}>Download</a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -702,10 +760,14 @@ export default async function StationDetailPage({ params, searchParams }: Props)
                 <label>Stream metadata description</label>
                 <input name="streamDescription" defaultValue={station.streamDescription ?? ""} placeholder="Shown by some encoder clients" />
               </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", fontWeight: 600 }}>Station Logo</p>
+                <LogoUploadForm stationId={station.id} currentLogoUrl={station.logoUrl} />
+              </div>
               <div className="field" style={{ gridColumn: "1 / -1" }}>
                 <label>Logo URL</label>
-                <input name="logoUrl" type="url" defaultValue={station.logoUrl ?? ""} placeholder="https://… (square image, 300×300px+)" />
-                <span className="hint">Direct link to a square image. Shown on your public page and explore grid.</span>
+                <input name="logoUrl" type="url" defaultValue={station.logoUrl ?? ""} placeholder="https://… (square image, 300x300px+)" />
+                <span className="hint">Or enter a direct link to a square image. Shown on your public page and explore grid.</span>
               </div>
               <div className="field">
                 <label>Website URL</label>
@@ -723,6 +785,53 @@ export default async function StationDetailPage({ params, searchParams }: Props)
                 <button className="btn btn-primary" type="submit">Save profile</button>
               </div>
             </form>
+          </div>
+
+          {/* Announcements */}
+          <div className="card" style={{ padding: "1.25rem" }}>
+            <h2 style={{ fontSize: "1rem", margin: "0 0 0.25rem" }}>Announcements</h2>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
+              Active announcements are shown on your public station page.
+            </p>
+            <form action={addAnnouncementAction} style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: "0.75rem", alignItems: "end", marginBottom: "1.25rem" }}>
+              <input type="hidden" name="stationId" value={station.id} />
+              <div className="field">
+                <label>Title *</label>
+                <input name="title" required maxLength={120} placeholder="e.g. Station update" />
+              </div>
+              <div className="field">
+                <label>Content *</label>
+                <input name="content" required maxLength={500} placeholder="Announcement message..." />
+              </div>
+              <button className="btn btn-primary" type="submit">Add</button>
+            </form>
+            {station.announcements.length > 0 && (
+              <div style={{ display: "grid", gap: "0.5rem" }}>
+                {station.announcements.map((a) => (
+                  <div key={a.id} style={{ display: "flex", gap: "0.75rem", alignItems: "flex-start", padding: "0.75rem", background: "var(--bg-page)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: "0 0 0.2rem", fontWeight: 600, fontSize: "0.875rem" }}>{a.title}</p>
+                      <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--text-muted)" }}>{a.content}</p>
+                    </div>
+                    <div style={{ display: "flex", gap: "0.4rem", flexShrink: 0 }}>
+                      <form action={toggleAnnouncementAction} style={{ display: "inline" }}>
+                        <input type="hidden" name="stationId" value={station.id} />
+                        <input type="hidden" name="announcementId" value={a.id} />
+                        <input type="hidden" name="active" value={String(a.active)} />
+                        <button className={`btn btn-sm ${a.active ? "btn-primary" : "btn-secondary"}`} type="submit">
+                          {a.active ? "Active" : "Hidden"}
+                        </button>
+                      </form>
+                      <form action={removeAnnouncementAction} style={{ display: "inline" }}>
+                        <input type="hidden" name="stationId" value={station.id} />
+                        <input type="hidden" name="announcementId" value={a.id} />
+                        <button className="btn btn-danger btn-sm" type="submit">Remove</button>
+                      </form>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Danger zone */}

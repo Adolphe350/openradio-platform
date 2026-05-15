@@ -1,12 +1,13 @@
 import { NextRequest } from "next/server";
 import { env } from "@/lib/env";
+import { db } from "@/lib/db";
+import { getPublicStreamUrl } from "@/lib/stream";
 
 export const dynamic = "force-dynamic";
 
 /**
  * Proxies audio stream requests to the internal Icecast server.
- * This allows the public player to work even when STREAM_PUBLIC_BASE_URL
- * is not properly configured (e.g. still set to localhost).
+ * Also serves M3U and PLS playlist files for stations by slug.
  */
 export async function GET(
   req: NextRequest,
@@ -14,6 +15,52 @@ export async function GET(
 ) {
   const { path: segments } = await params;
   const mountPath = "/" + segments.join("/");
+
+  // Handle M3U playlist requests: /stream/[stationSlug].m3u
+  if (mountPath.endsWith(".m3u") && segments.length === 1) {
+    const slug = segments[0].replace(/\.m3u$/, "");
+    const station = await db.station.findUnique({ where: { slug }, select: { id: true, name: true, mountPath: true, description: true, genre: true } });
+    if (!station) {
+      return new Response("Station not found", { status: 404, headers: { "Content-Type": "text/plain" } });
+    }
+    const streamUrl = getPublicStreamUrl(station.mountPath);
+    const absoluteUrl = streamUrl.startsWith("/")
+      ? `${env.APP_BASE_URL}${streamUrl}`
+      : streamUrl;
+    const m3u = `#EXTM3U\n#EXTINF:-1 tvg-name="${station.name}",${station.name}\n${absoluteUrl}\n`;
+    return new Response(m3u, {
+      status: 200,
+      headers: {
+        "Content-Type": "audio/mpegurl",
+        "Content-Disposition": `attachment; filename="${slug}.m3u"`,
+        "Cache-Control": "no-cache",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  }
+
+  // Handle PLS playlist requests: /stream/[stationSlug].pls
+  if (mountPath.endsWith(".pls") && segments.length === 1) {
+    const slug = segments[0].replace(/\.pls$/, "");
+    const station = await db.station.findUnique({ where: { slug }, select: { id: true, name: true, mountPath: true } });
+    if (!station) {
+      return new Response("Station not found", { status: 404, headers: { "Content-Type": "text/plain" } });
+    }
+    const streamUrl = getPublicStreamUrl(station.mountPath);
+    const absoluteUrl = streamUrl.startsWith("/")
+      ? `${env.APP_BASE_URL}${streamUrl}`
+      : streamUrl;
+    const pls = `[playlist]\nFile1=${absoluteUrl}\nTitle1=${station.name}\nLength1=-1\nNumberOfEntries=1\nVersion=2\n`;
+    return new Response(pls, {
+      status: 200,
+      headers: {
+        "Content-Type": "audio/x-scpls",
+        "Content-Disposition": `attachment; filename="${slug}.pls"`,
+        "Cache-Control": "no-cache",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  }
 
   const icecastUrl = `http://${env.STREAM_SOURCE_HOST}:${env.ICECAST_SOURCE_PORT}${mountPath}`;
 

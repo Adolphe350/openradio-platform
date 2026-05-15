@@ -39,6 +39,7 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
     include: {
       metrics: { orderBy: { sampledAt: "desc" }, take: 1 },
       tracks: { orderBy: { createdAt: "desc" }, take: 10 },
+      announcements: { where: { active: true }, orderBy: { createdAt: "desc" }, take: 5 },
       _count: { select: { tracks: true, playlists: true } },
     },
   });
@@ -317,6 +318,19 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
               Data source: {metricState.source}
             </p>
           </div>
+
+          {/* Announcements */}
+          {station.announcements.length > 0 && (
+            <div className="card" style={{ padding: "1.25rem", display: "grid", gap: "0.75rem" }}>
+              <h3 style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700 }}>Announcements</h3>
+              {station.announcements.map((a) => (
+                <div key={a.id} style={{ padding: "0.75rem", background: "var(--bg-page)", borderRadius: 8, border: "1px solid var(--border)", borderLeft: "3px solid var(--brand)" }}>
+                  <p style={{ margin: "0 0 0.3rem", fontWeight: 600, fontSize: "0.875rem" }}>{a.title}</p>
+                  <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--text-muted)" }}>{a.content}</p>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Related stations */}
           {related.length > 0 && (

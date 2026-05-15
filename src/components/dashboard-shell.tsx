@@ -8,8 +8,9 @@ const navSections = [
     label: "Studio",
     links: [
       { href: "/dashboard", icon: "🏠", label: "Overview" },
-      { href: "/dashboard/stations/new", icon: "＋", label: "Create Station" },
+      { href: "/dashboard/stations/new", icon: "+", label: "Create Station" },
       { href: "/dashboard/analytics", icon: "📊", label: "Analytics" },
+      { href: "/dashboard/podcasts", icon: "🎙", label: "Podcasts" },
     ],
   },
   {

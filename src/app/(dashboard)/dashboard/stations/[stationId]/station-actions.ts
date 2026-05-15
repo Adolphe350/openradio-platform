@@ -105,6 +105,68 @@ export async function removeScheduleBlockAction(fd: FormData) {
   revalidatePath(`/dashboard/stations/${stationId}`);
 }
 
+// ── Recordings ────────────────────────────────────────────────────
+export async function startRecordingAction(fd: FormData) {
+  const user = await requireUser();
+  const stationId = val(fd, "stationId");
+  await owned(stationId, user.id);
+
+  const active = await db.recording.findFirst({ where: { stationId, status: "recording" } });
+  if (!active) {
+    await db.recording.create({ data: { stationId, status: "recording" } });
+  }
+  revalidatePath(`/dashboard/stations/${stationId}`);
+}
+
+export async function stopRecordingAction(fd: FormData) {
+  const user = await requireUser();
+  const stationId = val(fd, "stationId");
+  await owned(stationId, user.id);
+
+  const recording = await db.recording.findFirst({
+    where: { stationId, status: "recording" },
+    orderBy: { startedAt: "desc" },
+  });
+  if (recording) {
+    await db.recording.update({
+      where: { id: recording.id },
+      data: { status: "done", endedAt: new Date() },
+    });
+  }
+  revalidatePath(`/dashboard/stations/${stationId}`);
+}
+
+// ── Announcements ─────────────────────────────────────────────────
+export async function addAnnouncementAction(fd: FormData) {
+  const user = await requireUser();
+  const stationId = val(fd, "stationId");
+  const title = val(fd, "title");
+  const content = val(fd, "content");
+  await owned(stationId, user.id);
+  if (!title || !content) redirect(`/dashboard/stations/${stationId}?tab=settings&error=Title+and+content+required`);
+  await db.announcement.create({ data: { stationId, title, content, active: true } });
+  revalidatePath(`/dashboard/stations/${stationId}`);
+}
+
+export async function removeAnnouncementAction(fd: FormData) {
+  const user = await requireUser();
+  const stationId = val(fd, "stationId");
+  const announcementId = val(fd, "announcementId");
+  await owned(stationId, user.id);
+  await db.announcement.deleteMany({ where: { id: announcementId, stationId } });
+  revalidatePath(`/dashboard/stations/${stationId}`);
+}
+
+export async function toggleAnnouncementAction(fd: FormData) {
+  const user = await requireUser();
+  const stationId = val(fd, "stationId");
+  const announcementId = val(fd, "announcementId");
+  const active = val(fd, "active") === "true";
+  await owned(stationId, user.id);
+  await db.announcement.updateMany({ where: { id: announcementId, stationId }, data: { active: !active } });
+  revalidatePath(`/dashboard/stations/${stationId}`);
+}
+
 // ── Geo-blocking: generate Icecast ACL file ───────────────────────
 async function generateIcecastAcl(stationId: string) {
   try {
