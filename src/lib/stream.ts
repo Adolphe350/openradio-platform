@@ -11,13 +11,11 @@ export function normalizeMountPath(mountPath: string) {
 export function getPublicStreamUrl(mountPath: string) {
   const normalizedMountPath = normalizeMountPath(mountPath);
 
-  // If STREAM_PUBLIC_BASE_URL is localhost (unconfigured), use relative /stream proxy
-  const base = env.STREAM_PUBLIC_BASE_URL.replace(/\/$/, "");
-  if (base.includes("localhost") || base.includes("127.0.0.1")) {
-    return `/stream${normalizedMountPath}`;
-  }
-
-  return `${base}${normalizedMountPath}`;
+  // Always prefer the app's /stream proxy for public playback URLs.
+  // This keeps playlists and player links aligned with the working HTTPS proxy
+  // path even when STREAM_PUBLIC_BASE_URL points at a direct Icecast host or
+  // a stale root URL.
+  return `/stream${normalizedMountPath}`;
 }
 
 export function getSourceEndpoint(mountPath: string) {
