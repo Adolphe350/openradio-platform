@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
+import { env } from "@/lib/env";
 import { getPublicStreamUrl } from "@/lib/stream";
 
 export const dynamic = "force-dynamic";
