@@ -75,4 +75,18 @@ export async function generateStationConfig(stationId: string): Promise<void> {
       "utf8"
     );
   }
+
+  // all_tracks.m3u — every track in the station (for default AutoDJ rotation)
+  const allTracks = await db.track.findMany({
+    where: { stationId },
+    select: { filePath: true, fileUrl: true },
+  });
+  const allTrackLines = allTracks
+    .map((t) => t.filePath ?? t.fileUrl ?? "")
+    .filter(Boolean);
+  await writeFile(
+    path.join(stationDir, "all_tracks.m3u"),
+    allTrackLines.join("\n") + "\n",
+    "utf8"
+  );
 }
