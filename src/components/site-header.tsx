@@ -15,7 +15,7 @@ export function SiteHeader({ showAuthActions = true }: SiteHeaderProps) {
         <div className="site-nav-inner">
           {/* Logo */}
           <Link href="/" className="nav-logo">
-            <div className="nav-logo-icon">Z</div>
+            <div className="nav-logo-icon">O</div>
             <span className="nav-logo-name">openradio</span>
           </Link>
 

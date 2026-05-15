@@ -64,7 +64,7 @@ export function SiteFooter() {
                   fontWeight: 800, color: "#fff", fontSize: "0.95rem",
                 }}
               >
-                Z
+                O
               </div>
               <span className="footer-logo-name">openradio</span>
             </Link>

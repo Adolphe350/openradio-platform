@@ -1,4 +1,4 @@
-/* ─── Zeno-style Design Tokens ─────────────────────────────────── */
+/* ─── OpenRadio Design Tokens ─────────────────────────────────── */
 :root {
   --bg:           #ffffff;
   --bg-page:      #f7f8fa;
@@ -10,7 +10,7 @@
   --border:       #e5e7eb;
   --border-dark:  #374151;
 
-  /* Zeno teal/green brand */
+  /* Brand teal/green */
   --brand:        #00c8a0;
   --brand-dark:   #00a882;
   --brand-light:  #e6faf6;
@@ -123,7 +123,7 @@ img { display: block; max-width: 100%; }
 .btn:active   { transform: translateY(0); opacity: 1; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-/* Primary — Zeno teal */
+/* Primary — brand teal */
 .btn-primary {
   background: var(--brand);
   color: #fff;
@@ -1048,7 +1048,7 @@ textarea::placeholder { color: var(--text-light); }
 
 .footer-link:hover { color: #fff; text-decoration: none; }
 
-/* ─── Station Detail Layout (Zeno-style sidebar) ────────────────── */
+/* ─── Station Detail Layout (OpenRadio sidebar) ────────────────── */
 .station-detail-layout {
   display: grid;
   grid-template-columns: 220px 1fr;

@@ -21,7 +21,7 @@ export default async function SignUpPage({ searchParams }: Props) {
         <div style={{ display: "grid", gap: "1.5rem", textAlign: "center", position: "relative", zIndex: 1 }}>
           <Link href="/" style={{ display: "flex", alignItems: "center", gap: "0.6rem", justifyContent: "center", textDecoration: "none" }}>
             <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--brand)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#fff", fontSize: "1.1rem" }}>
-              Z
+              O
             </div>
             <span style={{ fontSize: "1.3rem", fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>openradio</span>
           </Link>

@@ -49,7 +49,7 @@ export async function forgotPasswordAction(formData: FormData) {
       <div style="font-family:Inter,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#fff">
         <div style="margin-bottom:24px">
           <span style="display:inline-flex;align-items:center;gap:8px">
-            <span style="width:28px;height:28px;border-radius:7px;background:#00c8a0;display:inline-flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:14px">Z</span>
+            <span style="width:28px;height:28px;border-radius:7px;background:#00c8a0;display:inline-flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:14px">O</span>
             <strong style="font-size:16px">openradio</strong>
           </span>
         </div>

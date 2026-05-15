@@ -41,7 +41,7 @@ export function DashboardShell({ userName, children }: Props) {
       <aside className="dashboard-sidebar">
         {/* Logo */}
         <Link href="/" className="sidebar-logo">
-          <div className="sidebar-logo-icon">Z</div>
+          <div className="sidebar-logo-icon">O</div>
           <span className="sidebar-logo-text">openradio</span>
         </Link>
 
