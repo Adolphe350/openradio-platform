@@ -87,8 +87,8 @@ export default async function ExplorePage({ searchParams }: Props) {
       <div className="container" style={{ padding: "1.5rem 0 4rem" }}>
 
         {/* ── Search bar ─────────────────────────────────────────── */}
-        <form method="GET" style={{ marginBottom: "1.25rem" }}>
-          <div style={{
+        <form method="GET" className="explore-search-form" style={{ marginBottom: "1.25rem" }}>
+          <div className="explore-search-box" style={{
             display: "flex", gap: 0, background: "var(--bg)",
             border: "1.5px solid var(--border)", borderRadius: "var(--radius-lg)",
             overflow: "hidden", boxShadow: "var(--shadow-sm)",
@@ -129,8 +129,8 @@ export default async function ExplorePage({ searchParams }: Props) {
 
         {/* ── Advanced filters (when active) ─────────────────────── */}
         {hasFilter && (
-          <form method="GET" style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "1rem", marginBottom: "1.5rem" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: "0.75rem" }}>
+          <form method="GET" className="explore-filter-card" style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "1rem", marginBottom: "1.5rem" }}>
+            <div className="explore-filter-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: "0.75rem" }}>
               <div className="field">
                 <label htmlFor="genre">Genre</label>
                 <select id="genre" name="genre" defaultValue={params.genre ?? ""}>
@@ -160,7 +160,7 @@ export default async function ExplorePage({ searchParams }: Props) {
                   <option value="name">Name A–Z</option>
                 </select>
               </div>
-              <div style={{ display: "flex", alignItems: "flex-end", gap: "0.5rem" }}>
+              <div className="explore-filter-actions" style={{ display: "flex", alignItems: "flex-end", gap: "0.5rem" }}>
                 <button className="btn btn-primary btn-sm" type="submit">Apply</button>
                 <Link href="/explore" className="btn btn-secondary btn-sm">Reset</Link>
               </div>

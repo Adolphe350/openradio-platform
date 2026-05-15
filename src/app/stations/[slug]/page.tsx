@@ -96,9 +96,10 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
 
       {/* ── Station identity row ─────────────────────────────────── */}
       <div style={{ background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
-        <div className="container" style={{ position: "relative", paddingTop: "0.75rem", paddingBottom: "1.25rem" }}>
+        <div className="container public-station-identity" style={{ position: "relative", paddingTop: "0.75rem", paddingBottom: "1.25rem" }}>
           {/* Square logo — overlaps banner */}
           <div
+            className="public-station-logo"
             style={{
               width: 120,
               height: 120,
@@ -125,7 +126,7 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
           </div>
 
           {/* Spacer for logo */}
-          <div style={{ marginLeft: 136 }}>
+          <div className="public-station-info" style={{ marginLeft: 136 }}>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
               <div>
                 {/* Live badge */}
@@ -179,7 +180,7 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
               </div>
 
               {/* Social links */}
-              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              <div className="public-station-actions" style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                 {station.websiteUrl && (
                   <a href={station.websiteUrl} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm">Website</a>
                 )}
@@ -203,14 +204,14 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
       </div>
 
       {/* ── Main content ─────────────────────────────────────────── */}
-      <div className="container" style={{ padding: "1.75rem 0 4rem", display: "grid", gridTemplateColumns: "1fr 320px", gap: "1.75rem", alignItems: "start" }}>
+      <div className="container public-station-layout" style={{ padding: "1.75rem 0 4rem", display: "grid", gridTemplateColumns: "1fr 320px", gap: "1.75rem", alignItems: "start" }}>
 
         {/* Left column */}
         <div style={{ display: "grid", gap: "1.25rem" }}>
 
           {/* Listen / Player */}
           <div
-            className="card"
+            className="card public-listen-card"
             style={{
               padding: "1.5rem",
               background: "var(--bg-dark)",
@@ -242,10 +243,10 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
               controls
               preload="none"
               src={streamUrl}
-              style={{ width: "100%", height: 48, borderRadius: 8, accentColor: "var(--brand)" }}
+              style={{ width: "100%", minWidth: 0, height: 48, borderRadius: 8, accentColor: "var(--brand)" }}
             />
 
-            <p style={{ margin: 0, fontSize: "0.75rem", color: "rgba(255,255,255,0.35)" }}>
+            <p className="public-stream-url" style={{ margin: 0, fontSize: "0.75rem", color: "rgba(255,255,255,0.35)" }}>
               Stream URL: <code style={{ color: "rgba(255,255,255,0.55)" }}>{streamUrl}</code>
             </p>
           </div>

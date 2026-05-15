@@ -96,9 +96,10 @@ export async function GET(
         "User-Agent": req.headers.get("user-agent") || "OpenRadio-Proxy/1.0",
         "Icy-MetaData": req.headers.get("icy-metadata") || "0",
       },
-      // Don't buffer — stream it
+      // Don't buffer — stream it. Do not attach a short AbortSignal here:
+      // live radio responses intentionally stay open, and aborting after a
+      // few seconds breaks browser playback even when Icecast is healthy.
       cache: "no-store",
-      signal: AbortSignal.timeout(5000),
     });
 
     if (!upstream.ok) {

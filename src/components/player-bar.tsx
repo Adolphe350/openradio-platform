@@ -130,6 +130,7 @@ export function PlayerBar({ stationName, stationSlug, streamUrl, genre, logoUrl,
 
   return (
     <div
+      className="player-bar"
       style={{
         position: "fixed",
         bottom: 0, left: 0, right: 0,
@@ -146,6 +147,7 @@ export function PlayerBar({ stationName, stationSlug, streamUrl, genre, logoUrl,
     >
       {/* Logo */}
       <div
+        className="player-bar-logo"
         style={{
           width: 42, height: 42, borderRadius: 8, flexShrink: 0,
           background: logoUrl ? undefined : grad,
@@ -160,9 +162,10 @@ export function PlayerBar({ stationName, stationSlug, streamUrl, genre, logoUrl,
       </div>
 
       {/* Controls — centered */}
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "1rem" }}>
+      <div className="player-bar-main" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "1rem" }}>
         <Link
           href={`/stations/${stationSlug}`}
+          className="player-bar-title"
           style={{ fontWeight: 700, fontSize: "0.875rem", color: "#fff", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
         >
           {stationName}
@@ -170,6 +173,7 @@ export function PlayerBar({ stationName, stationSlug, streamUrl, genre, logoUrl,
 
         <button
           onClick={togglePlay}
+          className="player-bar-play"
           style={{
             width: 44, height: 44, borderRadius: "50%",
             background: error ? "#ef4444" : "var(--brand)",
@@ -184,20 +188,20 @@ export function PlayerBar({ stationName, stationSlug, streamUrl, genre, logoUrl,
         </button>
 
         {errorMsg && (
-          <span style={{ fontSize: "0.72rem", color: "#f87171", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span className="player-bar-status" style={{ fontSize: "0.72rem", color: "#f87171", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {errorMsg}
           </span>
         )}
 
         {!errorMsg && (
-          <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.45)", whiteSpace: "nowrap", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>
+          <span className="player-bar-status" style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.45)", whiteSpace: "nowrap", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>
             {currentTrack || genre || "Live Radio"}
           </span>
         )}
       </div>
 
       {/* Volume */}
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
+      <div className="player-bar-volume" style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
         <span style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.5)" }}>
           {volume === 0 ? "🔇" : volume < 0.5 ? "🔈" : "🔊"}
         </span>
@@ -213,13 +217,14 @@ export function PlayerBar({ stationName, stationSlug, streamUrl, genre, logoUrl,
       {/* Open link */}
       <Link
         href={`/stations/${stationSlug}`}
+        className="player-bar-open"
         style={{ fontSize: "0.78rem", color: "var(--brand)", fontWeight: 600, flexShrink: 0, whiteSpace: "nowrap" }}
       >
         Open →
       </Link>
 
       {/* Live dot */}
-      <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", flexShrink: 0 }}>
+      <div className="player-bar-live" style={{ display: "flex", alignItems: "center", gap: "0.35rem", flexShrink: 0 }}>
         <span className="live-dot" />
         <span style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "rgba(255,255,255,0.5)" }}>
           Live

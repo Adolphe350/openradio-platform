@@ -1531,3 +1531,177 @@ textarea::placeholder { color: var(--text-light); }
     grid-template-columns: 1fr !important;
   }
 }
+
+/* ─── Public radio + player mobile-first pass ───────────────────── */
+.public-station-layout,
+.public-station-identity,
+.public-listen-card,
+.player-bar,
+.player-bar-main {
+  min-width: 0;
+}
+
+.public-stream-url code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.player-bar {
+  max-width: 100vw;
+  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+}
+
+.player-bar-play {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+@media (max-width: 900px) {
+  .public-station-layout {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+    padding-top: 1rem !important;
+  }
+
+  .public-station-actions {
+    width: 100%;
+  }
+
+  .public-station-actions .btn,
+  .public-station-actions a {
+    flex: 1 1 120px;
+  }
+}
+
+@media (max-width: 767px) {
+  .tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .tabs::-webkit-scrollbar { display: none; }
+
+  .tab {
+    min-height: 44px;
+    white-space: nowrap;
+    padding-inline: 1rem;
+  }
+
+  .section-row {
+    align-items: flex-start;
+  }
+
+  .explore-search-box {
+    border-radius: 14px !important;
+  }
+
+  .explore-search-box input[type="search"] {
+    min-width: 0;
+    padding-inline: 0.85rem !important;
+  }
+
+  .explore-search-box button {
+    min-height: 48px;
+    padding-inline: 1rem !important;
+  }
+
+  .explore-filter-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .explore-filter-actions,
+  .explore-filter-actions .btn,
+  .explore-filter-actions a {
+    width: 100%;
+  }
+
+  .public-station-identity {
+    padding-top: 4.25rem !important;
+  }
+
+  .public-station-logo {
+    width: 96px !important;
+    height: 96px !important;
+    top: -48px !important;
+    left: 0.75rem !important;
+    border-radius: 14px !important;
+    font-size: 2.35rem !important;
+  }
+
+  .public-station-info {
+    margin-left: 0 !important;
+  }
+
+  .public-listen-card {
+    padding: 1rem !important;
+    border-radius: 16px !important;
+  }
+
+  .public-stream-url {
+    display: none;
+  }
+
+  .player-bar {
+    height: auto !important;
+    min-height: 72px;
+    padding: 0.55rem 0.7rem calc(0.55rem + env(safe-area-inset-bottom, 0px)) !important;
+    gap: 0.6rem !important;
+    align-items: center !important;
+  }
+
+  .player-bar-logo {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .player-bar-main {
+    justify-content: flex-start !important;
+    gap: 0.6rem !important;
+    overflow: hidden;
+  }
+
+  .player-bar-title {
+    max-width: 34vw !important;
+    font-size: 0.82rem !important;
+  }
+
+  .player-bar-status {
+    display: none !important;
+  }
+
+  .player-bar-volume,
+  .player-bar-live {
+    display: none !important;
+  }
+
+  .player-bar-open {
+    font-size: 0.78rem !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .grid-cards,
+  .grid-cards-lg {
+    grid-template-columns: 1fr !important;
+  }
+
+  .station-card {
+    display: grid;
+    grid-template-columns: 84px minmax(0, 1fr);
+    min-height: 84px;
+  }
+
+  .station-card-thumb {
+    height: 84px;
+    aspect-ratio: auto;
+  }
+
+  .station-card-body {
+    align-self: center;
+    min-width: 0;
+  }
+
+  .player-bar-title {
+    max-width: 28vw !important;
+  }
+}
