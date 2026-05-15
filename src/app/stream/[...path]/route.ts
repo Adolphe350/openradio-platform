@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { env } from "@/lib/env";
 import { db } from "@/lib/db";
 import { getPublicStreamUrl } from "@/lib/stream";
 
@@ -24,8 +23,9 @@ export async function GET(
       return new Response("Station not found", { status: 404, headers: { "Content-Type": "text/plain" } });
     }
     const streamUrl = getPublicStreamUrl(station.mountPath);
+    const origin = req.nextUrl.origin;
     const absoluteUrl = streamUrl.startsWith("/")
-      ? `${env.APP_BASE_URL}${streamUrl}`
+      ? `${origin}${streamUrl}`
       : streamUrl;
     const m3u = `#EXTM3U\n#EXTINF:-1 tvg-name="${station.name}",${station.name}\n${absoluteUrl}\n`;
     return new Response(m3u, {
@@ -47,8 +47,9 @@ export async function GET(
       return new Response("Station not found", { status: 404, headers: { "Content-Type": "text/plain" } });
     }
     const streamUrl = getPublicStreamUrl(station.mountPath);
+    const origin = req.nextUrl.origin;
     const absoluteUrl = streamUrl.startsWith("/")
-      ? `${env.APP_BASE_URL}${streamUrl}`
+      ? `${origin}${streamUrl}`
       : streamUrl;
     const pls = `[playlist]\nFile1=${absoluteUrl}\nTitle1=${station.name}\nLength1=-1\nNumberOfEntries=1\nVersion=2\n`;
     return new Response(pls, {

@@ -70,7 +70,7 @@ output.icecast(
 EOF_LIQ
   fi
   echo "[openradio] No station configs found — running demo stream on /demo.mp3"
-  exec liquidsoap /tmp/openradio-demo.liq
+  exec liquidsoap --allow-root /tmp/openradio-demo.liq
 }
 
 # Watch loop: start one liquidsoap process per .liq config file.
@@ -82,7 +82,7 @@ run_station_configs() {
     [ -f "$liq_file" ] || continue
     station_id="$(basename "$liq_file" .liq)"
     echo "[openradio] Starting AutoDJ for station: ${station_id}"
-    liquidsoap "$liq_file" &
+    liquidsoap --allow-root "$liq_file" &
     pids="$pids $!"
   done
 
