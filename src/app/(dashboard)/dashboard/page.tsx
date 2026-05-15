@@ -129,7 +129,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Weekly stats cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: "1rem" }}>
+      <div className="mobile-stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: "1rem" }}>
         {[
           { label: "Total Stations", value: stations.length, sub: `${activeCount} active` },
           { label: "Current Listeners", value: totalListeners, sub: "across all stations" },
@@ -165,7 +165,7 @@ export default async function DashboardPage() {
                 {done}/{checklist.length} steps complete
               </p>
             </div>
-            <div style={{ display: "flex", gap: "0.5rem" }}>
+            <div className="mobile-full-actions" style={{ display: "flex", gap: "0.5rem" }}>
               <Link href="/streaming" className="btn btn-secondary btn-sm">Streaming guide</Link>
               <Link href="/automation" className="btn btn-secondary btn-sm">AutoDJ guide</Link>
             </div>
@@ -213,7 +213,7 @@ export default async function DashboardPage() {
             <Link href="/dashboard/stations/new" className="btn btn-primary">Create your first station</Link>
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: "1rem" }}>
+          <div className="mobile-stack-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: "1rem" }}>
             {stationsWithMetrics.map(({ s, m }) => (
               <div key={s.id} className="card" style={{ overflow: "hidden" }}>
                 {/* Color banner */}
@@ -275,7 +275,7 @@ export default async function DashboardPage() {
                     {getPublicStreamUrl(s.mountPath)}
                   </p>
 
-                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <div className="mobile-full-actions" style={{ display: "flex", gap: "0.5rem" }}>
                     <Link href={`/dashboard/stations/${s.id}`} className="btn btn-primary btn-sm" style={{ flex: 1 }}>
                       Manage
                     </Link>

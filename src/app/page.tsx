@@ -118,7 +118,7 @@ export default async function HomePage() {
               OpenRadio gives you all the tools that top broadcasters use — completely free and open source.
             </p>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: "1.25rem" }}>
+          <div className="mobile-stack-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: "1.25rem" }}>
             {creatorFeatures.map((f) => (
               <div key={f.title} className="feature-item card" style={{ padding: "1.25rem" }}>
                 <div className="feature-icon">{f.icon}</div>
@@ -134,7 +134,7 @@ export default async function HomePage() {
 
       {/* ── Discovery ────────────────────────────────────────────── */}
       <section style={{ padding: "3rem 0" }}>
-        <div className="container" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: "3rem", alignItems: "center" }}>
+        <div className="container mobile-stack-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: "3rem", alignItems: "center" }}>
           <div style={{ display: "grid", gap: "1rem" }}>
             <p style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--brand)", margin: 0 }}>
               Listener Discovery
@@ -145,12 +145,12 @@ export default async function HomePage() {
             <p style={{ color: "var(--text-muted)", margin: 0, fontSize: "0.93rem", lineHeight: 1.65 }}>
               Discover radio stations from around the world. Filter by genre, language, or location to find your perfect station.
             </p>
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            <div className="mobile-full-actions" style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
               <Link href="/explore" className="btn btn-primary">Browse Stations</Link>
               <Link href="/sign-up" className="btn btn-secondary">Start Broadcasting</Link>
             </div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.65rem" }}>
+          <div className="mobile-two-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.65rem" }}>
             {["Pop","Hip-Hop","Jazz","News","Rock","Electronic","Classical","R&B"].map((g) => (
               <Link
                 key={g}
@@ -174,7 +174,7 @@ export default async function HomePage() {
           <p style={{ color: "rgba(255,255,255,0.6)", maxWidth: "48ch", margin: 0, fontSize: "0.95rem" }}>
             Thousands of creators broadcast with OpenRadio Cloud. Free, open-source, and yours to own.
           </p>
-          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", justifyContent: "center" }}>
+          <div className="mobile-full-actions" style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", justifyContent: "center" }}>
             <Link href="/sign-up" className="btn btn-primary btn-lg">Create Free Station</Link>
             <Link href="/explore" className="btn btn-ghost-dark btn-lg">Explore Stations</Link>
           </div>

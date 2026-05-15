@@ -22,7 +22,7 @@ export function SiteHeader({ showAuthActions = true }: SiteHeaderProps) {
           <div className="nav-divider" />
 
           {/* Create a Station */}
-          <Link href="/sign-up" className="nav-link" style={{ fontWeight: 600, color: "var(--text)" }}>
+          <Link href="/sign-up" className="nav-link nav-hide-mobile" style={{ fontWeight: 600, color: "var(--text)" }}>
             Create a Station
           </Link>
 
@@ -32,22 +32,22 @@ export function SiteHeader({ showAuthActions = true }: SiteHeaderProps) {
           </Link>
 
           {/* Religious */}
-          <Link href="/explore?genre=Religious" className="nav-link">
+          <Link href="/explore?genre=Religious" className="nav-link nav-hide-mobile">
             Religious
           </Link>
 
           {/* Music */}
-          <Link href="/explore?genre=Music" className="nav-link">
+          <Link href="/explore?genre=Music" className="nav-link nav-hide-mobile">
             Music
           </Link>
 
           {/* News */}
-          <Link href="/explore?genre=News" className="nav-link">
+          <Link href="/explore?genre=News" className="nav-link nav-hide-mobile">
             News
           </Link>
 
-          {/* By Genre dropdown */}
-          <div className="nav-dropdown">
+          {/* By Genre dropdown — desktop only */}
+          <div className="nav-dropdown nav-hide-mobile">
             <button className="nav-link" style={{ cursor: "pointer" }}>
               By Genre ▾
             </button>
@@ -60,8 +60,8 @@ export function SiteHeader({ showAuthActions = true }: SiteHeaderProps) {
             </div>
           </div>
 
-          {/* By Location dropdown */}
-          <div className="nav-dropdown">
+          {/* By Location dropdown — desktop only */}
+          <div className="nav-dropdown nav-hide-mobile">
             <button className="nav-link" style={{ cursor: "pointer" }}>
               By Location ▾
             </button>
@@ -74,8 +74,8 @@ export function SiteHeader({ showAuthActions = true }: SiteHeaderProps) {
             </div>
           </div>
 
-          {/* By Language dropdown */}
-          <div className="nav-dropdown">
+          {/* By Language dropdown — desktop only */}
+          <div className="nav-dropdown nav-hide-mobile">
             <button className="nav-link" style={{ cursor: "pointer" }}>
               By Language ▾
             </button>

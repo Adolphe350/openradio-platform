@@ -92,9 +92,9 @@ export default function AnalyticsPage() {
 
       {/* Controls */}
       <div className="card" style={{ padding: "1rem 1.25rem" }}>
-        <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+        <div className="mobile-control-row" style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
           {/* Quick presets */}
-          <div style={{ display: "flex", gap: "0.3rem" }}>
+          <div className="mobile-segment-row" style={{ display: "flex", gap: "0.3rem" }}>
             {[
               { label: "7d", days: 7 },
               { label: "14d", days: 14 },
@@ -112,7 +112,7 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Date range */}
-          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          <div className="mobile-date-row" style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
             <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
               style={{ borderRadius: 8, border: "1px solid var(--border)", padding: "0.35rem 0.6rem", fontSize: "0.85rem" }} />
             <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>to</span>
@@ -150,7 +150,7 @@ export default function AnalyticsPage() {
 
       {/* Summary stats */}
       {summary && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: "1rem" }}>
+        <div className="mobile-stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: "1rem" }}>
           <div className="stat-card">
             <div className="stat-value">{formatNum(summary.thisTotal)}</div>
             <div className="stat-label">This Period</div>

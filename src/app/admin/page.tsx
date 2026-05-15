@@ -93,7 +93,7 @@ export default async function AdminOverviewPage() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: "1rem" }}>
+      <div className="mobile-stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: "1rem" }}>
         {stats.map((stat) => (
           <div key={stat.label} className="stat-card">
             <div className="stat-value">{stat.value}</div>
@@ -103,13 +103,14 @@ export default async function AdminOverviewPage() {
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.3fr) minmax(280px,0.7fr)", gap: "1rem" }}>
-        <div className="card" style={{ padding: "1.25rem", overflowX: "auto" }}>
+      <div className="admin-two-col">
+        <div className="card" style={{ padding: "1.25rem" }}>
           <div className="section-row" style={{ marginBottom: "1rem" }}>
             <h2 style={{ fontSize: "1rem", margin: 0 }}>Recent stations</h2>
             <Link href="/admin/stations" style={{ fontSize: "0.85rem", color: "var(--brand)", fontWeight: 600 }}>View all →</Link>
           </div>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+          <div className="table-scroll">
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem", minWidth: 500 }}>
             <thead>
               <tr style={{ textAlign: "left", color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
                 <th style={{ padding: "0.6rem" }}>Station</th>
@@ -134,6 +135,7 @@ export default async function AdminOverviewPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
 
         <div className="card" style={{ padding: "1.25rem" }}>

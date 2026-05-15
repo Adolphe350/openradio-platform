@@ -44,17 +44,9 @@ export function SiteFooter() {
     <footer className="site-footer">
       <div className="container">
         {/* Top: logo + columns */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1.6fr repeat(3, 1fr)",
-            gap: "2.5rem",
-            paddingBottom: "2.5rem",
-            borderBottom: "1px solid rgba(255,255,255,0.08)",
-          }}
-        >
+        <div className="footer-top-grid">
           {/* Brand column */}
-          <div style={{ display: "grid", gap: "0.8rem", alignContent: "start" }}>
+          <div className="footer-brand-col" style={{ display: "grid", gap: "0.8rem", alignContent: "start" }}>
             <Link href="/" style={{ display: "flex", alignItems: "center", gap: "0.6rem", textDecoration: "none" }}>
               <div
                 style={{

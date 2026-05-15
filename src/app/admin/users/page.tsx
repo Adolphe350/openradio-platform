@@ -56,8 +56,9 @@ export default async function AdminUsersPage({ searchParams }: Props) {
         <button className="btn btn-primary" type="submit">Search</button>
       </form>
 
-      <div className="card" style={{ padding: "1.25rem", overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem" }}>
+      <div className="card" style={{ padding: "1.25rem" }}>
+        <div className="table-scroll">
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem", minWidth: 620 }}>
           <thead>
             <tr style={{ textAlign: "left", color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
               <th style={{ padding: "0.65rem" }}>User</th>
@@ -94,6 +95,7 @@ export default async function AdminUsersPage({ searchParams }: Props) {
             })}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

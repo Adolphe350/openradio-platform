@@ -76,14 +76,15 @@ export default async function AdminStationsPage({ searchParams }: Props) {
         <button className="btn btn-primary" type="submit">Filter</button>
       </form>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: "1rem" }}>
+      <div className="mobile-stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: "1rem" }}>
         <div className="stat-card"><div className="stat-value">{stations.length}</div><div className="stat-label">Stations shown</div></div>
         <div className="stat-card"><div className="stat-value">{totalListeners}</div><div className="stat-label">Current listeners shown</div></div>
         <div className="stat-card"><div className="stat-value">{stations.filter((s) => s.status === "ACTIVE").length}</div><div className="stat-label">Active shown</div></div>
       </div>
 
-      <div className="card" style={{ padding: "1.25rem", overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem" }}>
+      <div className="card" style={{ padding: "1.25rem" }}>
+        <div className="table-scroll">
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem", minWidth: 700 }}>
           <thead>
             <tr style={{ textAlign: "left", color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
               <th style={{ padding: "0.65rem" }}>Station</th>
@@ -126,6 +127,7 @@ export default async function AdminStationsPage({ searchParams }: Props) {
             })}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

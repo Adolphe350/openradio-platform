@@ -49,7 +49,7 @@ export function DashboardShell({ userName, isSuperAdmin = false, children }: Pro
       {/* ── Sidebar ─────────────────────────────────────────────── */}
       <aside className="dashboard-sidebar">
         {/* Logo */}
-        <Link href="/" className="sidebar-logo">
+        <Link href="/" className="sidebar-logo" style={{ flexShrink: 0 }}>
           <div className="sidebar-logo-icon">O</div>
           <span className="sidebar-logo-text">openradio</span>
         </Link>
@@ -71,7 +71,22 @@ export function DashboardShell({ userName, isSuperAdmin = false, children }: Pro
           ))}
         </nav>
 
-        {/* Bottom: user + sign out */}
+        {/* Sign-out visible in mobile horizontal nav */}
+        <div className="sidebar-mobile-signout" style={{ flexShrink: 0, padding: "0 0.5rem" }}>
+          <form action={signOutAction}>
+            <button
+              className="sidebar-link"
+              type="submit"
+              title="Sign out"
+              style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.8rem", whiteSpace: "nowrap" }}
+            >
+              <span style={{ fontSize: "0.9rem", width: 20, textAlign: "center" }}>→</span>
+              Sign out
+            </button>
+          </form>
+        </div>
+
+        {/* Bottom: user + sign out (desktop only) */}
         <div className="sidebar-bottom">
           <div className="sidebar-user">
             <div className="sidebar-avatar">{initials}</div>
