@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { signOutAction } from "@/app/(auth)/auth-actions";
 
-type Props = { userName: string; children: React.ReactNode };
+type Props = { userName: string; isSuperAdmin?: boolean; children: React.ReactNode };
 
 const navSections = [
   {
@@ -29,13 +29,20 @@ const navSections = [
   },
 ];
 
-export function DashboardShell({ userName, children }: Props) {
+export function DashboardShell({ userName, isSuperAdmin = false, children }: Props) {
   const initials = userName
     .split(" ")
     .map((w) => w[0])
     .join("")
     .slice(0, 2)
     .toUpperCase();
+
+  const sections = isSuperAdmin
+    ? [
+        { label: "Admin", links: [{ href: "/admin", icon: "🛡️", label: "Super Admin" }] },
+        ...navSections,
+      ]
+    : navSections;
 
   return (
     <div className="dashboard-shell">
@@ -49,7 +56,7 @@ export function DashboardShell({ userName, children }: Props) {
 
         {/* Nav */}
         <nav className="sidebar-nav">
-          {navSections.map((section) => (
+          {sections.map((section) => (
             <div key={section.label}>
               <p className="sidebar-section-label">{section.label}</p>
               {section.links.map((link) => (
@@ -70,7 +77,7 @@ export function DashboardShell({ userName, children }: Props) {
             <div className="sidebar-avatar">{initials}</div>
             <div style={{ minWidth: 0 }}>
               <p className="sidebar-user-name">{userName}</p>
-              <p className="sidebar-user-role">Creator</p>
+              <p className="sidebar-user-role">{isSuperAdmin ? "Super Admin" : "Creator"}</p>
             </div>
           </div>
           <form action={signOutAction} style={{ marginTop: "0.4rem" }}>

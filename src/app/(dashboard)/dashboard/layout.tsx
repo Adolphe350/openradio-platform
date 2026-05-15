@@ -1,3 +1,4 @@
+import { isSuperAdminEmail } from "@/lib/admin";
 import { requireUser } from "@/lib/auth";
 
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -9,5 +10,5 @@ export default async function DashboardLayout({
 }) {
   const user = await requireUser();
 
-  return <DashboardShell userName={user.name}>{children}</DashboardShell>;
+  return <DashboardShell userName={user.name} isSuperAdmin={isSuperAdminEmail(user.email)}>{children}</DashboardShell>;
 }
