@@ -175,6 +175,10 @@ export default async function StationDetailPage({ params, searchParams }: Props)
         </nav>
 
         <div className="station-sidebar-footer">
+          <Link href={`/dashboard/stations/${stationId}/scheduler`} className="station-sidebar-link">
+            <span className="station-sidebar-icon">📅</span>
+            Scheduler
+          </Link>
           <Link href="/dashboard" className="station-sidebar-link">
             <span className="station-sidebar-icon">←</span>
             Back to Dashboard

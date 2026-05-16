@@ -217,25 +217,40 @@ model PlayLog {
   @@index([stationId, playedAt])
 }
 
+// Source type for schedule blocks
+enum ScheduleSourceType {
+  PLAYLIST        // A named playlist (playlistId required)
+  PODCAST_EPISODE // A single podcast episode file (sourceId = Episode.id)
+  RECORDING       // A station recording file (sourceId = Recording.id)
+  TRACK           // A single uploaded track (sourceId = Track.id)
+  RANDOM_ALL      // All station tracks shuffled (default AutoDJ fallback)
+  LIVE_SLOT       // Reserved live-broadcast slot (no AutoDJ, silence/fallback)
+}
+
 // Time-based schedule blocks (AutoDJ scheduling)
 model ScheduleBlock {
-  id         String   @id @default(cuid())
+  id         String             @id @default(cuid())
   stationId  String
-  playlistId String?
+  playlistId String?            // Foreign key for PLAYLIST source type
+  sourceType ScheduleSourceType @default(RANDOM_ALL)
+  sourceId   String?            // Generic source ID for non-playlist types
   name       String
-  dayOfWeek  Int      // 0=Sun ... 6=Sat, -1=every day
-  startHour  Int      // 0-23
-  startMin   Int      @default(0)
+  dayOfWeek  Int                // 0=Sun ... 6=Sat, -1=every day
+  startHour  Int                // 0-23
+  startMin   Int                @default(0)
   endHour    Int
-  endMin     Int      @default(0)
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  endMin     Int                @default(0)
+  color      String?            // Hex color for calendar UI, e.g. "#3b82f6"
+  notes      String?            // Optional notes/description
+  isActive   Boolean            @default(true)
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
 
   station  Station   @relation(fields: [stationId], references: [id], onDelete: Cascade)
   playlist Playlist? @relation(fields: [playlistId], references: [id], onDelete: SetNull)
 
   @@index([stationId])
+  @@index([stationId, dayOfWeek, startHour])
 }
 
 // Team management

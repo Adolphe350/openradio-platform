@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { ScheduleSourceType } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { generateStationConfig } from "@/lib/generate-station-config";
@@ -90,7 +91,8 @@ export async function addScheduleBlockAction(fd: FormData) {
   if (!name || isNaN(dayOfWeek) || isNaN(startHour) || isNaN(endHour)) {
     redirect(`/dashboard/stations/${stationId}?tab=schedule&error=All+fields+required`);
   }
-  await db.scheduleBlock.create({ data: { stationId, name, dayOfWeek, startHour, startMin, endHour, endMin, playlistId } });
+  const sourceType: ScheduleSourceType = playlistId ? "PLAYLIST" : "RANDOM_ALL";
+  await db.scheduleBlock.create({ data: { stationId, name, dayOfWeek, startHour, startMin, endHour, endMin, playlistId, sourceType } });
   await generateStationConfig(stationId).catch(() => {});
   revalidatePath(`/dashboard/stations/${stationId}`);
 }

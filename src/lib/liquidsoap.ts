@@ -10,6 +10,14 @@
  *  - outputs to Icecast on the station's mount path
  */
 
+export type ScheduleSourceType =
+  | "PLAYLIST"
+  | "PODCAST_EPISODE"
+  | "RECORDING"
+  | "TRACK"
+  | "RANDOM_ALL"
+  | "LIVE_SLOT";
+
 export type ScheduleEntry = {
   name: string;
   dayOfWeek: number;   // -1 = every day, 0 = Sun ... 6 = Sat
@@ -17,7 +25,9 @@ export type ScheduleEntry = {
   startMin: number;
   endHour: number;
   endMin: number;
-  playlistId: string | null;
+  sourceType: ScheduleSourceType;
+  sourceId: string | null;   // playlist/episode/recording/track id
+  playlistId: string | null; // kept for PLAYLIST type (used for .m3u filename)
 };
 
 export type LiqConfig = {
@@ -107,23 +117,72 @@ export function generateLiqScript(cfg: LiqConfig): string {
   lines.push(`combined_autodj = fallback(track_sensitive=true, [default_playlist, upload_playlist, blank()])`);
   lines.push(``);
 
-  // Named playlists from schedule entries that have a playlistId
-  const namedPlaylists = cfg.schedules
-    .filter((e) => e.playlistId)
-    .reduce<Map<string, ScheduleEntry>>((acc, e) => {
-      if (e.playlistId && !acc.has(e.playlistId)) acc.set(e.playlistId, e);
-      return acc;
-    }, new Map());
+  // Collect unique sources referenced in schedule entries
+  // PLAYLIST → playlist_<id>.m3u
+  // PODCAST_EPISODE / RECORDING / TRACK → source_<id>.m3u (single-file, written by generateStationConfig)
+  // RANDOM_ALL → combined_autodj
+  // LIVE_SLOT  → live_input
 
-  for (const [plId] of namedPlaylists) {
-    const varName = `playlist_${plId.replace(/-/g, "_")}`;
-    lines.push(`# Playlist ${plId}`);
+  const playlistSources = new Map<string, string>(); // playlistId → varName
+  const singleSources = new Map<string, string>();   // sourceId   → varName
+
+  for (const entry of cfg.schedules) {
+    if (entry.sourceType === "PLAYLIST" && entry.playlistId) {
+      const id = entry.playlistId;
+      if (!playlistSources.has(id)) {
+        playlistSources.set(id, `playlist_${id.replace(/-/g, "_")}`);
+      }
+    } else if (
+      (entry.sourceType === "PODCAST_EPISODE" ||
+       entry.sourceType === "RECORDING" ||
+       entry.sourceType === "TRACK") &&
+      entry.sourceId
+    ) {
+      const id = entry.sourceId;
+      if (!singleSources.has(id)) {
+        singleSources.set(id, `source_${id.replace(/-/g, "_")}`);
+      }
+    }
+  }
+
+  for (const [plId, varName] of playlistSources) {
+    lines.push(`# Playlist: ${plId}`);
     lines.push(`${varName} = playlist(`);
     lines.push(`  id="${varName}",`);
     lines.push(`  mode="random",`);
     lines.push(`  reload_mode="watch",`);
     lines.push(`  "${configDir}/${plId}.m3u")`);
     lines.push(``);
+  }
+
+  for (const [srcId, varName] of singleSources) {
+    lines.push(`# Single-file source: ${srcId}`);
+    lines.push(`${varName} = playlist(`);
+    lines.push(`  id="${varName}",`);
+    lines.push(`  mode="normal",`);
+    lines.push(`  reload_mode="watch",`);
+    lines.push(`  "${configDir}/source_${srcId}.m3u")`);
+    lines.push(``);
+  }
+
+  // Helper: map a schedule entry to its Liquidsoap source variable name
+  function entrySource(entry: ScheduleEntry): string {
+    if (entry.sourceType === "PLAYLIST" && entry.playlistId) {
+      return playlistSources.get(entry.playlistId) ?? "combined_autodj";
+    }
+    if (
+      (entry.sourceType === "PODCAST_EPISODE" ||
+       entry.sourceType === "RECORDING" ||
+       entry.sourceType === "TRACK") &&
+      entry.sourceId
+    ) {
+      return singleSources.get(entry.sourceId) ?? "combined_autodj";
+    }
+    if (entry.sourceType === "LIVE_SLOT") {
+      return "live_input";
+    }
+    // RANDOM_ALL or anything else → default AutoDJ
+    return "combined_autodj";
   }
 
   // Build schedule-aware source
@@ -134,12 +193,10 @@ export function generateLiqScript(cfg: LiqConfig): string {
     lines.push(`  [`);
     for (const entry of cfg.schedules) {
       const cond = buildTimeCondition(entry);
-      const src = entry.playlistId
-        ? `playlist_${entry.playlistId.replace(/-/g, "_")}`
-        : `default_playlist`;
-      lines.push(`    (${cond}, ${src}),  # ${entry.name}`);
+      const src = entrySource(entry);
+      lines.push(`    (${cond}, ${src}),  # ${entry.name} [${entry.sourceType}]`);
     }
-    lines.push(`    ({true}, combined_autodj)  # fallback`);
+    lines.push(`    ({true}, combined_autodj)  # AutoDJ fallback`);
     lines.push(`  ]`);
     lines.push(`)`);
   } else {

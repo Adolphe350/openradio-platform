@@ -6,6 +6,7 @@
 
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
+import { ScheduleSourceType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { generateLiqScript, type LiqConfig, type ScheduleEntry } from "@/lib/liquidsoap";
@@ -45,6 +46,8 @@ export async function generateStationConfig(stationId: string): Promise<void> {
     startMin: s.startMin,
     endHour: s.endHour,
     endMin: s.endMin,
+    sourceType: s.sourceType as ScheduleEntry["sourceType"],
+    sourceId: s.sourceId,
     playlistId: s.playlistId,
   }));
 
@@ -98,4 +101,46 @@ export async function generateStationConfig(stationId: string): Promise<void> {
     allTrackLines.join("\n") + "\n",
     "utf8"
   );
+
+  // Per-source single-file .m3u files for PODCAST_EPISODE / RECORDING / TRACK schedule blocks
+  const singleSourceBlocks = station.schedules.filter(
+    (s) =>
+      s.sourceId &&
+      (s.sourceType === ScheduleSourceType.PODCAST_EPISODE ||
+       s.sourceType === ScheduleSourceType.RECORDING ||
+       s.sourceType === ScheduleSourceType.TRACK)
+  );
+
+  for (const block of singleSourceBlocks) {
+    if (!block.sourceId) continue;
+    let filePath: string | null = null;
+
+    if (block.sourceType === ScheduleSourceType.PODCAST_EPISODE) {
+      const ep = await db.episode.findUnique({
+        where: { id: block.sourceId },
+        select: { filePath: true, fileUrl: true },
+      });
+      filePath = toLiquidsoapPath(ep?.filePath ?? ep?.fileUrl) || null;
+    } else if (block.sourceType === ScheduleSourceType.RECORDING) {
+      const rec = await db.recording.findUnique({
+        where: { id: block.sourceId },
+        select: { filePath: true, fileUrl: true },
+      });
+      filePath = toLiquidsoapPath(rec?.filePath ?? rec?.fileUrl) || null;
+    } else if (block.sourceType === ScheduleSourceType.TRACK) {
+      const track = await db.track.findUnique({
+        where: { id: block.sourceId },
+        select: { filePath: true, fileUrl: true },
+      });
+      filePath = toLiquidsoapPath(track?.filePath ?? track?.fileUrl) || null;
+    }
+
+    if (filePath) {
+      await writeFile(
+        path.join(stationDir, `source_${block.sourceId}.m3u`),
+        filePath + "\n",
+        "utf8"
+      );
+    }
+  }
 }
