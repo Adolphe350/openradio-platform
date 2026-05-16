@@ -133,12 +133,12 @@ export default async function StationDetailPage({ params, searchParams }: Props)
   const activeRecording = station.recordings.find((r) => r.status === "recording");
 
   const navItems = [
-    { id: "overview",  icon: "📻", label: station.name },
-    { id: "autodj",    icon: "🎵", label: "Auto DJ" },
-    { id: "tracks",    icon: "🎶", label: "Tracks" },
-    { id: "widget",    icon: "📎", label: "Widget" },
-    { id: "ctl",       icon: "🎛", label: "CTL" },
-    { id: "settings",  icon: "⚙️", label: "Settings" },
+    { id: "overview",  icon: "○", label: station.name },
+    { id: "autodj",    icon: "▶", label: "Auto DJ" },
+    { id: "tracks",    icon: "♪", label: "Tracks" },
+    { id: "widget",    icon: "◈", label: "Widget" },
+    { id: "ctl",       icon: "◎", label: "Control" },
+    { id: "settings",  icon: "⚙", label: "Settings" },
   ];
 
   const gradH1 = (station.id.charCodeAt(0) * 47 + station.id.charCodeAt(1) * 31) % 360;
@@ -152,7 +152,7 @@ export default async function StationDetailPage({ params, searchParams }: Props)
           {station.logoUrl
             // eslint-disable-next-line @next/next/no-img-element
             ? <img src={station.logoUrl} alt={station.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            : "📻"}
+            : station.name.charAt(0).toUpperCase()}
         </div>
         <div style={{ minWidth: 0 }}>
           <p className="station-sidebar-name">{station.name}</p>
@@ -222,7 +222,7 @@ export default async function StationDetailPage({ params, searchParams }: Props)
                 {station.logoUrl
                   // eslint-disable-next-line @next/next/no-img-element
                   ? <img src={station.logoUrl} alt={station.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  : "📻"}
+                  : station.name.charAt(0).toUpperCase()}
               </div>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
@@ -279,7 +279,7 @@ export default async function StationDetailPage({ params, searchParams }: Props)
                 { label: "PLS", value: plsUrl },
               ].map(({ label, value }) => (
                 <div key={label} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.65rem 0.85rem", background: "var(--bg-page)", borderRadius: 8, border: "1px solid var(--border)" }}>
-                  <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--brand-dark)", background: "var(--brand-light)", padding: "0.15rem 0.5rem", borderRadius: 4, flexShrink: 0 }}>{label}</span>
+                  <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--brand)", background: "rgba(0,200,160,0.12)", padding: "0.15rem 0.5rem", borderRadius: 4, flexShrink: 0 }}>{label}</span>
                   <code style={{ fontSize: "0.82rem", wordBreak: "break-all", flex: 1 }}>{value}</code>
                 </div>
               ))}
@@ -332,7 +332,7 @@ export default async function StationDetailPage({ params, searchParams }: Props)
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: "0.6rem" }}>
               {checklist.map((c) => (
-                <div key={c.label} className="checklist-item" style={{ background: c.done ? "#ecfdf5" : undefined, borderColor: c.done ? "#a7f3d0" : undefined }}>
+                <div key={c.label} className="checklist-item" style={{ background: c.done ? "rgba(0,200,160,0.08)" : undefined, borderColor: c.done ? "rgba(0,200,160,0.25)" : undefined }}>
                   <div className={`checklist-circle${c.done ? " done" : ""}`}>{c.done ? "✓" : ""}</div>
                   <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 600 }}>{c.label}</p>
                 </div>
@@ -453,7 +453,7 @@ export default async function StationDetailPage({ params, searchParams }: Props)
             <div key={pl.id} className="card" style={{ overflow: "hidden" }}>
               <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: "0.975rem" }}>{pl.name} {pl.isDefault && <span style={{ fontSize: "0.7rem", background: "var(--brand-light)", color: "var(--brand-dark)", padding: "0.1rem 0.5rem", borderRadius: 999, marginLeft: 6 }}>Default</span>}</h3>
+                  <h3 style={{ margin: 0, fontSize: "0.975rem" }}>{pl.name} {pl.isDefault && <span style={{ fontSize: "0.7rem", background: "rgba(0,200,160,0.12)", color: "var(--brand)", padding: "0.1rem 0.5rem", borderRadius: 999, marginLeft: 6 }}>Default</span>}</h3>
                   {pl.description && <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--text-muted)" }}>{pl.description}</p>}
                 </div>
                 <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
@@ -689,7 +689,7 @@ export default async function StationDetailPage({ params, searchParams }: Props)
                 { label: "PLS", value: plsUrl },
               ].map(({ label, value }) => (
                 <div key={label} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.65rem 0.85rem", background: "var(--bg-page)", borderRadius: 8, border: "1px solid var(--border)" }}>
-                  <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--brand-dark)", background: "var(--brand-light)", padding: "0.15rem 0.5rem", borderRadius: 4, flexShrink: 0 }}>{label}</span>
+                  <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--brand)", background: "rgba(0,200,160,0.12)", padding: "0.15rem 0.5rem", borderRadius: 4, flexShrink: 0 }}>{label}</span>
                   <code style={{ fontSize: "0.82rem", wordBreak: "break-all", flex: 1 }}>{value}</code>
                 </div>
               ))}
