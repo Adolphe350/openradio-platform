@@ -166,9 +166,7 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
               genre={station.genre}
               logoUrl={station.logoUrl}
               stationColor={grad}
-              fallbackTracks={station.tracks
-                .filter((t) => t.fileUrl || t.filePath)
-                .map((t) => ({ title: t.title, artist: t.artist, url: `/api/audio/${t.id}` }))}
+
             />
 
             {/* Current Playlist Info */}

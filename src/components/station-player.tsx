@@ -111,15 +111,12 @@ export function StationPlayer({
 
   const subtitle =
     errorMsg ||
-    currentTrack ||
-    (playing ? "Live stream is playing" : "Tap play to start the stream");
+    (playing ? "Auto DJ is playing" : "Tap play to start the live stream");
 
   const label = loading
     ? "Connecting..."
     : playing
-      ? currentTrack
-        ? "Playing fallback track"
-        : "Live stream"
+      ? "Live stream"
       : "Ready";
 
   return (

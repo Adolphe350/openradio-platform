@@ -193,22 +193,17 @@ export function PersistentPlayerHost() {
       streamMode: "live",
     });
 
-    audio
-      .play()
-      .then(() => {
-        // Wait for playback to stabilize; if not, try fallback.
-        liveStartTimerRef.current = setTimeout(() => {
-          const activeAudio = audioRef.current;
-          if (!activeAudio) return;
-          if (!activeAudio.paused && activeAudio.currentTime < 0.05) {
-            playFallbackTrack(fallbackIndexRef.current);
-          }
-        }, 6500);
-      })
-      .catch(() => {
-        playFallbackTrack(fallbackIndexRef.current);
+    audio.play().catch(() => {
+      updatePlaybackState({
+        error: true,
+        errorMsg: "Stream unavailable. Check back soon.",
+        loading: false,
+        playing: false,
+        currentTrack: null,
+        streamMode: "idle",
       });
-  }, [clearLiveStartTimer, playFallbackTrack, updatePlaybackState]);
+    });
+  }, [clearLiveStartTimer, updatePlaybackState]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -256,26 +251,9 @@ export function PersistentPlayerHost() {
     };
 
     const onError = () => {
-      if (playbackStateRef.current.streamMode === "fallback") {
-        updatePlaybackState({
-          error: true,
-          errorMsg: "Playback failed for this fallback track.",
-          loading: false,
-          playing: false,
-          streamMode: "idle",
-        });
-        return;
-      }
-
-      const hasFallback = (configRef.current?.fallbackTracks?.length ?? 0) > 0;
-      if (hasFallback) {
-        playFallbackTrack(fallbackIndexRef.current);
-        return;
-      }
-
       updatePlaybackState({
         error: true,
-        errorMsg: "Live stream unavailable.",
+        errorMsg: "Stream unavailable. Try again shortly.",
         loading: false,
         playing: false,
         currentTrack: null,
@@ -284,8 +262,9 @@ export function PersistentPlayerHost() {
     };
 
     const onEnded = () => {
-      if (playbackStateRef.current.streamMode === "fallback") {
-        playFallbackTrack(fallbackIndexRef.current + 1);
+      // Live streams don't end; reconnect if dropped
+      if (playbackStateRef.current.streamMode === "live") {
+        connectLiveStream();
       }
     };
 
