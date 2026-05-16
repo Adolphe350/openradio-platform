@@ -5,6 +5,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { PlayerBar } from "@/components/player-bar";
 import { NowPlaying } from "@/components/now-playing";
+import { StationPlayer } from "@/components/station-player";
 import { resolveStationMetric } from "@/lib/analytics";
 import { db } from "@/lib/db";
 import { getRelatedStations } from "@/lib/explore";
@@ -239,11 +240,11 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
             {/* Live now-playing + listener count — polls every 15 s */}
             <NowPlaying mountPath={station.mountPath} />
 
-            <audio
-              controls
-              preload="none"
-              src={streamUrl}
-              style={{ width: "100%", minWidth: 0, height: 48, borderRadius: 8, accentColor: "var(--brand)" }}
+            <StationPlayer
+              streamUrl={streamUrl}
+              fallbackTracks={station.tracks
+                .filter((t) => t.fileUrl || t.filePath)
+                .map((t) => ({ title: t.title, artist: t.artist, url: `/api/audio/${t.id}` }))}
             />
 
             <p className="public-stream-url" style={{ margin: 0, fontSize: "0.75rem", color: "rgba(255,255,255,0.35)" }}>
@@ -400,13 +401,9 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
       <PlayerBar
         stationName={station.name}
         stationSlug={station.slug}
-        streamUrl={streamUrl}
         genre={station.genre}
         logoUrl={station.logoUrl}
         stationColor={grad}
-        fallbackTracks={station.tracks
-          .filter((t) => t.fileUrl || t.filePath)
-          .map((t) => ({ title: t.title, artist: t.artist, url: `/api/audio/${t.id}` }))}
       />
     </main>
   );
