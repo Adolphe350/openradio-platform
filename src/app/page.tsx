@@ -20,7 +20,7 @@ export default async function HomePage() {
       genre: true,
       logoUrl: true,
     },
-  });
+  }).catch(() => []);
 
   const genres = [
     "Pop",
