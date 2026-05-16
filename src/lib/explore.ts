@@ -1,7 +1,7 @@
 import { Prisma, StationStatus } from "@prisma/client";
 
 import { db } from "@/lib/db";
-import { resolveStationMetric } from "@/lib/analytics";
+import { buildPublicPopularity, resolveStationMetric } from "@/lib/analytics";
 import { getPublicStreamUrl } from "@/lib/stream";
 
 export const discoverableStationStatuses: StationStatus[] = ["ACTIVE", "PAUSED"];
@@ -39,7 +39,11 @@ export type ExploreStation = {
   totalListeningHours: number;
   uptimePercent: number;
   storageUsedMb: number;
-  metricSource: "live" | "sample";
+  metricSource: "live" | "none";
+  publicListenersNow: number;
+  publicWeeklyReach: number;
+  publicTrend: "up" | "steady" | "down";
+  popularityConfidence: "measured" | "estimated";
 };
 
 type SearchParamsLike = Record<string, string | string[] | undefined>;
@@ -157,6 +161,14 @@ export async function getExploreStations(input: ExploreQueryInput = {}) {
           }
         : null
     });
+    const publicPopularity = buildPublicPopularity({
+      stationId: station.id,
+      trackCount: station._count.tracks,
+      playlistCount: station._count.playlists,
+      createdAt: station.createdAt,
+      metric: metricResult.source === "live" ? metricResult.metric : null,
+      status: station.status,
+    });
 
     return {
       id: station.id,
@@ -179,18 +191,22 @@ export async function getExploreStations(input: ExploreQueryInput = {}) {
       totalListeningHours: metricResult.metric.totalListeningHours,
       uptimePercent: metricResult.metric.uptimePercent,
       storageUsedMb: metricResult.metric.storageUsedMb,
-      metricSource: metricResult.source
+      metricSource: metricResult.source,
+      publicListenersNow: publicPopularity.listenersNow,
+      publicWeeklyReach: publicPopularity.weeklyReach,
+      publicTrend: publicPopularity.trend,
+      popularityConfidence: publicPopularity.confidence,
     };
   });
 
   if (sort === "trending") {
     summaries.sort((left, right) => {
-      if (right.currentListeners !== left.currentListeners) {
-        return right.currentListeners - left.currentListeners;
+      if (right.publicListenersNow !== left.publicListenersNow) {
+        return right.publicListenersNow - left.publicListenersNow;
       }
 
-      if (right.peakListeners !== left.peakListeners) {
-        return right.peakListeners - left.peakListeners;
+      if (right.publicWeeklyReach !== left.publicWeeklyReach) {
+        return right.publicWeeklyReach - left.publicWeeklyReach;
       }
 
       return right.updatedAt.getTime() - left.updatedAt.getTime();

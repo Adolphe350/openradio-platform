@@ -1,186 +1,126 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-type StationPlayerProps = {
-  streamUrl: string;
-  fallbackTracks?: { title: string; artist: string; url: string }[];
+type FallbackTrack = {
+  title: string;
+  artist: string;
+  url: string;
 };
 
-export function StationPlayer({ streamUrl, fallbackTracks }: StationPlayerProps) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const volumeRef = useRef(0.8);
+type StationPlayerProps = {
+  stationId: string;
+  stationName: string;
+  stationSlug: string;
+  streamUrl: string;
+  genre?: string | null;
+  logoUrl?: string | null;
+  stationColor?: string;
+  fallbackTracks?: FallbackTrack[];
+};
+
+type PlaybackState = {
+  playing?: boolean;
+  loading?: boolean;
+  error?: boolean;
+  errorMsg?: string;
+  currentTrack?: string | null;
+  streamMode?: "idle" | "live" | "fallback";
+  stationId?: string | null;
+};
+
+export function StationPlayer({
+  stationId,
+  stationName,
+  stationSlug,
+  streamUrl,
+  genre,
+  logoUrl,
+  stationColor,
+  fallbackTracks,
+}: StationPlayerProps) {
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [currentTrack, setCurrentTrack] = useState<string | null>(null);
-  const [trackIndex, setTrackIndex] = useState(0);
+  const [volume, setVolume] = useState(0.8);
 
-  const playFallbackTrack = useCallback((index: number) => {
-    const audio = audioRef.current;
-    if (!audio || !fallbackTracks || fallbackTracks.length === 0) return false;
-
-    const safeIndex = index % fallbackTracks.length;
-    const track = fallbackTracks[safeIndex];
-    if (!track?.url) return false;
-
-    setTrackIndex(safeIndex);
-    setCurrentTrack(`${track.title} — ${track.artist}`);
-    setError(false);
-    setErrorMsg("");
-    setLoading(true);
-    audio.src = track.url;
-    audio.load();
-    audio.play().catch(() => {
-      setError(true);
-      setLoading(false);
-      setPlaying(false);
-      setErrorMsg("Unable to play track");
-    });
-    return true;
+  const normalizedFallback = useMemo(() => {
+    return (fallbackTracks ?? []).filter((track) => track?.url);
   }, [fallbackTracks]);
 
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
+    window.dispatchEvent(
+      new CustomEvent("openradio:configure-player", {
+        detail: {
+          stationId,
+          stationName,
+          stationSlug,
+          streamUrl,
+          genre,
+          logoUrl,
+          stationColor,
+          fallbackTracks: normalizedFallback,
+        },
+      }),
+    );
+  }, [stationId, stationName, stationSlug, streamUrl, genre, logoUrl, stationColor, normalizedFallback]);
 
-    let liveStartTimer: ReturnType<typeof setTimeout> | null = null;
-    let fallbackStarted = false;
+  useEffect(() => {
+    const onPlaybackState = (event: Event) => {
+      const customEvent = event as CustomEvent<PlaybackState>;
+      const detail = customEvent.detail ?? {};
 
-    const clearLiveStartTimer = () => {
-      if (liveStartTimer) {
-        clearTimeout(liveStartTimer);
-        liveStartTimer = null;
-      }
-    };
-
-    const startFallback = () => {
-      if (fallbackStarted) return;
-      fallbackStarted = true;
-      clearLiveStartTimer();
-
-      if (fallbackTracks && fallbackTracks.length > 0) {
-        playFallbackTrack(trackIndex);
-      } else {
-        setError(true);
-        setLoading(false);
-        setPlaying(false);
-        setErrorMsg("Station is offline. Check back later!");
-        broadcastPlaybackState(false);
-      }
-    };
-
-    const broadcastPlaybackState = (isPlaying: boolean) => {
-      window.dispatchEvent(new CustomEvent("openradio:playback-state", { detail: { playing: isPlaying } }));
-    };
-
-    const onPlaying = () => {
-      clearLiveStartTimer();
-      setPlaying(true);
-      setLoading(false);
-      setError(false);
-      setErrorMsg("");
-      broadcastPlaybackState(true);
-    };
-
-    const onPause = () => {
-      clearLiveStartTimer();
-      setPlaying(false);
-      setLoading(false);
-      broadcastPlaybackState(false);
-    };
-
-    const onWaiting = () => {
-      setLoading(true);
-    };
-
-    const onCanPlay = () => {
-      setLoading(false);
-    };
-
-    const onError = () => {
-      if (audio.src.includes("/api/audio/")) {
-        setError(true);
-        setLoading(false);
-        setPlaying(false);
-        setErrorMsg("Unable to play track");
+      if (detail.stationId && detail.stationId !== stationId) {
         return;
       }
-      startFallback();
+
+      setPlaying(Boolean(detail.playing));
+      setLoading(Boolean(detail.loading));
+      setError(Boolean(detail.error));
+      setErrorMsg(typeof detail.errorMsg === "string" ? detail.errorMsg : "");
+      setCurrentTrack(typeof detail.currentTrack === "string" ? detail.currentTrack : null);
     };
 
-    const onEnded = () => {
-      if (fallbackTracks && fallbackTracks.length > 0) {
-        playFallbackTrack(trackIndex + 1);
+    const onVolumeState = (event: Event) => {
+      const customEvent = event as CustomEvent<{ volume?: number }>;
+      if (typeof customEvent.detail?.volume === "number") {
+        setVolume(customEvent.detail.volume);
       }
     };
 
-    audio.volume = volumeRef.current;
-    audio.preload = "auto";
-    window.dispatchEvent(new CustomEvent("openradio:volume-state", { detail: { volume: volumeRef.current } }));
-    audio.addEventListener("playing", onPlaying);
-    audio.addEventListener("pause", onPause);
-    audio.addEventListener("waiting", onWaiting);
-    audio.addEventListener("canplay", onCanPlay);
-    audio.addEventListener("error", onError);
-    audio.addEventListener("ended", onEnded);
-
-    const connectLiveStream = () => {
-      fallbackStarted = false;
-      setCurrentTrack(null);
-      setError(false);
-      setErrorMsg("");
-      setLoading(true);
-      audio.src = streamUrl;
-      audio.load();
-      liveStartTimer = setTimeout(() => {
-        if (!audio.paused && !audio.currentTime) {
-          startFallback();
-        }
-      }, 6000);
-      audio.play().catch(startFallback);
-    };
-
-    const handleExternalToggle = () => {
-      if (audio.paused) {
-        connectLiveStream();
-      } else {
-        clearLiveStartTimer();
-        audio.pause();
-      }
-    };
-
-    const handleExternalSetVolume = (event: Event) => {
-      const customEvent = event as CustomEvent<number>;
-      const nextVolume = typeof customEvent.detail === "number" ? customEvent.detail : volumeRef.current;
-      volumeRef.current = nextVolume;
-      audio.volume = nextVolume;
-      window.dispatchEvent(new CustomEvent("openradio:volume-state", { detail: { volume: nextVolume } }));
-    };
-
-    window.addEventListener("openradio:toggle-playback", handleExternalToggle);
-    window.addEventListener("openradio:set-volume", handleExternalSetVolume as EventListener);
+    window.addEventListener("openradio:playback-state", onPlaybackState as EventListener);
+    window.addEventListener("openradio:volume-state", onVolumeState as EventListener);
 
     return () => {
-      clearLiveStartTimer();
-      window.removeEventListener("openradio:toggle-playback", handleExternalToggle);
-      window.removeEventListener("openradio:set-volume", handleExternalSetVolume as EventListener);
-      audio.removeEventListener("playing", onPlaying);
-      audio.removeEventListener("pause", onPause);
-      audio.removeEventListener("waiting", onWaiting);
-      audio.removeEventListener("canplay", onCanPlay);
-      audio.removeEventListener("error", onError);
-      audio.removeEventListener("ended", onEnded);
-      broadcastPlaybackState(false);
-      audio.pause();
-      audio.src = "";
+      window.removeEventListener("openradio:playback-state", onPlaybackState as EventListener);
+      window.removeEventListener("openradio:volume-state", onVolumeState as EventListener);
     };
-  }, [streamUrl, fallbackTracks, playFallbackTrack, trackIndex]);
+  }, [stationId]);
 
   const togglePlay = useCallback(() => {
     window.dispatchEvent(new CustomEvent("openradio:toggle-playback"));
   }, []);
+
+  const handleVolume = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const next = Math.max(0, Math.min(1, Number(event.target.value)));
+    setVolume(next);
+    window.dispatchEvent(new CustomEvent("openradio:set-volume", { detail: next }));
+  }, []);
+
+  const subtitle =
+    errorMsg ||
+    currentTrack ||
+    (playing ? "Live stream is playing" : "Tap play to start the stream");
+
+  const label = loading
+    ? "Connecting..."
+    : playing
+      ? currentTrack
+        ? "Playing fallback track"
+        : "Live stream"
+      : "Ready";
 
   return (
     <div style={{ display: "grid", gap: "0.85rem" }}>
@@ -207,20 +147,62 @@ export function StationPlayer({ streamUrl, fallbackTracks }: StationPlayerProps)
         </button>
 
         <div style={{ minWidth: 0, flex: 1 }}>
-          <p style={{ margin: 0, fontSize: "0.74rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "rgba(255,255,255,0.55)" }}>
-            {loading ? "Connecting…" : playing ? (currentTrack ? "Playing track" : "Live stream") : "Ready to play"}
+          <p
+            style={{
+              margin: 0,
+              fontSize: "0.74rem",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              color: "rgba(255,255,255,0.55)",
+            }}
+          >
+            {label}
           </p>
-          <p style={{ margin: "0.2rem 0 0", fontSize: "0.95rem", fontWeight: 600, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {errorMsg || currentTrack || "Tap play to listen now"}
+          <p
+            style={{
+              margin: "0.2rem 0 0",
+              fontSize: "0.95rem",
+              fontWeight: 600,
+              color: "#fff",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {subtitle}
           </p>
         </div>
       </div>
 
-      <audio
-        ref={audioRef}
-        preload="auto"
-        style={{ width: "100%", minWidth: 0, height: 48, borderRadius: 8, accentColor: "var(--brand)" }}
-      />
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "0.7rem",
+          padding: "0.45rem 0.65rem",
+          borderRadius: 8,
+          background: "rgba(255,255,255,0.08)",
+          border: "1px solid rgba(255,255,255,0.12)",
+        }}
+      >
+        <span style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.65)" }}>
+          {volume === 0 ? "🔇" : volume < 0.5 ? "🔈" : "🔊"}
+        </span>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.05}
+          value={volume}
+          onChange={handleVolume}
+          style={{ width: "100%", accentColor: "var(--brand)" }}
+          aria-label="Player volume"
+        />
+        <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.55)", minWidth: 32, textAlign: "right" }}>
+          {Math.round(volume * 100)}%
+        </span>
+      </div>
     </div>
   );
 }

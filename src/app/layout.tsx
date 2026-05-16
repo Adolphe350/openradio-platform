@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { PersistentPlayerHost } from "@/components/persistent-player-host";
 import "./globals.css";
 
 export const viewport: Viewport = {
@@ -33,7 +34,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <PersistentPlayerHost />
+      </body>
     </html>
   );
 }

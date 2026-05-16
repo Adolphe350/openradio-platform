@@ -2,7 +2,6 @@ import Link from "next/link";
 
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { resolveStationMetric } from "@/lib/analytics";
 import { getPublicStreamUrl } from "@/lib/stream";
 import { DashboardStats } from "./dashboard-stats";
 
@@ -26,25 +25,16 @@ export default async function DashboardPage() {
     orderBy: { createdAt: "desc" },
   });
 
-  const stationsWithMetrics = stations.map((s) => ({
-    s,
-    m: resolveStationMetric({
-      stationId: s.id,
-      trackCount: s._count.tracks,
-      playlistCount: s._count.playlists,
-      createdAt: s.createdAt,
-      metric: s.metrics[0]
-        ? {
-            currentListeners: s.metrics[0].currentListeners,
-            peakListeners: s.metrics[0].peakListeners,
-            totalListeningHours: s.metrics[0].totalListeningHours,
-            uptimePercent: s.metrics[0].uptimePercent,
-            storageUsedMb: s.metrics[0].storageUsedMb,
-            sampledAt: s.metrics[0].sampledAt,
-          }
-        : null,
-    }),
-  }));
+  const stationsWithMetrics = stations.map((station) => {
+    const latestMetric = station.metrics[0] ?? null;
+    return {
+      station,
+      latestMetric,
+      hasMetric: Boolean(latestMetric),
+      currentListeners: latestMetric?.currentListeners ?? 0,
+      uptimePercent: latestMetric?.uptimePercent ?? null,
+    };
+  });
 
   const stationIds = stations.map((s) => s.id);
 
@@ -100,7 +90,8 @@ export default async function DashboardPage() {
   // Sessions = metric sample points where listeners > 0 (approximation)
   const sessions = thisWeekMetrics.filter((m) => m.currentListeners > 0).length;
 
-  const totalListeners = stationsWithMetrics.reduce((n, x) => n + x.m.metric.currentListeners, 0);
+  const totalListeners = stationsWithMetrics.reduce((n, x) => n + x.currentListeners, 0);
+  const stationsMissingMetrics = stationsWithMetrics.filter((item) => !item.hasMetric).length;
   const totalTracks    = stations.reduce((n, s) => n + s._count.tracks, 0);
   const totalPlaylists = stations.reduce((n, s) => n + s._count.playlists, 0);
   const activeCount    = stations.filter((s) => s.status === "ACTIVE").length;
@@ -132,7 +123,13 @@ export default async function DashboardPage() {
       <div className="mobile-stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: "1rem" }}>
         {[
           { label: "Total Stations", value: stations.length, sub: `${activeCount} active` },
-          { label: "Current Listeners", value: totalListeners, sub: "across all stations" },
+          {
+            label: "Current Listeners",
+            value: totalListeners,
+            sub: stationsMissingMetrics > 0
+              ? `${stationsMissingMetrics} station${stationsMissingMetrics === 1 ? "" : "s"} waiting for metrics`
+              : "across all stations",
+          },
           { label: "Listeners This Week", value: thisWeekTotal.toLocaleString(), sub: pctChange !== 0 ? `${pctChange >= 0 ? "+" : ""}${pctChange.toFixed(1)}% vs last week` : "vs last week", pct: pctChange },
           { label: "Sessions This Week", value: sessions, sub: "metric samples w/ listeners" },
         ].map((stat) => (
@@ -214,21 +211,21 @@ export default async function DashboardPage() {
           </div>
         ) : (
           <div className="mobile-stack-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: "1rem" }}>
-            {stationsWithMetrics.map(({ s, m }) => (
-              <div key={s.id} className="card" style={{ overflow: "hidden" }}>
+            {stationsWithMetrics.map(({ station, currentListeners, uptimePercent, hasMetric }) => (
+              <div key={station.id} className="card" style={{ overflow: "hidden" }}>
                 {/* Color banner */}
-                <div style={{ height: 72, background: stationGradient(s.id), position: "relative" }}>
+                <div style={{ height: 72, background: stationGradient(station.id), position: "relative" }}>
                   {/* Status pill */}
                   <span
                     style={{
                       position: "absolute", top: 10, right: 10,
                       padding: "0.18rem 0.6rem", borderRadius: 999,
                       fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase",
-                      background: s.status === "ACTIVE" ? "rgba(16,185,129,0.9)" : s.status === "PAUSED" ? "rgba(245,158,11,0.9)" : "rgba(0,0,0,0.4)",
+                      background: station.status === "ACTIVE" ? "rgba(16,185,129,0.9)" : station.status === "PAUSED" ? "rgba(245,158,11,0.9)" : "rgba(0,0,0,0.4)",
                       color: "#fff",
                     }}
                   >
-                    {s.status}
+                    {station.status}
                   </span>
 
                   {/* Logo overlap */}
@@ -237,32 +234,32 @@ export default async function DashboardPage() {
                       position: "absolute", bottom: -18, left: 16,
                       width: 44, height: 44, borderRadius: 10,
                       border: "3px solid var(--bg)",
-                      background: s.logoUrl ? undefined : stationGradient(s.id),
+                      background: station.logoUrl ? undefined : stationGradient(station.id),
                       overflow: "hidden",
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: "1.3rem",
                       boxShadow: "var(--shadow-sm)",
                     }}
                   >
-                    {s.logoUrl
+                    {station.logoUrl
                       // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={s.logoUrl} alt={s.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ? <img src={station.logoUrl} alt={station.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       : "📻"}
                   </div>
                 </div>
 
                 <div style={{ padding: "1.4rem 1rem 1rem" }}>
-                  <h3 style={{ margin: "0 0 0.2rem", fontSize: "0.975rem" }}>{s.name}</h3>
+                  <h3 style={{ margin: "0 0 0.2rem", fontSize: "0.975rem" }}>{station.name}</h3>
                   <p style={{ margin: "0 0 0.85rem", fontSize: "0.8rem", color: "var(--text-muted)" }}>
-                    {s.genre ?? "Radio"}{s.country ? ` · ${s.country}` : ""}
+                    {station.genre ?? "Radio"}{station.country ? ` · ${station.country}` : ""}
                   </p>
 
                   {/* Mini stats */}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.5rem", marginBottom: "1rem" }}>
                     {[
-                      { label: "Listeners", value: m.metric.currentListeners },
-                      { label: "Tracks", value: s._count.tracks },
-                      { label: "Uptime", value: `${m.metric.uptimePercent.toFixed(0)}%` },
+                      { label: "Listeners", value: currentListeners },
+                      { label: "Tracks", value: station._count.tracks },
+                      { label: "Uptime", value: uptimePercent === null ? "—" : `${uptimePercent.toFixed(0)}%` },
                     ].map((st) => (
                       <div key={st.label} style={{ textAlign: "center", background: "var(--bg-page)", borderRadius: 8, padding: "0.5rem 0.25rem" }}>
                         <p style={{ margin: 0, fontWeight: 800, fontSize: "1rem" }}>{st.value}</p>
@@ -271,15 +268,21 @@ export default async function DashboardPage() {
                     ))}
                   </div>
 
+                  {!hasMetric && (
+                    <p style={{ margin: "0 0 0.7rem", fontSize: "0.74rem", color: "var(--text-light)" }}>
+                      Waiting for first live metric snapshot.
+                    </p>
+                  )}
+
                   <p style={{ margin: "0 0 0.9rem", fontSize: "0.75rem", color: "var(--text-light)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {getPublicStreamUrl(s.mountPath)}
+                    {getPublicStreamUrl(station.mountPath)}
                   </p>
 
                   <div className="mobile-full-actions" style={{ display: "flex", gap: "0.5rem" }}>
-                    <Link href={`/dashboard/stations/${s.id}`} className="btn btn-primary btn-sm" style={{ flex: 1 }}>
+                    <Link href={`/dashboard/stations/${station.id}`} className="btn btn-primary btn-sm" style={{ flex: 1 }}>
                       Manage
                     </Link>
-                    <Link href={`/stations/${s.slug}`} className="btn btn-secondary btn-sm" style={{ flex: 1 }}>
+                    <Link href={`/stations/${station.slug}`} className="btn btn-secondary btn-sm" style={{ flex: 1 }}>
                       Public page
                     </Link>
                   </div>

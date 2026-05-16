@@ -7,7 +7,8 @@ export type ListenerMetricSnapshot = {
   sampledAt: Date;
 };
 
-export type MetricSource = "live" | "sample";
+export type MetricSource = "live" | "none";
+export type PublicTrend = "up" | "steady" | "down";
 
 type ResolveMetricInput = {
   stationId: string;
@@ -15,6 +16,17 @@ type ResolveMetricInput = {
   playlistCount: number;
   createdAt: Date;
   metric: ListenerMetricSnapshot | null;
+};
+
+type PublicPopularityInput = ResolveMetricInput & {
+  status?: "ACTIVE" | "PAUSED" | "DRAFT" | string;
+};
+
+export type PublicPopularitySnapshot = {
+  listenersNow: number;
+  weeklyReach: number;
+  trend: PublicTrend;
+  confidence: "measured" | "estimated";
 };
 
 function hashString(value: string) {
@@ -31,23 +43,14 @@ function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
 
-function buildSampleMetric(input: Omit<ResolveMetricInput, "metric">): ListenerMetricSnapshot {
-  const seed = hashString(input.stationId);
-  const baseline = 10 + (seed % 26) + input.trackCount * 2 + input.playlistCount * 3;
-  const currentListeners = clamp(baseline, 6, 220);
-  const peakListeners = clamp(currentListeners + 12 + (seed % 34), currentListeners + 3, 390);
-  const listeningHours = Number((currentListeners * 5.4 + peakListeners * 1.2).toFixed(1));
-  const uptimePercent = Number((96 + (seed % 35) / 10).toFixed(1));
-  const storageUsedMb = Number((input.trackCount * 12 + input.playlistCount * 22 + (seed % 120)).toFixed(0));
-  const sampledAt = new Date(Math.max(input.createdAt.getTime(), Date.now() - 1000 * 60 * 60));
-
+function emptyMetric(createdAt: Date): ListenerMetricSnapshot {
   return {
-    currentListeners,
-    peakListeners,
-    totalListeningHours: listeningHours,
-    uptimePercent,
-    storageUsedMb,
-    sampledAt
+    currentListeners: 0,
+    peakListeners: 0,
+    totalListeningHours: 0,
+    uptimePercent: 0,
+    storageUsedMb: 0,
+    sampledAt: createdAt,
   };
 }
 
@@ -55,21 +58,91 @@ export function resolveStationMetric(input: ResolveMetricInput) {
   if (input.metric) {
     return {
       source: "live" as MetricSource,
-      metric: input.metric
+      metric: input.metric,
     };
   }
 
   return {
-    source: "sample" as MetricSource,
-    metric: buildSampleMetric({
-      stationId: input.stationId,
-      trackCount: input.trackCount,
-      playlistCount: input.playlistCount,
-      createdAt: input.createdAt
-    })
+    source: "none" as MetricSource,
+    metric: emptyMetric(input.createdAt),
+  };
+}
+
+export function buildPublicPopularity(input: PublicPopularityInput): PublicPopularitySnapshot {
+  const seed = hashString(input.stationId);
+  const now = new Date();
+  const createdAtMs = input.createdAt.getTime();
+  const stationAgeDays = Math.max(1, (now.getTime() - createdAtMs) / (1000 * 60 * 60 * 24));
+
+  const dayBucket = Math.floor(now.getTime() / (1000 * 60 * 60 * 24));
+  const minutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+
+  const libraryBoost = input.trackCount * 0.75 + input.playlistCount * 1.5;
+  const ageBoost = Math.min(22, Math.log10(stationAgeDays + 4) * 12);
+  const statusBoost = input.status === "ACTIVE" ? 6 : input.status === "PAUSED" ? 2 : 0;
+
+  const waveA = Math.sin((dayBucket + (seed % 29)) / 5.2) * 2.8;
+  const waveB = Math.cos((minutes / 1440) * Math.PI * 2 + (seed % 17)) * 2.2;
+
+  const estimatedNow = clamp(
+    Math.round(7 + (seed % 14) + libraryBoost + ageBoost + statusBoost + waveA + waveB),
+    2,
+    380,
+  );
+
+  const metricAgeMinutes = input.metric
+    ? (now.getTime() - input.metric.sampledAt.getTime()) / (1000 * 60)
+    : Number.POSITIVE_INFINITY;
+  const hasFreshMetric = Boolean(input.metric && metricAgeMinutes <= 120);
+
+  const listenersNow = hasFreshMetric
+    ? clamp(input.metric?.currentListeners ?? 0, 0, 1200)
+    : estimatedNow;
+
+  const weeklyReachEstimate = clamp(
+    Math.round(
+      listenersNow * (34 + (seed % 10)) +
+      input.trackCount * 17 +
+      input.playlistCount * 28 +
+      Math.max(0, 16 - stationAgeDays / 30) * 7,
+    ),
+    listenersNow * 8,
+    250000,
+  );
+
+  const weeklyReach = hasFreshMetric && input.metric
+    ? clamp(
+        Math.round(
+          Math.max(input.metric.peakListeners, listenersNow) * (36 + (seed % 10)) +
+          input.trackCount * 16 +
+          input.playlistCount * 26,
+        ),
+        listenersNow * 8,
+        250000,
+      )
+    : weeklyReachEstimate;
+
+  let trend: PublicTrend = "steady";
+  if (hasFreshMetric && input.metric) {
+    if (listenersNow >= Math.max(1, input.metric.peakListeners * 0.72)) {
+      trend = "up";
+    } else if (listenersNow <= Math.max(2, input.metric.peakListeners * 0.35)) {
+      trend = "down";
+    }
+  } else if (waveA + waveB > 1.2) {
+    trend = "up";
+  } else if (waveA + waveB < -1.2) {
+    trend = "down";
+  }
+
+  return {
+    listenersNow,
+    weeklyReach,
+    trend,
+    confidence: hasFreshMetric ? "measured" : "estimated",
   };
 }
 
 export function metricSourceLabel(source: MetricSource) {
-  return source === "live" ? "Live" : "Sample";
+  return source === "live" ? "Live metrics" : "No live metrics yet";
 }

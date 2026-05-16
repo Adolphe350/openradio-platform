@@ -6,7 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 import { PlayerBar } from "@/components/player-bar";
 import { NowPlaying } from "@/components/now-playing";
 import { StationPlayer } from "@/components/station-player";
-import { resolveStationMetric } from "@/lib/analytics";
+import { buildPublicPopularity, metricSourceLabel, resolveStationMetric } from "@/lib/analytics";
 import { db } from "@/lib/db";
 import { getRelatedStations } from "@/lib/explore";
 import { getPublicStreamUrl } from "@/lib/stream";
@@ -32,6 +32,82 @@ function stationGradient(id: string) {
   return `linear-gradient(135deg,hsl(${h1},55%,42%),hsl(${h2},60%,28%))`;
 }
 
+function formatCompact(value: number) {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}k`;
+  return String(value);
+}
+
+function getStationTimeParts(timezone: string, at = new Date()) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(at);
+  const weekday = parts.find((part) => part.type === "weekday")?.value ?? "Sun";
+  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? "0");
+  const minute = Number(parts.find((part) => part.type === "minute")?.value ?? "0");
+
+  const dayMap: Record<string, number> = {
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+  };
+
+  return {
+    dayOfWeek: dayMap[weekday] ?? 0,
+    minuteOfDay: hour * 60 + minute,
+  };
+}
+
+function resolveCurrentScheduleBlock(
+  blocks: Array<{
+    id: string;
+    name: string;
+    dayOfWeek: number;
+    startHour: number;
+    startMin: number;
+    endHour: number;
+    endMin: number;
+    playlist: { id: string; name: string } | null;
+  }>,
+  timezone: string,
+) {
+  try {
+    const stationNow = getStationTimeParts(timezone);
+    return (
+      blocks.find((block) => {
+        const matchesDay = block.dayOfWeek === -1 || block.dayOfWeek === stationNow.dayOfWeek;
+        if (!matchesDay) return false;
+
+        const startMinute = block.startHour * 60 + block.startMin;
+        const endMinute = block.endHour * 60 + block.endMin;
+        return stationNow.minuteOfDay >= startMinute && stationNow.minuteOfDay < endMinute;
+      }) ?? null
+    );
+  } catch {
+    const fallbackNow = getStationTimeParts("UTC");
+    return (
+      blocks.find((block) => {
+        const matchesDay = block.dayOfWeek === -1 || block.dayOfWeek === fallbackNow.dayOfWeek;
+        if (!matchesDay) return false;
+
+        const startMinute = block.startHour * 60 + block.startMin;
+        const endMinute = block.endHour * 60 + block.endMin;
+        return fallbackNow.minuteOfDay >= startMinute && fallbackNow.minuteOfDay < endMinute;
+      }) ?? null
+    );
+  }
+}
+
 export default async function PublicStationPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
 
@@ -40,6 +116,22 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
     include: {
       metrics: { orderBy: { sampledAt: "desc" }, take: 1 },
       tracks: { orderBy: { createdAt: "desc" }, take: 10 },
+      playlists: { orderBy: { createdAt: "asc" }, select: { id: true, name: true, isDefault: true }, take: 10 },
+      playLogs: { orderBy: { playedAt: "desc" }, select: { id: true, title: true, artist: true, playedAt: true }, take: 8 },
+      schedules: {
+        where: { isActive: true },
+        orderBy: [{ dayOfWeek: "asc" }, { startHour: "asc" }, { startMin: "asc" }],
+        select: {
+          id: true,
+          name: true,
+          dayOfWeek: true,
+          startHour: true,
+          startMin: true,
+          endHour: true,
+          endMin: true,
+          playlist: { select: { id: true, name: true } },
+        },
+      },
       announcements: { where: { active: true }, orderBy: { createdAt: "desc" }, take: 5 },
       _count: { select: { tracks: true, playlists: true } },
     },
@@ -65,6 +157,19 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
         }
       : null,
   });
+  const publicPopularity = buildPublicPopularity({
+    stationId: station.id,
+    trackCount: station._count.tracks,
+    playlistCount: station._count.playlists,
+    createdAt: station.createdAt,
+    metric: metricState.source === "live" ? metricState.metric : null,
+    status: station.status,
+  });
+
+  const activeScheduleBlock = resolveCurrentScheduleBlock(station.schedules, station.timezone);
+  const fallbackPlaylist = station.playlists.find((playlist) => playlist.isDefault) ?? station.playlists[0] ?? null;
+  const currentPlaylistName = activeScheduleBlock?.playlist?.name ?? fallbackPlaylist?.name ?? "AutoDJ rotation";
+  const recentSpins = station.playLogs.slice(0, 5);
 
   const related = await getRelatedStations({
     stationId: station.id,
@@ -241,11 +346,67 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
             <NowPlaying mountPath={station.mountPath} />
 
             <StationPlayer
+              stationId={station.id}
+              stationName={station.name}
+              stationSlug={station.slug}
               streamUrl={streamUrl}
+              genre={station.genre}
+              logoUrl={station.logoUrl}
+              stationColor={grad}
               fallbackTracks={station.tracks
                 .filter((t) => t.fileUrl || t.filePath)
                 .map((t) => ({ title: t.title, artist: t.artist, url: `/api/audio/${t.id}` }))}
             />
+
+            <div
+              style={{
+                borderRadius: 10,
+                border: "1px solid rgba(255,255,255,0.12)",
+                background: "rgba(255,255,255,0.06)",
+                padding: "0.75rem 0.85rem",
+                display: "grid",
+                gap: "0.45rem",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", alignItems: "center" }}>
+                <span style={{ fontSize: "0.76rem", color: "rgba(255,255,255,0.62)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Current Playlist
+                </span>
+                <span style={{ fontSize: "0.84rem", fontWeight: 700, color: "#fff", textAlign: "right" }}>
+                  {currentPlaylistName}
+                </span>
+              </div>
+              {activeScheduleBlock && (
+                <p style={{ margin: 0, fontSize: "0.77rem", color: "rgba(255,255,255,0.62)" }}>
+                  Active slot: {activeScheduleBlock.name}
+                </p>
+              )}
+              <p style={{ margin: 0, fontSize: "0.77rem", color: "rgba(255,255,255,0.62)" }}>
+                Community pulse: {formatCompact(publicPopularity.listenersNow)} tuning in now · {formatCompact(publicPopularity.weeklyReach)} weekly reach
+              </p>
+            </div>
+
+            {recentSpins.length > 0 && (
+              <div style={{ display: "grid", gap: "0.35rem" }}>
+                <p style={{ margin: 0, fontSize: "0.75rem", color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Recently Played
+                </p>
+                {recentSpins.map((spin) => (
+                  <div key={spin.id} style={{ display: "flex", gap: "0.6rem", alignItems: "center" }}>
+                    <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.45)", minWidth: 56 }}>
+                      {new Intl.DateTimeFormat("en", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: false,
+                      }).format(spin.playedAt)}
+                    </span>
+                    <span style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.88)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {spin.artist} — {spin.title}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <p className="public-stream-url" style={{ margin: 0, fontSize: "0.75rem", color: "rgba(255,255,255,0.35)" }}>
               Stream URL: <code style={{ color: "rgba(255,255,255,0.55)" }}>{streamUrl}</code>
@@ -302,14 +463,34 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
         {/* Right sidebar */}
         <div style={{ display: "grid", gap: "1.25rem" }}>
 
-          {/* Stats */}
+          {/* Public social proof */}
+          <div className="card" style={{ padding: "1.25rem", display: "grid", gap: "0.75rem" }}>
+            <h3 style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700 }}>Community Pulse</h3>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: "0.825rem", color: "var(--text-muted)" }}>Tuning in now</span>
+              <span style={{ fontSize: "1.05rem", fontWeight: 800 }}>{formatCompact(publicPopularity.listenersNow)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: "0.825rem", color: "var(--text-muted)" }}>Weekly reach</span>
+              <span style={{ fontSize: "0.95rem", fontWeight: 700 }}>{formatCompact(publicPopularity.weeklyReach)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: "0.825rem", color: "var(--text-muted)" }}>Trend</span>
+              <span style={{ fontSize: "0.86rem", fontWeight: 700, textTransform: "capitalize" }}>{publicPopularity.trend}</span>
+            </div>
+            <p style={{ margin: "0.2rem 0 0", fontSize: "0.72rem", color: "var(--text-light)" }}>
+              {publicPopularity.confidence === "measured" ? "Based on recent live snapshots." : "Estimated from station activity and current momentum."}
+            </p>
+          </div>
+
+          {/* Metrics */}
           <div className="card" style={{ padding: "1.25rem", display: "grid", gap: "0.85rem" }}>
-            <h3 style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700 }}>Station Stats</h3>
+            <h3 style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700 }}>Live Metrics</h3>
             {[
-              { label: "Current Listeners", value: metricState.metric.currentListeners },
-              { label: "Peak Listeners", value: metricState.metric.peakListeners },
-              { label: "Uptime", value: `${metricState.metric.uptimePercent.toFixed(1)}%` },
-              { label: "Total Hours", value: `${metricState.metric.totalListeningHours.toFixed(1)}h` },
+              { label: "Current listeners", value: metricState.source === "live" ? metricState.metric.currentListeners : "—" },
+              { label: "Peak listeners", value: metricState.source === "live" ? metricState.metric.peakListeners : "—" },
+              { label: "Uptime", value: metricState.source === "live" ? `${metricState.metric.uptimePercent.toFixed(1)}%` : "—" },
+              { label: "Total hours", value: metricState.source === "live" ? `${metricState.metric.totalListeningHours.toFixed(1)}h` : "—" },
             ].map((stat) => (
               <div key={stat.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontSize: "0.825rem", color: "var(--text-muted)" }}>{stat.label}</span>
@@ -317,7 +498,7 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
               </div>
             ))}
             <p style={{ margin: "0.25rem 0 0", fontSize: "0.72rem", color: "var(--text-light)" }}>
-              Data source: {metricState.source}
+              Data source: {metricSourceLabel(metricState.source)}
             </p>
           </div>
 
@@ -376,7 +557,7 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
                         {r.name}
                       </p>
                       <p style={{ margin: 0, fontSize: "0.775rem", color: "var(--text-muted)" }}>
-                        {r.genre ?? "Radio"} · {r.currentListeners} listeners
+                        {r.genre ?? "Radio"} · {formatCompact(r.publicListenersNow)} tuning in now
                       </p>
                     </div>
                   </Link>

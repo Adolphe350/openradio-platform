@@ -19,7 +19,15 @@ function stationColor(id: string) {
   return `linear-gradient(135deg,hsl(${h1},55%,48%),hsl(${h2},60%,35%))`;
 }
 
+function formatCompact(value: number) {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}k`;
+  return String(value);
+}
+
 function StationCard({ s }: { s: ExploreStation }) {
+  const trendText = s.publicTrend === "up" ? "rising" : s.publicTrend === "down" ? "cooling" : "steady";
+
   return (
     <Link href={`/stations/${s.slug}`} className="station-card">
       <div
@@ -49,6 +57,12 @@ function StationCard({ s }: { s: ExploreStation }) {
       <div className="station-card-body">
         <p className="station-card-title">{s.name}</p>
         <p className="station-card-meta">{s.genre ?? "Radio"}{s.country ? ` · ${s.country}` : ""}</p>
+        <p className="station-card-meta" style={{ marginTop: "0.35rem", fontWeight: 600 }}>
+          {formatCompact(s.publicListenersNow)} {s.popularityConfidence === "measured" ? "listening now" : "tuning in now"}
+        </p>
+        <p className="station-card-meta" style={{ fontSize: "0.72rem" }}>
+          {formatCompact(s.publicWeeklyReach)} weekly reach · {trendText}
+        </p>
       </div>
     </Link>
   );

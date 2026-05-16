@@ -3,7 +3,7 @@ import { StationStatus } from "@prisma/client";
 import { notFound } from "next/navigation";
 
 import { requireUser } from "@/lib/auth";
-import { resolveStationMetric } from "@/lib/analytics";
+import { metricSourceLabel, resolveStationMetric } from "@/lib/analytics";
 import { db } from "@/lib/db";
 import { getPublicStreamUrl, getSourceEndpoint } from "@/lib/stream";
 import { formatDuration } from "@/lib/utils";
@@ -39,6 +39,7 @@ import {
 import { UploadTrackForm } from "@/components/upload-track-form";
 import { LogoUploadForm } from "@/components/logo-upload-form";
 import { LiveListeners } from "@/components/live-listeners";
+import { DashboardMobileShell } from "@/components/dashboard-mobile-shell";
 
 type Props = {
   params: Promise<{ stationId: string }>;
@@ -143,56 +144,64 @@ export default async function StationDetailPage({ params, searchParams }: Props)
   const gradH2 = (gradH1 + 40) % 360;
   const grad = `linear-gradient(135deg,hsl(${gradH1},55%,48%),hsl(${gradH2},60%,35%))`;
 
+  const stationSidebar = (
+    <>
+      <div className="station-sidebar-header">
+        <div style={{ width: 36, height: 36, borderRadius: 8, background: station.logoUrl ? undefined : grad, overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem" }}>
+          {station.logoUrl
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={station.logoUrl} alt={station.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            : "📻"}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <p className="station-sidebar-name">{station.name}</p>
+          <p className="station-sidebar-owner">{user.name}</p>
+        </div>
+      </div>
+
+      <nav className="station-sidebar-nav">
+        {navItems.map((item) => (
+          <Link
+            key={item.id}
+            href={`/dashboard/stations/${stationId}?tab=${item.id}`}
+            className={`station-sidebar-link${tab === item.id ? " active" : ""}`}
+          >
+            <span className="station-sidebar-icon">{item.icon}</span>
+            {item.label}
+          </Link>
+        ))}
+      </nav>
+
+      <div className="station-sidebar-footer">
+        <Link href={`/dashboard/stations/${stationId}/scheduler`} className="station-sidebar-link">
+          <span className="station-sidebar-icon">📅</span>
+          Scheduler
+        </Link>
+        <Link href="/dashboard" className="station-sidebar-link">
+          <span className="station-sidebar-icon">←</span>
+          Back to Dashboard
+        </Link>
+        <Link href={`/stations/${station.slug}`} className="station-sidebar-link">
+          <span className="station-sidebar-icon">🌐</span>
+          Public Page
+        </Link>
+        <Link href={`/dashboard/stations/${stationId}/royalties`} className="station-sidebar-link">
+          <span className="station-sidebar-icon">📊</span>
+          Royalties
+        </Link>
+      </div>
+    </>
+  );
+
   return (
     <div className="station-detail-layout">
 
+      <DashboardMobileShell title={station.name}>
+        <aside className="station-sidebar station-sidebar-drawer">{stationSidebar}</aside>
+      </DashboardMobileShell>
+
       {/* ── Station Sidebar ──────────────────────────────────────── */}
-      <aside className="station-sidebar">
-        <div className="station-sidebar-header">
-          <div style={{ width: 36, height: 36, borderRadius: 8, background: station.logoUrl ? undefined : grad, overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem" }}>
-            {station.logoUrl
-              // eslint-disable-next-line @next/next/no-img-element
-              ? <img src={station.logoUrl} alt={station.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              : "📻"}
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <p className="station-sidebar-name">{station.name}</p>
-            <p className="station-sidebar-owner">{user.name}</p>
-          </div>
-        </div>
-
-        <nav className="station-sidebar-nav">
-          {navItems.map((item) => (
-            <Link
-              key={item.id}
-              href={`/dashboard/stations/${stationId}?tab=${item.id}`}
-              className={`station-sidebar-link${tab === item.id ? " active" : ""}`}
-            >
-              <span className="station-sidebar-icon">{item.icon}</span>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="station-sidebar-footer">
-          <Link href={`/dashboard/stations/${stationId}/scheduler`} className="station-sidebar-link">
-            <span className="station-sidebar-icon">📅</span>
-            Scheduler
-          </Link>
-          <Link href="/dashboard" className="station-sidebar-link">
-            <span className="station-sidebar-icon">←</span>
-            Back to Dashboard
-          </Link>
-          <Link href={`/stations/${station.slug}`} className="station-sidebar-link">
-            <span className="station-sidebar-icon">🌐</span>
-            Public Page
-          </Link>
-          <Link href={`/dashboard/stations/${stationId}/royalties`} className="station-sidebar-link">
-            <span className="station-sidebar-icon">📊</span>
-            Royalties
-          </Link>
-        </div>
-      </aside>
+      <aside className="station-sidebar station-sidebar-desktop">{stationSidebar}</aside>
 
       {/* ── Main Content ─────────────────────────────────────────── */}
       <main className="station-main">
@@ -251,6 +260,11 @@ export default async function StationDetailPage({ params, searchParams }: Props)
               </div>
             ))}
           </div>
+          {metricState.source === "none" && (
+            <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-light)" }}>
+              {metricSourceLabel(metricState.source)}. Listener analytics will populate after metrics polling runs.
+            </p>
+          )}
 
           {/* Broadcast settings */}
           <div className="card" style={{ padding: "1.25rem" }}>
