@@ -29,6 +29,7 @@ export type ExploreStation = {
   status: StationStatus;
   mountPath: string;
   streamUrl: string;
+  logoUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
   trackCount: number;
@@ -138,6 +139,14 @@ export async function getExploreStations(input: ExploreQueryInput = {}) {
           }
         : null,
     });
+    const publicPopularity = buildPublicPopularity({
+      stationId: station.id,
+      trackCount: station._count.tracks,
+      playlistCount: station._count.playlists,
+      createdAt: station.createdAt,
+      metric: metricResult.source === "live" ? metricResult.metric : null,
+      status: station.status,
+    });
 
     return {
       id: station.id,
@@ -150,6 +159,7 @@ export async function getExploreStations(input: ExploreQueryInput = {}) {
       status: station.status,
       mountPath: station.mountPath,
       streamUrl: getPublicStreamUrl(station.mountPath),
+      logoUrl: station.logoUrl,
       createdAt: station.createdAt,
       updatedAt: station.updatedAt,
       trackCount: station._count.tracks,

@@ -1,5 +1,12 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { PersistentPlayerHost } from "@/components/persistent-player-host";
 import "./globals.css";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#00c8a0",
+};
 
 export const metadata: Metadata = {
   title: {
@@ -8,7 +15,16 @@ export const metadata: Metadata = {
   },
   description:
     "Open-source self-hosted internet radio platform for live broadcasting, AutoDJ playlists, and station growth.",
-  metadataBase: new URL("https://openradio-cloud.local")
+  metadataBase: new URL(process.env.APP_BASE_URL || "https://openradio.iraady.com"),
+  openGraph: {
+    type: "website",
+    siteName: "OpenRadio Cloud",
+    title: "OpenRadio Cloud",
+    description: "Open-source self-hosted internet radio platform",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export default function RootLayout({
@@ -18,7 +34,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <PersistentPlayerHost />
+      </body>
     </html>
   );
 }

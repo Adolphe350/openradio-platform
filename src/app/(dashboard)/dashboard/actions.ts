@@ -10,6 +10,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { normalizeMountPath } from "@/lib/stream";
 import { slugify } from "@/lib/slug";
+import { generateStationConfig } from "@/lib/generate-station-config";
 
 function valueAsString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -131,7 +132,13 @@ export async function updateStationMetadataAction(formData: FormData) {
   const stationId = valueAsString(formData, "stationId");
   const description = valueAsString(formData, "description") || null;
   const genre = valueAsString(formData, "genre") || null;
+  const language = valueAsString(formData, "language") || "English";
+  const country = valueAsString(formData, "country") || null;
   const streamDescription = valueAsString(formData, "streamDescription") || null;
+  const logoUrl = valueAsString(formData, "logoUrl") || null;
+  const websiteUrl = valueAsString(formData, "websiteUrl") || null;
+  const facebookUrl = valueAsString(formData, "facebookUrl") || null;
+  const twitterUrl = valueAsString(formData, "twitterUrl") || null;
 
   await ensureOwnedStation(stationId, user.id);
 
@@ -140,10 +147,17 @@ export async function updateStationMetadataAction(formData: FormData) {
     data: {
       description,
       genre,
-      streamDescription
+      language,
+      country,
+      streamDescription,
+      logoUrl,
+      websiteUrl,
+      facebookUrl,
+      twitterUrl
     }
   });
 
+  await generateStationConfig(stationId).catch(() => {});
   revalidatePath(`/dashboard/stations/${stationId}`);
 }
 
@@ -161,11 +175,10 @@ export async function updateStationStatusAction(formData: FormData) {
 
   await db.station.update({
     where: { id: stationId },
-    data: {
-      status
-    }
+    data: { status }
   });
 
+  await generateStationConfig(stationId).catch(() => {});
   revalidatePath(`/dashboard/stations/${stationId}`);
 }
 
@@ -209,6 +222,7 @@ export async function createTrackAction(formData: FormData) {
     }
   });
 
+  await generateStationConfig(stationId).catch(() => {});
   revalidatePath(`/dashboard/stations/${stationId}`);
 }
 
@@ -253,10 +267,9 @@ export async function deleteTrackAction(formData: FormData) {
   await ensureOwnedStation(stationId, user.id);
   await ensureOwnedTrack(trackId, stationId, user.id);
 
-  await db.track.delete({
-    where: { id: trackId }
-  });
+  await db.track.delete({ where: { id: trackId } });
 
+  await generateStationConfig(stationId).catch(() => {});
   revalidatePath(`/dashboard/stations/${stationId}`);
 }
 
@@ -344,6 +357,31 @@ export async function deletePlaylistAction(formData: FormData) {
     where: { id: playlistId }
   });
 
+  await generateStationConfig(stationId).catch(() => {});
+  revalidatePath(`/dashboard/stations/${stationId}`);
+}
+
+export async function setDefaultPlaylistAction(formData: FormData) {
+  const user = await requireUser();
+
+  const stationId = valueAsString(formData, "stationId");
+  const playlistId = valueAsString(formData, "playlistId");
+
+  await ensureOwnedStation(stationId, user.id);
+  await ensureOwnedPlaylist(playlistId, stationId, user.id);
+
+  await db.$transaction([
+    db.playlist.updateMany({
+      where: { stationId, isDefault: true },
+      data: { isDefault: false }
+    }),
+    db.playlist.update({
+      where: { id: playlistId },
+      data: { isDefault: true }
+    })
+  ]);
+
+  await generateStationConfig(stationId).catch(() => {});
   revalidatePath(`/dashboard/stations/${stationId}`);
 }
 
@@ -382,6 +420,7 @@ export async function addTrackToPlaylistAction(formData: FormData) {
     redirect(`/dashboard/stations/${stationId}?error=Track%20already%20exists%20in%20playlist`);
   }
 
+  await generateStationConfig(stationId).catch(() => {});
   revalidatePath(`/dashboard/stations/${stationId}`);
 }
 
@@ -442,9 +481,7 @@ export async function removePlaylistTrackAction(formData: FormData) {
     redirect(`/dashboard/stations/${stationId}?error=Playlist%20track%20not%20found`);
   }
 
-  await db.playlistTrack.delete({
-    where: { id: playlistTrack.id }
-  });
+  await db.playlistTrack.delete({ where: { id: playlistTrack.id } });
 
   const remainingTracks = await db.playlistTrack.findMany({
     where: { playlistId },
@@ -454,14 +491,12 @@ export async function removePlaylistTrackAction(formData: FormData) {
   if (remainingTracks.length > 0) {
     await db.$transaction(
       remainingTracks.map((track, index) =>
-        db.playlistTrack.update({
-          where: { id: track.id },
-          data: { position: index + 1 }
-        })
+        db.playlistTrack.update({ where: { id: track.id }, data: { position: index + 1 } })
       )
     );
   }
 
+  await generateStationConfig(stationId).catch(() => {});
   revalidatePath(`/dashboard/stations/${stationId}`);
 }
 

@@ -15,3 +15,9 @@ export async function requireApiUser() {
     user: session.user
   };
 }
+
+/** Simpler helper — returns the user directly or null. */
+export async function getApiUser() {
+  const session = await getCurrentSession();
+  return session?.user ?? null;
+}

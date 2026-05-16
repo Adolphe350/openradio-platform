@@ -73,36 +73,43 @@ export async function getCurrentSession() {
   }
 
   const tokenHash = hashSessionToken(rawToken);
-  const session = await db.session.findUnique({
-    where: { sessionToken: tokenHash },
-    include: {
-      user: {
-        select: {
-          id: true,
-          email: true,
-          name: true
+  let session;
+  try {
+    session = await db.session.findUnique({
+      where: { sessionToken: tokenHash },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true
+          }
         }
       }
-    }
-  });
+    });
+  } catch (e) {
+    // DB error — don't clear cookie, just return null
+    console.error("[auth] Session lookup failed:", e);
+    return null;
+  }
 
   if (!session) {
-    cookieStore.delete(COOKIE_NAME);
+    // Session not found — cookie may be stale, but don't aggressively delete
+    // during server actions as it causes redirect cookie conflicts
     return null;
   }
 
   if (session.expiresAt < new Date()) {
-    await db.session.delete({ where: { id: session.id } });
+    await db.session.delete({ where: { id: session.id } }).catch(() => {});
     cookieStore.delete(COOKIE_NAME);
     return null;
   }
 
-  await db.session.update({
+  // Update lastActiveAt in background — don't block the request
+  db.session.update({
     where: { id: session.id },
-    data: {
-      lastActiveAt: new Date()
-    }
-  });
+    data: { lastActiveAt: new Date() }
+  }).catch(() => {});
 
   return {
     sessionId: session.id,

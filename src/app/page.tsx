@@ -2,6 +2,8 @@ import Link from "next/link";
 
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { db } from "@/lib/db";
+import { getPublicStreamUrl } from "@/lib/stream";
 
 const features = [
   {
@@ -102,6 +104,9 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
+          <p style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.4)", margin: 0 }}>
+            No credit card required · Self-hosted · MIT licensed
+          </p>
         </div>
       </section>
 

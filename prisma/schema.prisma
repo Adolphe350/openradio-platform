@@ -14,28 +14,33 @@ enum StationStatus {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
+  id           String   @id @default(cuid())
+  email        String   @unique
   name         String
   passwordHash String
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  sessions      Session[]
-  stations      Station[]
-  playlists     Playlist[]
-  createdTracks Track[]
+  sessions           Session[]
+  stations           Station[]
+  playlists          Playlist[]
+  createdTracks      Track[]
+  passwordResetTokens PasswordResetToken[]
+  teamMemberships    TeamMember[] @relation("TeamMemberships")
+  teamAccounts       TeamMember[] @relation("TeamAccounts")
+  podcasts           Podcast[]
+  subscriptions      UserSubscription[]
 }
 
 model Session {
-  id             String   @id @default(cuid())
-  userId         String
-  sessionToken   String   @unique
-  expiresAt      DateTime
-  createdAt      DateTime @default(now())
-  lastActiveAt   DateTime @default(now())
-  userAgent      String?
-  ipAddress      String?
+  id           String   @id @default(cuid())
+  userId       String
+  sessionToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  lastActiveAt DateTime @default(now())
+  userAgent    String?
+  ipAddress    String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -54,18 +59,28 @@ model Station {
   timezone          String        @default("UTC")
   country           String?
   status            StationStatus @default(DRAFT)
+  logoUrl           String?
   mountPath         String
   sourceUsername    String        @default("source")
   sourcePassword    String
   publicWebsiteUrl  String?
   streamDescription String?
+  websiteUrl        String?
+  facebookUrl       String?
+  twitterUrl        String?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
-  owner      User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  tracks     Track[]
-  playlists  Playlist[]
-  metrics    ListenerMetric[]
+  owner        User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tracks       Track[]
+  playlists    Playlist[]
+  metrics      ListenerMetric[]
+  geoBlocks    GeoBlock[]
+  relayStreams  RelayStream[]
+  playLogs     PlayLog[]
+  schedules    ScheduleBlock[]
+  announcements Announcement[]
+  recordings   Recording[]
 
   @@index([ownerId])
 }
@@ -79,12 +94,16 @@ model Track {
   album           String?
   durationSec     Int?
   fileUrl         String?
+  filePath        String?
+  fileSizeBytes   Int?
+  mimeType        String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   station   Station         @relation(fields: [stationId], references: [id], onDelete: Cascade)
   createdBy User?           @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
   playlists PlaylistTrack[]
+  playLogs  PlayLog[]
 
   @@index([stationId])
 }
@@ -102,6 +121,7 @@ model Playlist {
   station   Station         @relation(fields: [stationId], references: [id], onDelete: Cascade)
   createdBy User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
   tracks    PlaylistTrack[]
+  schedules ScheduleBlock[]
 
   @@unique([stationId, name])
   @@index([stationId])
@@ -136,4 +156,236 @@ model ListenerMetric {
   station Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
 
   @@index([stationId, sampledAt])
+}
+
+// Password reset tokens
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Countries blocked from listening to this station
+model GeoBlock {
+  id          String   @id @default(cuid())
+  stationId   String
+  countryCode String   // ISO 3166-1 alpha-2, e.g. "US"
+  countryName String
+  createdAt   DateTime @default(now())
+
+  station Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@unique([stationId, countryCode])
+  @@index([stationId])
+}
+
+// Relay / re-broadcast streams for this station
+model RelayStream {
+  id          String   @id @default(cuid())
+  stationId   String
+  name        String
+  url         String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  station Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@index([stationId])
+}
+
+// Every track that was played (for royalty reports)
+model PlayLog {
+  id        String   @id @default(cuid())
+  stationId String
+  trackId   String?
+  title     String
+  artist    String
+  playedAt  DateTime @default(now())
+  durationSec Int?
+
+  station Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  track   Track?  @relation(fields: [trackId], references: [id], onDelete: SetNull)
+
+  @@index([stationId, playedAt])
+}
+
+// Source type for schedule blocks
+enum ScheduleSourceType {
+  PLAYLIST        // A named playlist (playlistId required)
+  PODCAST_EPISODE // A single podcast episode file (sourceId = Episode.id)
+  RECORDING       // A station recording file (sourceId = Recording.id)
+  TRACK           // A single uploaded track (sourceId = Track.id)
+  RANDOM_ALL      // All station tracks shuffled (default AutoDJ fallback)
+  LIVE_SLOT       // Reserved live-broadcast slot (no AutoDJ, silence/fallback)
+}
+
+// Time-based schedule blocks (AutoDJ scheduling)
+model ScheduleBlock {
+  id         String             @id @default(cuid())
+  stationId  String
+  playlistId String?            // Foreign key for PLAYLIST source type
+  sourceType ScheduleSourceType @default(RANDOM_ALL)
+  sourceId   String?            // Generic source ID for non-playlist types
+  name       String
+  dayOfWeek  Int                // 0=Sun ... 6=Sat, -1=every day
+  startHour  Int                // 0-23
+  startMin   Int                @default(0)
+  endHour    Int
+  endMin     Int                @default(0)
+  color      String?            // Hex color for calendar UI, e.g. "#3b82f6"
+  notes      String?            // Optional notes/description
+  isActive   Boolean            @default(true)
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  station  Station   @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  playlist Playlist? @relation(fields: [playlistId], references: [id], onDelete: SetNull)
+
+  @@index([stationId])
+  @@index([stationId, dayOfWeek, startHour])
+}
+
+// Team management
+enum TeamRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  userId    String
+  accountId String   // owner's userId (the account they belong to)
+  role      TeamRole @default(MEMBER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User @relation("TeamMemberships", fields: [userId], references: [id], onDelete: Cascade)
+  account User @relation("TeamAccounts", fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, accountId])
+  @@index([accountId])
+  @@index([userId])
+}
+
+// Station announcements
+model Announcement {
+  id        String   @id @default(cuid())
+  stationId String
+  title     String
+  content   String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  station Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@index([stationId])
+}
+
+// Podcast hosting
+model Podcast {
+  id          String   @id @default(cuid())
+  ownerId     String
+  title       String
+  slug        String   @unique
+  description String?
+  author      String?
+  imageUrl    String?
+  websiteUrl  String?
+  language    String   @default("en")
+  category    String?
+  explicit    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner    User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  episodes Episode[]
+
+  @@index([ownerId])
+}
+
+model Episode {
+  id          String    @id @default(cuid())
+  podcastId   String
+  title       String
+  description String?
+  fileUrl     String?
+  filePath    String?
+  durationSec Int?
+  sizeBytes   Int?
+  mimeType    String?
+  season      Int?
+  episode     Int?
+  explicit    Boolean   @default(false)
+  publishedAt DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  podcast Podcast @relation(fields: [podcastId], references: [id], onDelete: Cascade)
+
+  @@index([podcastId, publishedAt])
+}
+
+// Subscription plans
+model Plan {
+  id                String   @id @default(cuid())
+  name              String
+  slug              String   @unique
+  price             Float    @default(0)
+  interval          String   @default("monthly") // monthly | yearly
+  maxStations       Int?     // null = unlimited
+  maxListeners      Int?     // null = unlimited
+  maxListeningHours Int?     // null = unlimited
+  maxBitrate        Int      @default(128)
+  features          Json     @default("[]")
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  subscriptions UserSubscription[]
+}
+
+// User plan subscriptions
+model UserSubscription {
+  id        String    @id @default(cuid())
+  userId    String
+  planId    String
+  status    String    @default("active") // active | cancelled | expired
+  startedAt DateTime  @default(now())
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([planId])
+}
+
+// Recordings of live broadcasts
+model Recording {
+  id        String    @id @default(cuid())
+  stationId String
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+  fileUrl   String?
+  filePath  String?
+  sizeBytes Int?
+  status    String    @default("recording") // recording | done | failed
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  station Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@index([stationId, startedAt])
 }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-const footerGroups = [
+const cols = [
   {
     title: "Listen",
     links: [

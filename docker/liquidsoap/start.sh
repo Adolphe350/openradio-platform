@@ -4,11 +4,8 @@ set -eu
 ICECAST_HOST="${LIQ_ICECAST_HOST:-icecast}"
 ICECAST_PORT="${LIQ_ICECAST_PORT:-8000}"
 ICECAST_PASSWORD="${LIQ_ICECAST_PASSWORD:-sourcepass}"
-STREAM_MOUNT="${LIQ_STREAM_MOUNT:-/demo.mp3}"
-STREAM_NAME="${LIQ_STREAM_NAME:-OpenRadio Demo}"
-STREAM_DESCRIPTION="${LIQ_STREAM_DESCRIPTION:-Baseline AutoDJ stream}"
-STREAM_GENRE="${LIQ_STREAM_GENRE:-Mixed}"
-STREAM_URL="${LIQ_STREAM_URL:-http://localhost:3000}"
+APP_BASE_URL="${LIQ_APP_BASE_URL:-http://app:3000}"
+POLL_SECRET="${LIQ_POLL_SECRET:-openradio-internal}"
 
 cat > /tmp/openradio-autodj.liq << LIQEOF
 settings.log.stdout.set(true)
@@ -30,13 +27,67 @@ output.icecast(
   host="${ICECAST_HOST}",
   port=${ICECAST_PORT},
   password="${ICECAST_PASSWORD}",
-  mount="${STREAM_MOUNT}",
-  name="${STREAM_NAME}",
-  description="${STREAM_DESCRIPTION}",
-  genre="${STREAM_GENRE}",
-  url="${STREAM_URL}",
+  mount="/demo.mp3",
+  name="OpenRadio Demo",
+  description="Waiting for tracks — upload music to get started",
+  genre="Mixed",
+  url="${APP_BASE_URL}",
   radio
 )
 LIQEOF
 
-exec liquidsoap /tmp/openradio-autodj.liq
+demo = playlist(
+  id="openradio_demo",
+  mode="random",
+  reload_mode="watch",
+  "${MEDIA_SRC}"
+)
+
+radio = fallback(track_sensitive=false, [demo, blank()])
+
+output.icecast(
+  %mp3(bitrate=128, samplerate=44100, stereo=true),
+  host="${ICECAST_HOST}",
+  port=${ICECAST_PORT},
+  password="${ICECAST_PASSWORD}",
+  mount="/demo.mp3",
+  name="OpenRadio Demo",
+  description="Baseline AutoDJ stream",
+  genre="Mixed",
+  url="${APP_BASE_URL}",
+  radio
+)
+EOF_LIQ
+  fi
+  echo "[openradio] No station configs found — running demo stream on /demo.mp3"
+  with_allow_root /tmp/openradio-demo.liq /tmp/openradio-demo-root.liq
+  exec liquidsoap /tmp/openradio-demo-root.liq
+}
+
+# Watch loop: start one liquidsoap process per .liq config file.
+# When a new config is written, pick it up on the next restart cycle.
+run_station_configs() {
+  pids=""
+
+  for liq_file in "${CONFIG_DIR}"/*.liq; do
+    [ -f "$liq_file" ] || continue
+    station_id="$(basename "$liq_file" .liq)"
+    wrapped_liq="/tmp/${station_id}.root.liq"
+    echo "[openradio] Starting AutoDJ for station: ${station_id}"
+    with_allow_root "$liq_file" "$wrapped_liq"
+    liquidsoap "$wrapped_liq" &
+    pids="$pids $!"
+  done
+
+  if [ -z "$pids" ]; then
+    write_demo_script
+  fi
+
+  # Keep container alive; if any child exits, restart everything
+  wait $pids
+  echo "[openradio] A station process exited — restarting in 5s..."
+  sleep 5
+  exec sh "$0"
+}
+
+run_station_configs

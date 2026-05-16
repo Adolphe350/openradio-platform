@@ -6,7 +6,89 @@ import { hashPassword } from "../src/lib/password";
 
 const prisma = new PrismaClient();
 
+async function seedPlans() {
+  const plans = [
+    {
+      id: "plan_free",
+      name: "Free",
+      slug: "free",
+      price: 0,
+      interval: "monthly",
+      maxStations: 2,
+      maxListeners: 500,
+      maxListeningHours: null as number | null,
+      maxBitrate: 128,
+      features: ["2 stations", "500 concurrent listeners", "128 kbps quality", "AutoDJ + scheduling", "Basic analytics"],
+    },
+    {
+      id: "plan_starter",
+      name: "Starter",
+      slug: "starter",
+      price: 14,
+      interval: "monthly",
+      maxStations: 5,
+      maxListeners: 5000,
+      maxListeningHours: 400000 as number | null,
+      maxBitrate: 128,
+      features: ["5 stations", "5,000 concurrent listeners", "128 kbps quality", "400k listening hours/month", "Full analytics"],
+    },
+    {
+      id: "plan_pro",
+      name: "Pro",
+      slug: "pro",
+      price: 25,
+      interval: "monthly",
+      maxStations: 15,
+      maxListeners: 25000,
+      maxListeningHours: 1000000 as number | null,
+      maxBitrate: 192,
+      features: ["15 stations", "25,000 concurrent listeners", "192 kbps quality", "1M listening hours/month", "Priority support"],
+    },
+    {
+      id: "plan_premier",
+      name: "Premier",
+      slug: "premier",
+      price: 115,
+      interval: "monthly",
+      maxStations: null as number | null,
+      maxListeners: null as number | null,
+      maxListeningHours: null as number | null,
+      maxBitrate: 320,
+      features: ["Unlimited stations", "Unlimited listeners", "320 kbps quality", "2.5M listening hours/month", "Enterprise support"],
+    },
+  ];
+
+  for (const plan of plans) {
+    await prisma.plan.upsert({
+      where: { slug: plan.slug },
+      update: {
+        name: plan.name,
+        price: plan.price,
+        maxStations: plan.maxStations,
+        maxListeners: plan.maxListeners,
+        maxListeningHours: plan.maxListeningHours,
+        maxBitrate: plan.maxBitrate,
+        features: plan.features,
+      },
+      create: {
+        id: plan.id,
+        name: plan.name,
+        slug: plan.slug,
+        price: plan.price,
+        interval: plan.interval,
+        maxStations: plan.maxStations,
+        maxListeners: plan.maxListeners,
+        maxListeningHours: plan.maxListeningHours,
+        maxBitrate: plan.maxBitrate,
+        features: plan.features,
+      },
+    });
+  }
+  console.log("Plans seeded");
+}
+
 async function main() {
+  await seedPlans();
   const demoEmail = "demo@openradio.cloud";
   const demoPassword = "OpenRadio123!";
 

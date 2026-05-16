@@ -71,12 +71,12 @@ export function SiteHeader({ showAuthActions = true }: SiteHeaderProps) {
               <Link href="/sign-in" className="btn secondary">
                 Sign in
               </Link>
-              <Link href="/sign-up" className="btn primary">
-                Get started
+              <Link href="/sign-up" className="nav-link-create btn">
+                Sign up
               </Link>
             </div>
           ) : null}
-        </nav>
+        </div>
       </div>
     </header>
   );

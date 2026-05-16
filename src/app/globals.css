@@ -29,13 +29,13 @@
   --transition: 180ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-* {
-  box-sizing: border-box;
-}
+/* ─── Reset ─────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
 
 html, body {
   margin: 0;
   padding: 0;
+  overflow-x: clip;
 }
 
 body {
@@ -62,13 +62,34 @@ a {
   text-decoration: none;
 }
 
+a:hover { text-decoration: none; }
+
+img { display: block; max-width: 100%; }
+
+/* ─── Layout ─────────────────────────────────────────────────────── */
 .container {
   width: min(1200px, 92vw);
   margin: 0 auto;
 }
 
+.container-sm {
+  width: min(860px, 94vw);
+  margin: 0 auto;
+}
+
+/* ─── Typography helpers ─────────────────────────────────────────── */
+.muted         { color: var(--text-muted); }
+.text-light    { color: var(--text-light); }
+.text-brand    { color: var(--brand); }
+.text-sm       { font-size: 0.875rem; }
+.text-xs       { font-size: 0.75rem; }
+.text-lg       { font-size: 1.125rem; }
+.font-semibold { font-weight: 600; }
+.font-bold     { font-weight: 700; }
+
+/* ─── Cards ─────────────────────────────────────────────────────── */
 .card {
-  background: var(--bg-elevated);
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
@@ -79,6 +100,13 @@ a {
   box-shadow: var(--shadow-md);
 }
 
+.card-dark {
+  background: var(--bg-dark2);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-lg);
+}
+
+/* ─── Buttons ────────────────────────────────────────────────────── */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -89,16 +117,24 @@ a {
   padding: 0.6rem 1.1rem;
   font-size: 0.875rem;
   font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
   transition: all var(--transition);
   font-family: inherit;
   line-height: 1;
   white-space: nowrap;
 }
+.btn:hover    { opacity: 0.88; transform: translateY(-1px); }
+.btn:active   { transform: translateY(0); opacity: 1; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-.btn:hover {
-  transform: translateY(-1px);
+/* Primary — brand teal */
+.btn-primary {
+  background: var(--brand);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(0,200,160,0.3);
 }
+.btn-primary:hover { background: var(--brand-dark); opacity: 1; }
 
 .btn:active {
   transform: translateY(0);
@@ -120,6 +156,7 @@ a {
   background: var(--bg-elevated);
   color: var(--text);
 }
+.btn-secondary:hover { background: var(--bg-page); opacity: 1; }
 
 .btn.secondary:hover {
   background: var(--bg-subtle);
@@ -154,12 +191,16 @@ a {
   box-shadow: 0 0 0 3px var(--brand-light);
 }
 
+input::placeholder,
+textarea::placeholder { color: var(--text-light); }
+
 .field {
   display: grid;
   gap: 0.3rem;
 }
 
 .field label {
+  font-size: 0.875rem;
   font-weight: 600;
   font-size: 0.8rem;
   color: var(--text-secondary);
@@ -176,6 +217,7 @@ a {
   color: var(--muted);
 }
 
+/* ─── Badge / Tag ────────────────────────────────────────────────── */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -204,6 +246,192 @@ a {
   color: var(--danger);
 }
 
+.badge-brand   { background: var(--brand-light); color: #00a882; }
+.badge-green   { background: #ecfdf5; color: #059669; }
+.badge-red     { background: #fef2f2; color: #dc2626; }
+.badge-yellow  { background: #fffbeb; color: #d97706; }
+.badge-gray    { background: var(--bg-page); color: var(--text-muted); }
+.badge-dark    { background: rgba(255,255,255,0.15); color: #fff; }
+
+/* ─── Status dot ─────────────────────────────────────────────────── */
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+  display: inline-block;
+  animation: pulse-dot 1.8s ease infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.85); }
+}
+
+/* ─── Station thumbnail (square artwork) ────────────────────────── */
+.station-thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius-lg);
+  object-fit: cover;
+  display: block;
+}
+
+.station-thumb-placeholder {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+}
+
+/* ─── Station card (grid card) ───────────────────────────────────── */
+.station-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: transform 200ms, box-shadow 200ms;
+  cursor: pointer;
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.station-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+  text-decoration: none;
+  color: inherit;
+}
+
+.station-card-thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+}
+
+.station-card-body {
+  padding: 0.75rem;
+}
+
+.station-card-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.station-card-meta {
+  font-size: 0.775rem;
+  color: var(--text-muted);
+  margin: 0.15rem 0 0;
+}
+
+/* ─── Section titles ─────────────────────────────────────────────── */
+.section-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.section-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.2rem;
+}
+
+/* ─── Tabs (All / Radio / Podcasts) ─────────────────────────────── */
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--border);
+}
+
+.tab {
+  padding: 0.65rem 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  border: none;
+  background: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 150ms, border-color 150ms;
+  text-decoration: none;
+  font-family: inherit;
+}
+
+.tab:hover   { color: var(--text); }
+.tab.active  { color: var(--text); border-bottom-color: var(--brand); }
+
+/* ─── Grid helpers ───────────────────────────────────────────────── */
+.grid-cards {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
+.grid-cards-lg {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+.grid-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+/* ─── Auth pages ─────────────────────────────────────────────────── */
+.auth-page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.auth-image-panel {
+  background: linear-gradient(160deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-form-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  background: var(--bg);
+}
+
+.auth-form-inner {
+  width: 100%;
+  max-width: 400px;
+}
+
+@media (max-width: 768px) {
+  .auth-page { grid-template-columns: 1fr; }
+  .auth-image-panel { display: none; }
+}
+
+/* Legacy compat */
 .auth-shell {
   min-height: 100vh;
   display: grid;
@@ -247,7 +475,9 @@ a {
   align-items: center;
   grid-template-columns: 1.2fr 1fr;
 }
+.auth-card { width: min(420px, 100%); }
 
+/* ─── Dashboard layout ───────────────────────────────────────────── */
 .dashboard-shell {
   min-height: 100vh;
   display: grid;
@@ -260,7 +490,137 @@ a {
   padding: 1.5rem 1rem;
 }
 
-.station-split {
+.dashboard-content {
+  background: var(--bg-page);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.sidebar-logo {
+  padding: 1.25rem 1.2rem;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+}
+
+.sidebar-logo-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.sidebar-logo-text {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.sidebar-nav {
+  padding: 1rem 0.75rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgba(255,255,255,0.65);
+  transition: background 150ms, color 150ms;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+  width: 100%;
+  text-align: left;
+}
+
+.sidebar-link:hover {
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  text-decoration: none;
+}
+
+.sidebar-link.active {
+  background: rgba(0,200,160,0.15);
+  color: var(--brand);
+}
+
+.sidebar-section-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(255,255,255,0.3);
+  padding: 0.8rem 0.8rem 0.3rem;
+}
+
+.sidebar-bottom {
+  padding: 0.75rem;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+/* Hidden on desktop, shown on mobile via media query */
+.sidebar-mobile-signout {
+  display: none;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: var(--radius-md);
+}
+
+.sidebar-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.sidebar-user-name {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-user-role {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.45);
+}
+
+/* ─── Dashboard page sections ────────────────────────────────────── */
+.dash-page {
+  padding: 1.75rem 2rem 3rem;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;

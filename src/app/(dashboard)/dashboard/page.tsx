@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { StationStatus } from "@prisma/client";
 
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getPublicStreamUrl } from "@/lib/stream";
+import { DashboardStats } from "./dashboard-stats";
 
 export const metadata = {
   title: "Dashboard",

@@ -2,16 +2,14 @@ import Link from "next/link";
 
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { getExploreFilters, getExploreStations, parseExploreSearchParams } from "@/lib/explore";
+import { getExploreFilters, getExploreStations, parseExploreSearchParams, type ExploreStation } from "@/lib/explore";
 
 export const metadata = {
   title: "Explore stations",
   description: "Find active OpenRadio stations by name, genre, language, and country.",
 };
 
-type ExplorePageProps = {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
+type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 const sortOptions = [
   { value: "trending", label: "Trending" },
@@ -27,10 +25,69 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     limit: 30,
   };
 
-  const [stations, facetOptions] = await Promise.all([getExploreStations(filters), getExploreFilters()]);
+function formatCompact(value: number) {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}k`;
+  return String(value);
+}
+
+function StationCard({ s }: { s: ExploreStation }) {
+  const trendText = s.publicTrend === "up" ? "rising" : s.publicTrend === "down" ? "cooling" : "steady";
 
   return (
-    <main>
+    <Link href={`/stations/${s.slug}`} className="station-card">
+      <div
+        className="station-card-thumb"
+        style={{ background: s.logoUrl ? undefined : stationColor(s.id), position: "relative" }}
+      >
+        {s.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={s.logoUrl} alt={s.name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        ) : (
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem" }}>📻</div>
+        )}
+        {s.status === "ACTIVE" && (
+          <span
+            style={{
+              position: "absolute", top: 7, right: 7,
+              background: "rgba(0,0,0,0.55)", color: "#fff",
+              fontSize: "0.65rem", fontWeight: 700,
+              padding: "0.12rem 0.45rem", borderRadius: "999px",
+              display: "flex", alignItems: "center", gap: "0.3rem",
+            }}
+          >
+            <span className="live-dot" style={{ width: 6, height: 6 }} />LIVE
+          </span>
+        )}
+      </div>
+      <div className="station-card-body">
+        <p className="station-card-title">{s.name}</p>
+        <p className="station-card-meta">{s.genre ?? "Radio"}{s.country ? ` · ${s.country}` : ""}</p>
+        <p className="station-card-meta" style={{ marginTop: "0.35rem", fontWeight: 600 }}>
+          {formatCompact(s.publicListenersNow)} {s.popularityConfidence === "measured" ? "listening now" : "tuning in now"}
+        </p>
+        <p className="station-card-meta" style={{ fontSize: "0.72rem" }}>
+          {formatCompact(s.publicWeeklyReach)} weekly reach · {trendText}
+        </p>
+      </div>
+    </Link>
+  );
+}
+
+export default async function ExplorePage({ searchParams }: Props) {
+  const params = parseExploreSearchParams(await searchParams);
+  const hasFilter = !!(params.q || params.genre || params.language || params.country);
+  const filters = { ...params, sort: params.sort ?? "trending", limit: 48 };
+
+  const [stations, facets, trending, top] = await Promise.all([
+    getExploreStations(filters),
+    getExploreFilters(),
+    hasFilter ? Promise.resolve([]) : getExploreStations({ sort: "trending", limit: 16 }),
+    hasFilter ? Promise.resolve([]) : getExploreStations({ sort: "recent", limit: 8 }),
+  ]);
+
+  return (
+    <main style={{ background: "var(--bg-page)", minHeight: "100vh" }}>
       <SiteHeader />
 
       <section style={{ padding: "3rem 0 2rem" }}>
@@ -45,7 +102,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
             </p>
           </div>
         </div>
-      </section>
+      </div>
 
       <section style={{ padding: "0 0 2rem" }}>
         <div className="container">
@@ -180,8 +237,8 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
               <Link href="/explore" className="btn secondary">Clear filters</Link>
             </div>
           </div>
-        </section>
-      ) : null}
+        )}
+      </div>
 
       <SiteFooter />
     </main>

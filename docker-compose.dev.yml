@@ -1,0 +1,61 @@
+version: "3.9"
+
+# ── Dev preview compose — minimal stack on port 3002 ─────────────
+# Usage: docker compose -f docker-compose.dev.yml up --build -d
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: openradio-app-dev
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3002:3000"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/openradio
+      SESSION_COOKIE_NAME: orc_session
+      SESSION_TTL_DAYS: 30
+      APP_BASE_URL: http://localhost:3002
+      STREAM_PUBLIC_BASE_URL: http://localhost:8000
+      STREAM_SOURCE_HOST: icecast
+      ICECAST_SOURCE_PORT: 8000
+      REDIS_URL: redis://localhost:6379
+      METRICS_POLL_SECRET: dev-secret
+      UPLOAD_DIR: /app/uploads
+      MAX_UPLOAD_BYTES: 52428800
+      LIQ_CONFIG_DIR: /app/liquidsoap-configs
+      NGINX_GEO_DIR: /app/nginx-geo
+      ICECAST_ACL_DIR: /app/icecast-acl
+    volumes:
+      - dev_uploads:/app/uploads
+      - dev_liq_configs:/app/liquidsoap-configs
+      - dev_nginx_geo:/app/nginx-geo
+      - dev_icecast_acl:/app/icecast-acl
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: openradio-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: openradio
+    volumes:
+      - dev_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d openradio"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  dev_postgres:
+  dev_uploads:
+  dev_liq_configs:
+  dev_nginx_geo:
+  dev_icecast_acl:
