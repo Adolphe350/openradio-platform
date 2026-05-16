@@ -178,7 +178,7 @@ export default async function DashboardPage() {
               <div
                 key={c.label}
                 className="checklist-item"
-                style={{ background: c.done ? "#ecfdf5" : undefined, borderColor: c.done ? "#a7f3d0" : undefined }}
+                style={{ background: c.done ? "rgba(0,200,160,0.08)" : undefined, borderColor: c.done ? "rgba(0,200,160,0.3)" : undefined }}
               >
                 <div className={`checklist-circle${c.done ? " done" : ""}`}>{c.done ? "✓" : ""}</div>
                 <div>
