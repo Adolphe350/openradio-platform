@@ -52,19 +52,21 @@ function liqEscape(s: string): string {
 }
 
 // Liquidsoap day-of-week: 0=Sunday ... 6=Saturday (matches JS)
-// Liquidsoap 2.x time predicate: { Nw HH:MM-HH:MM }
-// N: 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat, 7=Sun
+// Liquidsoap 2.x time predicate: {NNhNNm-NNhNNm} or {Nw NNhNNm-NNhNNm}
+// Day N: 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat, 7=Sun
 function buildTimeCondition(e: ScheduleEntry): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const startTime = `${pad(e.startHour)}:${pad(e.startMin)}`;
-  const endTime = `${pad(e.endHour)}:${pad(e.endMin)}`;
+  const fmtTime = (h: number, m: number) =>
+    m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, "0")}m`;
+
+  const startFmt = fmtTime(e.startHour, e.startMin);
+  const endFmt   = fmtTime(e.endHour,   e.endMin);
 
   if (e.dayOfWeek === -1) {
-    return `{ ${startTime}-${endTime} }`;
+    return `{${startFmt}-${endFmt}}`;
   }
   // Convert JS day (0=Sun...6=Sat) to Liquidsoap day (1=Mon...7=Sun)
   const liqDay = e.dayOfWeek === 0 ? 7 : e.dayOfWeek;
-  return `{ ${liqDay}w ${startTime}-${endTime} }`;
+  return `{${liqDay}w ${startFmt}-${endFmt}}`;
 }
 
 export function generateLiqScript(cfg: LiqConfig): string {
