@@ -182,8 +182,10 @@ export function PersistentPlayerHost() {
     }
 
     clearLiveStartTimer();
+    // Stop any current playback first
+    audio.pause();
     audio.src = config.streamUrl;
-    audio.load();
+    // Do NOT call audio.load() for live streams - it causes buffering issues
 
     updatePlaybackState({
       loading: true,
@@ -209,7 +211,7 @@ export function PersistentPlayerHost() {
     const audio = audioRef.current;
     if (!audio) return;
 
-    audio.preload = "auto";
+    audio.preload = "none";
 
     if (typeof window !== "undefined") {
       const savedVolume = window.localStorage.getItem("openradio:volume");
@@ -284,7 +286,7 @@ export function PersistentPlayerHost() {
       audio.removeEventListener("error", onError);
       audio.removeEventListener("ended", onEnded);
     };
-  }, [clearLiveStartTimer, playFallbackTrack, updatePlaybackState]);
+  }, [clearLiveStartTimer, connectLiveStream, updatePlaybackState]);
 
   useEffect(() => {
     const handleConfigure = (event: Event) => {
