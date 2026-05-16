@@ -27,7 +27,9 @@
   </listen-socket>
 
   <mount type="default">
-    <max-listeners>0</max-listeners>
+    <max-listeners>500</max-listeners>
+    <fallback-override>1</fallback-override>
+    <fallback-when-full>1</fallback-when-full>
     <public>0</public>
   </mount>
 

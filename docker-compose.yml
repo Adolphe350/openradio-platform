@@ -1,3 +1,15 @@
+# ── OpenRadio Cloud — Coolify-compatible Docker Compose ─────────────
+#
+# Coolify deployment notes:
+#   1. Point Coolify at this repo, select "Docker Compose" deploy type.
+#   2. Set all environment variables in Coolify's env editor (see .env.example).
+#   3. Coolify manages its own reverse proxy (Traefik/Caddy) — the "app"
+#      service does NOT need ports exposed; use Coolify's domain settings.
+#   4. The "nginx" service proxies Icecast with geo-blocking on port 8080.
+#      Expose it through Coolify as a separate domain (e.g. stream.yourdomain.com).
+#   5. Set STREAM_PUBLIC_BASE_URL to your nginx/stream domain in Coolify envs.
+#   6. After first deploy run: docker exec openradio-app npx prisma db push
+#
 
 services:
 
@@ -149,9 +161,8 @@ services:
       LIQ_APP_BASE_URL: http://app:3000
       LIQ_POLL_SECRET: ${METRICS_POLL_SECRET:-openradio-internal}
     volumes:
-      - ./docker/liquidsoap/start.sh:/opt/openradio/start.sh:ro
-      - ./docker/liquidsoap/media:/media:ro
-    entrypoint: ["sh", "/opt/openradio/start.sh"]
+      - uploads_data:/uploads:ro
+      - liquidsoap_configs:/configs:ro
 
 volumes:
   postgres_data:
