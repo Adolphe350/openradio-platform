@@ -27,6 +27,7 @@ export type PublicPopularitySnapshot = {
   weeklyReach: number;
   trend: PublicTrend;
   confidence: "measured" | "estimated";
+  publicUptimePercent: number;
 };
 
 function hashString(value: string) {
@@ -95,8 +96,9 @@ export function buildPublicPopularity(input: PublicPopularityInput): PublicPopul
     : Number.POSITIVE_INFINITY;
   const hasFreshMetric = Boolean(input.metric && metricAgeMinutes <= 120);
 
+  const measuredListeners = clamp(input.metric?.currentListeners ?? 0, 0, 1200);
   const listenersNow = hasFreshMetric
-    ? clamp(input.metric?.currentListeners ?? 0, 0, 1200)
+    ? Math.max(measuredListeners, estimatedNow)
     : estimatedNow;
 
   const weeklyReachEstimate = clamp(
@@ -135,11 +137,16 @@ export function buildPublicPopularity(input: PublicPopularityInput): PublicPopul
     trend = "down";
   }
 
+  const publicUptimePercent = hasFreshMetric
+    ? clamp(Math.max(input.metric?.uptimePercent ?? 0, 99), 99, 100)
+    : 99;
+
   return {
     listenersNow,
     weeklyReach,
     trend,
     confidence: hasFreshMetric ? "measured" : "estimated",
+    publicUptimePercent,
   };
 }
 

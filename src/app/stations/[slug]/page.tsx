@@ -496,8 +496,12 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
               <span style={{ fontSize: "0.825rem", color: "var(--text-muted)" }}>Trend</span>
               <span style={{ fontSize: "0.86rem", fontWeight: 700, textTransform: "capitalize" }}>{publicPopularity.trend}</span>
             </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: "0.825rem", color: "var(--text-muted)" }}>Uptime</span>
+              <span style={{ fontSize: "0.9rem", fontWeight: 700 }}>{publicPopularity.publicUptimePercent.toFixed(0)}%</span>
+            </div>
             <p style={{ margin: "0.2rem 0 0", fontSize: "0.72rem", color: "var(--text-light)" }}>
-              {publicPopularity.confidence === "measured" ? "Based on recent live snapshots." : "Estimated from station activity and current momentum."}
+              Popularity is public-facing social proof. Creator analytics show the real measured listener data.
             </p>
           </div>
 
