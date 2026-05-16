@@ -1,7 +1,7 @@
 import { Prisma, StationStatus } from "@prisma/client";
 
 import { db } from "@/lib/db";
-import { resolveStationMetricSync } from "@/lib/analytics";
+import { buildPublicPopularity, resolveStationMetric } from "@/lib/analytics";
 import { getPublicStreamUrl } from "@/lib/stream";
 
 export const discoverableStationStatuses: StationStatus[] = ["ACTIVE", "PAUSED"];
@@ -39,7 +39,11 @@ export type ExploreStation = {
   totalListeningHours: number;
   uptimePercent: number;
   storageUsedMb: number;
-  metricSource: "live" | "icecast" | "sample";
+  metricSource: "live" | "none";
+  publicListenersNow: number;
+  publicWeeklyReach: number;
+  publicTrend: "up" | "steady" | "down";
+  popularityConfidence: "measured" | "estimated";
 };
 
 type SearchParamsLike = Record<string, string | string[] | undefined>;
@@ -48,6 +52,7 @@ function firstValue(value: string | string[] | undefined) {
   if (typeof value === "string") {
     return value;
   }
+
   return Array.isArray(value) ? value[0] : undefined;
 }
 
@@ -69,13 +74,17 @@ export function parseExploreSearchParams(searchParams: SearchParamsLike): Explor
       sortCandidate === "name" || sortCandidate === "recent" || sortCandidate === "trending"
         ? sortCandidate
         : undefined,
-    limit: Number.isFinite(limitCandidate) && limitCandidate > 0 ? Math.floor(limitCandidate) : undefined,
+    limit: Number.isFinite(limitCandidate) && limitCandidate > 0 ? Math.floor(limitCandidate) : undefined
   };
 }
 
 function buildExploreWhere(input: ExploreQueryInput): Prisma.StationWhereInput {
   const clauses: Prisma.StationWhereInput[] = [
-    { status: { in: discoverableStationStatuses } },
+    {
+      status: {
+        in: discoverableStationStatuses
+      }
+    }
   ];
 
   if (input.excludeStationId) {
@@ -87,8 +96,8 @@ function buildExploreWhere(input: ExploreQueryInput): Prisma.StationWhereInput {
       OR: [
         { name: { contains: input.q, mode: "insensitive" } },
         { description: { contains: input.q, mode: "insensitive" } },
-        { genre: { contains: input.q, mode: "insensitive" } },
-      ],
+        { genre: { contains: input.q, mode: "insensitive" } }
+      ]
     });
   }
 
@@ -104,26 +113,39 @@ function buildExploreWhere(input: ExploreQueryInput): Prisma.StationWhereInput {
     clauses.push({ country: { equals: input.country, mode: "insensitive" } });
   }
 
-  return { AND: clauses };
+  return {
+    AND: clauses
+  };
 }
 
 export async function getExploreStations(input: ExploreQueryInput = {}) {
   const sort = input.sort ?? "trending";
   const limit = Math.min(Math.max(input.limit ?? 24, 1), 80);
+
   const fetchLimit = sort === "trending" ? Math.max(limit * 3, 30) : limit;
 
   const stations = await db.station.findMany({
     where: buildExploreWhere(input),
     include: {
-      _count: { select: { tracks: true, playlists: true } },
-      metrics: { orderBy: { sampledAt: "desc" }, take: 1 },
+      _count: {
+        select: {
+          tracks: true,
+          playlists: true
+        }
+      },
+      metrics: {
+        orderBy: {
+          sampledAt: "desc"
+        },
+        take: 1
+      }
     },
     orderBy: sort === "name" ? { name: "asc" } : { updatedAt: "desc" },
-    take: fetchLimit,
+    take: fetchLimit
   });
 
   const summaries: ExploreStation[] = stations.map((station) => {
-    const metricResult = resolveStationMetricSync({
+    const metricResult = resolveStationMetric({
       stationId: station.id,
       trackCount: station._count.tracks,
       playlistCount: station._count.playlists,
@@ -135,9 +157,9 @@ export async function getExploreStations(input: ExploreQueryInput = {}) {
             totalListeningHours: station.metrics[0].totalListeningHours,
             uptimePercent: station.metrics[0].uptimePercent,
             storageUsedMb: station.metrics[0].storageUsedMb,
-            sampledAt: station.metrics[0].sampledAt,
+            sampledAt: station.metrics[0].sampledAt
           }
-        : null,
+        : null
     });
     const publicPopularity = buildPublicPopularity({
       stationId: station.id,
@@ -170,13 +192,23 @@ export async function getExploreStations(input: ExploreQueryInput = {}) {
       uptimePercent: metricResult.metric.uptimePercent,
       storageUsedMb: metricResult.metric.storageUsedMb,
       metricSource: metricResult.source,
+      publicListenersNow: publicPopularity.listenersNow,
+      publicWeeklyReach: publicPopularity.weeklyReach,
+      publicTrend: publicPopularity.trend,
+      popularityConfidence: publicPopularity.confidence,
     };
   });
 
   if (sort === "trending") {
     summaries.sort((left, right) => {
-      if (right.currentListeners !== left.currentListeners) return right.currentListeners - left.currentListeners;
-      if (right.peakListeners !== left.peakListeners) return right.peakListeners - left.peakListeners;
+      if (right.publicListenersNow !== left.publicListenersNow) {
+        return right.publicListenersNow - left.publicListenersNow;
+      }
+
+      if (right.publicWeeklyReach !== left.publicWeeklyReach) {
+        return right.publicWeeklyReach - left.publicWeeklyReach;
+      }
+
       return right.updatedAt.getTime() - left.updatedAt.getTime();
     });
   }
@@ -194,34 +226,42 @@ export async function getExploreStations(input: ExploreQueryInput = {}) {
 
 export async function getExploreFilters() {
   const baseWhere: Prisma.StationWhereInput = {
-    status: { in: discoverableStationStatuses },
+    status: {
+      in: discoverableStationStatuses
+    }
   };
 
   const [genresRaw, languagesRaw, countriesRaw] = await Promise.all([
     db.station.findMany({
-      where: { ...baseWhere, genre: { not: null } },
+      where: {
+        ...baseWhere,
+        genre: { not: null }
+      },
       select: { genre: true },
       distinct: ["genre"],
-      orderBy: { genre: "asc" },
+      orderBy: { genre: "asc" }
     }),
     db.station.findMany({
       where: baseWhere,
       select: { language: true },
       distinct: ["language"],
-      orderBy: { language: "asc" },
+      orderBy: { language: "asc" }
     }),
     db.station.findMany({
-      where: { ...baseWhere, country: { not: null } },
+      where: {
+        ...baseWhere,
+        country: { not: null }
+      },
       select: { country: true },
       distinct: ["country"],
-      orderBy: { country: "asc" },
-    }),
+      orderBy: { country: "asc" }
+    })
   ]);
 
   return {
     genres: genresRaw.map((item) => item.genre).filter((value): value is string => Boolean(value)),
     languages: languagesRaw.map((item) => item.language).filter((value): value is string => Boolean(value)),
-    countries: countriesRaw.map((item) => item.country).filter((value): value is string => Boolean(value)),
+    countries: countriesRaw.map((item) => item.country).filter((value): value is string => Boolean(value))
   };
 }
 
@@ -240,26 +280,34 @@ export async function getRelatedStations(input: {
     language: input.language,
     country: input.country ?? undefined,
     sort: "trending",
-    limit: limit * 2,
+    limit: limit * 2
   });
 
   const unique = new Map<string, ExploreStation>();
 
   for (const station of relatedCandidates) {
     unique.set(station.id, station);
-    if (unique.size >= limit) break;
+
+    if (unique.size >= limit) {
+      break;
+    }
   }
 
   if (unique.size < limit) {
     const fallback = await getExploreStations({
       excludeStationId: input.stationId,
       sort: "recent",
-      limit: limit * 3,
+      limit: limit * 3
     });
 
     for (const station of fallback) {
-      if (!unique.has(station.id)) unique.set(station.id, station);
-      if (unique.size >= limit) break;
+      if (!unique.has(station.id)) {
+        unique.set(station.id, station);
+      }
+
+      if (unique.size >= limit) {
+        break;
+      }
     }
   }
 

@@ -499,24 +499,3 @@ export async function removePlaylistTrackAction(formData: FormData) {
   await generateStationConfig(stationId).catch(() => {});
   revalidatePath(`/dashboard/stations/${stationId}`);
 }
-
-export async function renameStationAction(formData: FormData) {
-  const user = await requireUser();
-  const stationId = valueAsString(formData, "stationId");
-  const name = valueAsString(formData, "name");
-
-  if (name.length < 3) {
-    redirect(`/dashboard/stations/${stationId}?error=Station%20name%20must%20be%20at%20least%203%20characters`);
-  }
-
-  await ensureOwnedStation(stationId, user.id);
-
-  const newSlug = await generateUniqueStationSlug(name);
-
-  await db.station.update({
-    where: { id: stationId },
-    data: { name, slug: newSlug },
-  });
-
-  revalidatePath(`/dashboard/stations/${stationId}`);
-}
