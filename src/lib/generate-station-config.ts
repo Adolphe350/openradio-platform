@@ -88,14 +88,24 @@ export async function generateStationConfig(stationId: string): Promise<void> {
     );
   }
 
-  // all_tracks.m3u — every track in the station (for default AutoDJ rotation)
-  const allTracks = await db.track.findMany({
+  // all_tracks.m3u — default AutoDJ rotation source.
+  // Prefer the playlist marked as default so the dashboard's "Use for Auto DJ"
+  // control actually changes what plays outside scheduled blocks.
+  // Fall back to every station track only if no default playlist is available.
+  const defaultPlaylist = station.playlists.find((playlist) => playlist.isDefault) ?? null;
+  const defaultPlaylistLines = defaultPlaylist
+    ? defaultPlaylist.tracks
+        .map((pt) => toLiquidsoapPath(pt.track.filePath ?? pt.track.fileUrl))
+        .filter(Boolean)
+    : [];
+
+  const fallbackAllTracks = await db.track.findMany({
     where: { stationId },
     select: { filePath: true, fileUrl: true },
   });
-  const allTrackLines = allTracks
+  const allTrackLines = (defaultPlaylistLines.length > 0 ? defaultPlaylistLines : fallbackAllTracks
     .map((t) => toLiquidsoapPath(t.filePath ?? t.fileUrl))
-    .filter(Boolean);
+    .filter(Boolean));
   await writeFile(
     path.join(stationDir, "all_tracks.m3u"),
     allTrackLines.join("\n") + "\n",

@@ -357,6 +357,31 @@ export async function deletePlaylistAction(formData: FormData) {
     where: { id: playlistId }
   });
 
+  await generateStationConfig(stationId).catch(() => {});
+  revalidatePath(`/dashboard/stations/${stationId}`);
+}
+
+export async function setDefaultPlaylistAction(formData: FormData) {
+  const user = await requireUser();
+
+  const stationId = valueAsString(formData, "stationId");
+  const playlistId = valueAsString(formData, "playlistId");
+
+  await ensureOwnedStation(stationId, user.id);
+  await ensureOwnedPlaylist(playlistId, stationId, user.id);
+
+  await db.$transaction([
+    db.playlist.updateMany({
+      where: { stationId, isDefault: true },
+      data: { isDefault: false }
+    }),
+    db.playlist.update({
+      where: { id: playlistId },
+      data: { isDefault: true }
+    })
+  ]);
+
+  await generateStationConfig(stationId).catch(() => {});
   revalidatePath(`/dashboard/stations/${stationId}`);
 }
 

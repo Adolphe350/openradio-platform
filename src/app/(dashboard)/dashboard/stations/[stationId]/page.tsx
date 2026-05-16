@@ -17,6 +17,7 @@ import {
   deleteTrackAction,
   movePlaylistTrackAction,
   removePlaylistTrackAction,
+  setDefaultPlaylistAction,
   updateStationMetadataAction,
   updateStationStatusAction,
 } from "../../actions";
@@ -455,7 +456,7 @@ export default async function StationDetailPage({ params, searchParams }: Props)
                   <h3 style={{ margin: 0, fontSize: "0.975rem" }}>{pl.name} {pl.isDefault && <span style={{ fontSize: "0.7rem", background: "var(--brand-light)", color: "var(--brand-dark)", padding: "0.1rem 0.5rem", borderRadius: 999, marginLeft: 6 }}>Default</span>}</h3>
                   {pl.description && <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--text-muted)" }}>{pl.description}</p>}
                 </div>
-                <div style={{ display: "flex", gap: "0.4rem" }}>
+                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
                   <form action={addTrackToPlaylistAction} style={{ display: "flex", gap: "0.4rem" }}>
                     <input type="hidden" name="stationId" value={station.id} />
                     <input type="hidden" name="playlistId" value={pl.id} />
@@ -465,6 +466,13 @@ export default async function StationDetailPage({ params, searchParams }: Props)
                     </select>
                     <button className="btn btn-primary btn-sm" type="submit">Add</button>
                   </form>
+                  {!pl.isDefault && (
+                    <form action={setDefaultPlaylistAction}>
+                      <input type="hidden" name="stationId" value={station.id} />
+                      <input type="hidden" name="playlistId" value={pl.id} />
+                      <button className="btn btn-secondary btn-sm" type="submit">Use for Auto DJ</button>
+                    </form>
+                  )}
                   {!pl.isDefault && (
                     <form action={deletePlaylistAction}>
                       <input type="hidden" name="stationId" value={station.id} />
@@ -513,8 +521,11 @@ export default async function StationDetailPage({ params, searchParams }: Props)
           {/* Schedule */}
           <div className="card" style={{ padding: "1.25rem" }}>
             <h2 style={{ fontSize: "1rem", margin: "0 0 0.25rem" }}>Schedule Blocks</h2>
-            <p style={{ margin: "0 0 1rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
+            <p style={{ margin: "0 0 0.5rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
               Define time-based programming slots. The AutoDJ will play the selected playlist during each block.
+            </p>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.82rem", color: "var(--text-light)" }}>
+              Outside scheduled blocks, Auto DJ uses your playlist marked <strong>Default</strong>. Use the <strong>Use for Auto DJ</strong> button above on any playlist to switch it.
             </p>
             <form action={addScheduleBlockAction} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: "0.75rem" }}>
               <input type="hidden" name="stationId" value={station.id} />
