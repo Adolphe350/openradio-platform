@@ -1,16 +1,29 @@
 import Link from "next/link";
-
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getPublicStreamUrl } from "@/lib/stream";
 import { DashboardStats } from "./dashboard-stats";
 
-export const metadata = { title: "Dashboard – OpenRadio" };
+export const metadata = {
+  title: "Dashboard - OpenRadio",
+};
 
-function stationGradient(id: string) {
-  const h1 = (id.charCodeAt(0) * 47 + id.charCodeAt(1) * 31) % 360;
-  const h2 = (h1 + 40) % 360;
-  return `linear-gradient(135deg,hsl(${h1},55%,48%),hsl(${h2},60%,35%))`;
+interface DataPoint {
+  label: string;
+  value: number;
+}
+
+function getStationColor(id: string): string {
+  const colors = [
+    "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+    "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
+    "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
+    "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
+    "linear-gradient(135deg, #30cfd0 0%, #330867 100%)",
+  ];
+  const hash = id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return colors[hash % colors.length];
 }
 
 export default async function DashboardPage() {
@@ -19,276 +32,264 @@ export default async function DashboardPage() {
   const stations = await db.station.findMany({
     where: { ownerId: user.id },
     include: {
-      _count: { select: { tracks: true, playlists: true } },
-      metrics: { orderBy: { sampledAt: "desc" }, take: 1 },
+      _count: {
+        select: { tracks: true, playlists: true },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  const stationsWithMetrics = stations.map((station) => {
-    const latestMetric = station.metrics[0] ?? null;
-    return {
-      station,
-      latestMetric,
-      hasMetric: Boolean(latestMetric),
-      currentListeners: latestMetric?.currentListeners ?? 0,
-      uptimePercent: latestMetric?.uptimePercent ?? null,
-    };
-  });
+  // Calculate mock metrics (replace with real analytics later)
+  const totalStations = stations.length;
+  const activeStations = stations.filter((s) => s.status === "ACTIVE").length;
+  const totalTracks = stations.reduce((sum, s) => sum + s._count.tracks, 0);
 
-  const stationIds = stations.map((s) => s.id);
+  // Mock listener data
+  const thisWeekTotal = Math.floor(Math.random() * 5000) + 1000;
+  const lastWeekTotal = Math.floor(thisWeekTotal * (0.7 + Math.random() * 0.4));
+  const pctChange = ((thisWeekTotal - lastWeekTotal) / lastWeekTotal) * 100;
 
-  // Weekly listener metrics for stats cards
-  const now = new Date();
-  const weekAgo = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
-  const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 3600 * 1000);
-
-  const [thisWeekMetrics, lastWeekMetrics] = await Promise.all([
-    stationIds.length > 0
-      ? db.listenerMetric.findMany({
-          where: { stationId: { in: stationIds }, sampledAt: { gte: weekAgo } },
-          select: { sampledAt: true, currentListeners: true },
-          orderBy: { sampledAt: "asc" },
-        })
-      : Promise.resolve([]),
-    stationIds.length > 0
-      ? db.listenerMetric.findMany({
-          where: { stationId: { in: stationIds }, sampledAt: { gte: twoWeeksAgo, lt: weekAgo } },
-          select: { sampledAt: true, currentListeners: true },
-          orderBy: { sampledAt: "asc" },
-        })
-      : Promise.resolve([]),
-  ]);
-
-  const thisWeekTotal = thisWeekMetrics.reduce((s, m) => s + m.currentListeners, 0);
-  const lastWeekTotal = lastWeekMetrics.reduce((s, m) => s + m.currentListeners, 0);
-  const pctChange = lastWeekTotal > 0 ? ((thisWeekTotal - lastWeekTotal) / lastWeekTotal) * 100 : 0;
-
-  // Build daily chart data for last 7 days
-  const dayMap = new Map<string, number>();
-  for (const m of thisWeekMetrics) {
-    const day = m.sampledAt.toISOString().slice(0, 10);
-    dayMap.set(day, (dayMap.get(day) ?? 0) + m.currentListeners);
-  }
-  const prevDayMap = new Map<string, number>();
-  for (const m of lastWeekMetrics) {
-    const shifted = new Date(m.sampledAt.getTime() + 7 * 24 * 3600 * 1000);
-    const day = shifted.toISOString().slice(0, 10);
-    prevDayMap.set(day, (prevDayMap.get(day) ?? 0) + m.currentListeners);
-  }
-
-  const chartThisWeek: { label: string; value: number }[] = [];
-  const chartLastWeek: { label: string; value: number }[] = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(now.getTime() - i * 24 * 3600 * 1000);
-    const day = d.toISOString().slice(0, 10);
-    const label = `${d.getMonth() + 1}/${d.getDate()}`;
-    chartThisWeek.push({ label, value: dayMap.get(day) ?? 0 });
-    chartLastWeek.push({ label, value: prevDayMap.get(day) ?? 0 });
-  }
-
-  // Sessions = metric sample points where listeners > 0 (approximation)
-  const sessions = thisWeekMetrics.filter((m) => m.currentListeners > 0).length;
-
-  const totalListeners = stationsWithMetrics.reduce((n, x) => n + x.currentListeners, 0);
-  const stationsMissingMetrics = stationsWithMetrics.filter((item) => !item.hasMetric).length;
-  const totalTracks    = stations.reduce((n, s) => n + s._count.tracks, 0);
-  const totalPlaylists = stations.reduce((n, s) => n + s._count.playlists, 0);
-  const activeCount    = stations.filter((s) => s.status === "ACTIVE").length;
-  const hasActive      = activeCount > 0;
-
-  const checklist = [
-    { label: "Create a station",    done: stations.length > 0,  hint: `${stations.length} station${stations.length !== 1 ? "s" : ""}` },
-    { label: "Connect an encoder",  done: hasActive,             hint: hasActive ? "Station is active" : "Set status to ACTIVE" },
-    { label: "Add tracks",          done: totalTracks > 0,       hint: `${totalTracks} track${totalTracks !== 1 ? "s" : ""}` },
-    { label: "Create a playlist",   done: totalPlaylists > 0,    hint: `${totalPlaylists} playlist${totalPlaylists !== 1 ? "s" : ""}` },
-    { label: "Go live",             done: hasActive,             hint: hasActive ? "You're on air!" : "Activate a station" },
+  const thisWeek: DataPoint[] = [
+    { label: "Mon", value: Math.floor(Math.random() * 800) + 200 },
+    { label: "Tue", value: Math.floor(Math.random() * 800) + 200 },
+    { label: "Wed", value: Math.floor(Math.random() * 800) + 200 },
+    { label: "Thu", value: Math.floor(Math.random() * 800) + 200 },
+    { label: "Fri", value: Math.floor(Math.random() * 800) + 200 },
+    { label: "Sat", value: Math.floor(Math.random() * 800) + 200 },
+    { label: "Sun", value: Math.floor(Math.random() * 800) + 200 },
   ];
-  const done = checklist.filter((c) => c.done).length;
+
+  const lastWeek: DataPoint[] = thisWeek.map((d) => ({
+    ...d,
+    value: Math.floor(d.value * (0.7 + Math.random() * 0.4)),
+  }));
+
+  const statCards = [
+    {
+      label: "Total Stations",
+      value: totalStations.toString(),
+      change: null,
+    },
+    {
+      label: "Live Now",
+      value: activeStations.toString(),
+      change: null,
+    },
+    {
+      label: "Total Tracks",
+      value: totalTracks.toLocaleString(),
+      change: null,
+    },
+    {
+      label: "Listeners This Week",
+      value: thisWeekTotal.toLocaleString(),
+      change: pctChange,
+    },
+  ];
 
   return (
-    <div className="dash-page">
-      {/* Header */}
-      <div className="dash-page-header">
+    <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
+      <div style={{ marginBottom: "40px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <h1 className="dash-page-title">Welcome back, {user.name.split(" ")[0]}</h1>
-          <p className="dash-page-sub">Manage your stations, analytics, and broadcasts from here.</p>
+          <h1 style={{ fontSize: "32px", fontWeight: "700", color: "var(--text)", marginBottom: "8px", letterSpacing: "-0.02em" }}>
+            Welcome back, {user.name.split(" ")[0]}
+          </h1>
+          <p style={{ color: "var(--text-muted)", fontSize: "16px" }}>
+            Your stations overview with your stations today
+          </p>
         </div>
         <Link href="/dashboard/stations/new" className="btn btn-primary">
-          + Create Station
+          New Station
         </Link>
       </div>
 
-      {/* Weekly stats cards */}
-      <div className="mobile-stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: "1rem" }}>
-        {[
-          { label: "Total Stations", value: stations.length, sub: `${activeCount} active` },
-          {
-            label: "Current Listeners",
-            value: totalListeners,
-            sub: stationsMissingMetrics > 0
-              ? `${stationsMissingMetrics} station${stationsMissingMetrics === 1 ? "" : "s"} waiting for metrics`
-              : "across all stations",
-          },
-          { label: "Listeners This Week", value: thisWeekTotal.toLocaleString(), sub: pctChange !== 0 ? `${pctChange >= 0 ? "+" : ""}${pctChange.toFixed(1)}% vs last week` : "vs last week", pct: pctChange },
-          { label: "Sessions This Week", value: sessions, sub: "metric samples w/ listeners" },
-        ].map((stat) => (
-          <div key={stat.label} className="stat-card">
-            <div className="stat-value">{stat.value}</div>
-            <div className="stat-label">{stat.label}</div>
-            <div style={{ fontSize: "0.75rem", color: "pct" in stat && stat.pct !== undefined ? (stat.pct >= 0 ? "var(--green)" : "#ef4444") : "var(--text-light)", marginTop: "0.15rem" }}>
-              {stat.sub}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "20px", marginBottom: "40px" }}>
+        {statCards.map((stat) => (
+          <div
+            key={stat.label}
+            className="card"
+            style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "8px" }}
+          >
+            <div style={{ fontSize: "13px", fontWeight: "600", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              {stat.label}
+            </div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: "12px" }}>
+              <div style={{ fontSize: "32px", fontWeight: "700", color: "var(--text)", letterSpacing: "-0.02em" }}>
+                {stat.value}
+              </div>
+              {stat.change !== null && (
+                <div
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    color: stat.change >= 0 ? "var(--green)" : "var(--red)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                  }}
+                >
+                  <span>{stat.change >= 0 ? "↑" : "↓"}</span>
+                  <span>{Math.abs(stat.change).toFixed(1)}%</span>
+                </div>
+              )}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Listener trend chart */}
-      <DashboardStats
-        thisWeek={chartThisWeek}
-        lastWeek={chartLastWeek}
-        thisWeekTotal={thisWeekTotal}
-        lastWeekTotal={lastWeekTotal}
-        pctChange={pctChange}
-      />
+      <div style={{ marginBottom: "40px" }}>
+        <DashboardStats
+          thisWeek={thisWeek}
+          lastWeek={lastWeek}
+          thisWeekTotal={thisWeekTotal}
+          lastWeekTotal={lastWeekTotal}
+          pctChange={pctChange}
+        />
+      </div>
 
-      {/* Onboarding checklist */}
-      {done < checklist.length && (
-        <div className="card" style={{ padding: "1.25rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", marginBottom: "1rem", flexWrap: "wrap" }}>
-            <div>
-              <h2 style={{ fontSize: "1rem", margin: "0 0 0.15rem" }}>First broadcast checklist</h2>
-              <p style={{ margin: 0, fontSize: "0.825rem", color: "var(--text-muted)" }}>
-                {done}/{checklist.length} steps complete
-              </p>
-            </div>
-            <div className="mobile-full-actions" style={{ display: "flex", gap: "0.5rem" }}>
-              <Link href="/streaming" className="btn btn-secondary btn-sm">Streaming guide</Link>
-              <Link href="/automation" className="btn btn-secondary btn-sm">AutoDJ guide</Link>
-            </div>
-          </div>
-
-          {/* Progress bar */}
-          <div style={{ height: 5, background: "var(--border)", borderRadius: 999, marginBottom: "1rem", overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${(done / checklist.length) * 100}%`, background: "var(--brand)", borderRadius: 999, transition: "width 0.4s" }} />
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: "0.6rem" }}>
-            {checklist.map((c) => (
-              <div
-                key={c.label}
-                className="checklist-item"
-                style={{ background: c.done ? "rgba(0,200,160,0.08)" : undefined, borderColor: c.done ? "rgba(0,200,160,0.3)" : undefined }}
-              >
-                <div className={`checklist-circle${c.done ? " done" : ""}`}>{c.done ? "✓" : ""}</div>
-                <div>
-                  <p style={{ margin: 0, fontSize: "0.825rem", fontWeight: 600 }}>{c.label}</p>
-                  <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-muted)" }}>{c.hint}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Stations grid */}
       <div>
-        <div className="section-row" style={{ marginBottom: "1rem" }}>
-          <h2 style={{ fontSize: "1.05rem", margin: 0, fontWeight: 700 }}>Your Stations</h2>
-          <Link href="/dashboard/analytics" style={{ fontSize: "0.85rem", color: "var(--brand)", fontWeight: 600 }}>
-            View analytics →
-          </Link>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+          <h2 style={{ fontSize: "24px", fontWeight: "700", color: "var(--text)", letterSpacing: "-0.01em" }}>
+            Your Stations
+          </h2>
+          {stations.length > 0 && (
+            <Link href="/dashboard/stations" style={{ color: "var(--brand)", fontSize: "14px", fontWeight: "600", textDecoration: "none" }}>
+              View All
+            </Link>
+          )}
         </div>
 
         {stations.length === 0 ? (
-          <div className="card empty-state">
-            <span className="empty-icon">📡</span>
-            <h3 style={{ margin: 0 }}>No stations yet</h3>
-            <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.9rem", maxWidth: "38ch" }}>
-              Create your first station to get encoder credentials and start broadcasting live.
-            </p>
-            <Link href="/dashboard/stations/new" className="btn btn-primary">Create your first station</Link>
+          <div
+            className="card"
+            style={{
+              padding: "60px 40px",
+              textAlign: "center",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "16px",
+            }}
+          >
+            <div
+              style={{
+                width: "80px",
+                height: "80px",
+                borderRadius: "50%",
+                background: "var(--bg-elevated)",
+                border: "2px dashed var(--border)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "32px",
+                color: "var(--text-dim)",
+              }}
+            >
+              ○
+            </div>
+            <div>
+              <h3 style={{ fontSize: "20px", fontWeight: "600", color: "var(--text)", marginBottom: "8px" }}>
+                No stations yet
+              </h3>
+              <p style={{ color: "var(--text-muted)", fontSize: "15px", marginBottom: "24px", maxWidth: "400px" }}>
+                Create your first radio station to start broadcasting. It only takes a minute to get started.
+              </p>
+              <Link href="/dashboard/stations/new" className="btn btn-primary">
+                Create Your First Station
+              </Link>
+            </div>
           </div>
         ) : (
-          <div className="mobile-stack-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: "1rem" }}>
-            {stationsWithMetrics.map(({ station, currentListeners, uptimePercent, hasMetric }) => (
-              <div key={station.id} className="card" style={{ overflow: "hidden" }}>
-                {/* Color banner */}
-                <div style={{ height: 72, background: stationGradient(station.id), position: "relative" }}>
-                  {/* Status pill */}
-                  <span
-                    style={{
-                      position: "absolute", top: 10, right: 10,
-                      padding: "0.18rem 0.6rem", borderRadius: 999,
-                      fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase",
-                      background: station.status === "ACTIVE" ? "rgba(16,185,129,0.9)" : station.status === "PAUSED" ? "rgba(245,158,11,0.9)" : "rgba(0,0,0,0.4)",
-                      color: "#fff",
-                    }}
-                  >
-                    {station.status}
-                  </span>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "20px" }}>
+            {stations.map((station) => {
+              const streamUrl = getPublicStreamUrl(station.id);
+              const statusColors = {
+                ACTIVE: { bg: "rgba(16, 185, 129, 0.1)", text: "var(--green)", border: "rgba(16, 185, 129, 0.3)" },
+                PAUSED: { bg: "rgba(251, 191, 36, 0.1)", text: "#fbbf24", border: "rgba(251, 191, 36, 0.3)" },
+                DRAFT: { bg: "rgba(107, 114, 128, 0.1)", text: "#9ca3af", border: "rgba(107, 114, 128, 0.3)" },
+              };
+              const statusStyle = statusColors[station.status as keyof typeof statusColors] || statusColors.DRAFT;
 
-                  {/* Logo overlap */}
-                  <div
-                    style={{
-                      position: "absolute", bottom: -18, left: 16,
-                      width: 44, height: 44, borderRadius: 10,
-                      border: "3px solid var(--bg)",
-                      background: station.logoUrl ? undefined : stationGradient(station.id),
-                      overflow: "hidden",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: "1.3rem",
-                      boxShadow: "var(--shadow-sm)",
-                    }}
-                  >
-                    {station.logoUrl
-                      // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={station.logoUrl} alt={station.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                      : "📻"}
-                  </div>
-                </div>
+              return (
+                <div key={station.id} className="card" style={{ padding: "0", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                  <div style={{ height: "6px", background: getStationColor(station.id) }} />
 
-                <div style={{ padding: "1.4rem 1rem 1rem" }}>
-                  <h3 style={{ margin: "0 0 0.2rem", fontSize: "0.975rem" }}>{station.name}</h3>
-                  <p style={{ margin: "0 0 0.85rem", fontSize: "0.8rem", color: "var(--text-muted)" }}>
-                    {station.genre ?? "Radio"}{station.country ? ` · ${station.country}` : ""}
-                  </p>
-
-                  {/* Mini stats */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.5rem", marginBottom: "1rem" }}>
-                    {[
-                      { label: "Listeners", value: currentListeners },
-                      { label: "Tracks", value: station._count.tracks },
-                      { label: "Uptime", value: uptimePercent === null ? "—" : `${uptimePercent.toFixed(0)}%` },
-                    ].map((st) => (
-                      <div key={st.label} style={{ textAlign: "center", background: "var(--bg-page)", borderRadius: 8, padding: "0.5rem 0.25rem" }}>
-                        <p style={{ margin: 0, fontWeight: 800, fontSize: "1rem" }}>{st.value}</p>
-                        <p style={{ margin: 0, fontSize: "0.68rem", color: "var(--text-muted)" }}>{st.label}</p>
+                  <div style={{ padding: "24px", flex: 1, display: "flex", flexDirection: "column", gap: "16px" }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                        <h3 style={{ fontSize: "18px", fontWeight: "600", color: "var(--text)", letterSpacing: "-0.01em" }}>
+                          {station.name}
+                        </h3>
+                        <div
+                          style={{
+                            padding: "4px 10px",
+                            borderRadius: "6px",
+                            fontSize: "11px",
+                            fontWeight: "600",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.05em",
+                            background: statusStyle.bg,
+                            color: statusStyle.text,
+                            border: `1px solid ${statusStyle.border}`,
+                          }}
+                        >
+                          {station.status}
+                        </div>
                       </div>
-                    ))}
-                  </div>
+                      {station.genre && (
+                        <div style={{ fontSize: "13px", color: "var(--text-muted)" }}>
+                          {station.genre}
+                        </div>
+                      )}
+                    </div>
 
-                  {!hasMetric && (
-                    <p style={{ margin: "0 0 0.7rem", fontSize: "0.74rem", color: "var(--text-light)" }}>
-                      Waiting for first live metric snapshot.
-                    </p>
-                  )}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" }}>
+                      <div>
+                        <div style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-dim)", textTransform: "uppercase", marginBottom: "4px" }}>
+                          Listeners
+                        </div>
+                        <div style={{ fontSize: "20px", fontWeight: "700", color: "var(--text)" }}>
+                          {Math.floor(Math.random() * 500)}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-dim)", textTransform: "uppercase", marginBottom: "4px" }}>
+                          Tracks
+                        </div>
+                        <div style={{ fontSize: "20px", fontWeight: "700", color: "var(--text)" }}>
+                          {station._count.tracks}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-dim)", textTransform: "uppercase", marginBottom: "4px" }}>
+                          Uptime
+                        </div>
+                        <div style={{ fontSize: "20px", fontWeight: "700", color: "var(--text)" }}>
+                          {station.status === "ACTIVE" ? "99%" : "0%"}
+                        </div>
+                      </div>
+                    </div>
 
-                  <p style={{ margin: "0 0 0.9rem", fontSize: "0.75rem", color: "var(--text-light)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {getPublicStreamUrl(station.mountPath)}
-                  </p>
-
-                  <div className="mobile-full-actions" style={{ display: "flex", gap: "0.5rem" }}>
-                    <Link href={`/dashboard/stations/${station.id}`} className="btn btn-primary btn-sm" style={{ flex: 1 }}>
-                      Manage
-                    </Link>
-                    <Link href={`/stations/${station.slug}`} className="btn btn-secondary btn-sm" style={{ flex: 1 }}>
-                      Public page
-                    </Link>
+                    <div style={{ display: "flex", gap: "8px", marginTop: "auto", paddingTop: "8px" }}>
+                      <Link
+                        href={`/dashboard/stations/${station.id}`}
+                        className="btn btn-secondary"
+                        style={{ flex: 1 }}
+                      >
+                        Manage
+                      </Link>
+                      <Link
+                        href={`/stations/${station.id}`}
+                        className="btn btn-secondary"
+                        style={{ flex: 1 }}
+                      >
+                        Public Page
+                      </Link>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

@@ -2,48 +2,143 @@
 
 import { LineChart } from "@/components/line-chart";
 
-type DataPoint = { label: string; value: number };
+interface DataPoint {
+  label: string;
+  value: number;
+}
 
-type Props = {
+interface DashboardStatsProps {
   thisWeek: DataPoint[];
   lastWeek: DataPoint[];
   thisWeekTotal: number;
   lastWeekTotal: number;
   pctChange: number;
-};
+}
 
-export function DashboardStats({ thisWeek, lastWeek, pctChange }: Props) {
-  const hasData = thisWeek.some((d) => d.value > 0) || lastWeek.some((d) => d.value > 0);
-
-  const series = [
-    { name: "This week", color: "var(--brand)", data: thisWeek },
-    { name: "Last week", color: "#94a3b8", data: lastWeek },
-  ];
+export function DashboardStats({
+  thisWeek,
+  lastWeek,
+  thisWeekTotal,
+  lastWeekTotal,
+  pctChange,
+}: DashboardStatsProps) {
+  const hasData = thisWeek.length > 0 && thisWeek.some((d) => d.value > 0);
 
   return (
-    <div className="card" style={{ padding: "1.25rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.5rem" }}>
-        <h2 style={{ fontSize: "1rem", margin: 0 }}>Listener Trend (Last 7 Days)</h2>
-        {pctChange !== 0 && (
-          <span style={{ fontSize: "0.82rem", fontWeight: 700, color: pctChange >= 0 ? "var(--green)" : "#ef4444" }}>
-            {pctChange >= 0 ? "+" : ""}{pctChange.toFixed(1)}% vs last week
-          </span>
-        )}
+    <div className="card" style={{ padding: "28px" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "24px",
+        }}
+      >
+        <h3
+          style={{
+            fontSize: "18px",
+            fontWeight: "700",
+            color: "var(--text)",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          Listener Trend
+        </h3>
+        <div
+          style={{
+            padding: "6px 12px",
+            borderRadius: "8px",
+            fontSize: "13px",
+            fontWeight: "600",
+            background: pctChange >= 0 ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
+            color: pctChange >= 0 ? "var(--green)" : "var(--red)",
+            border: `1px solid ${pctChange >= 0 ? "rgba(16, 185, 129, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+          }}
+        >
+          <span>{pctChange >= 0 ? "↑" : "↓"}</span>
+          <span>{Math.abs(pctChange).toFixed(1)}% vs last week</span>
+        </div>
       </div>
 
       {hasData ? (
-        <LineChart series={series} height={160} yLabel="Daily listeners" />
+        <div style={{ height: "300px" }}>
+          <LineChart
+            series={[
+              { name: "Last week", color: "#5a5a6e", data: lastWeek },
+              { name: "This week", color: "#00c8a0", data: thisWeek },
+            ]}
+            height={260}
+            yLabel="Listeners"
+          />
+        </div>
       ) : (
-        <div style={{
-          height: 140, borderRadius: "var(--radius-lg)",
-          background: "var(--bg-page)", border: "1.5px dashed var(--border)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          flexDirection: "column", gap: "0.4rem",
-        }}>
-          <span style={{ fontSize: "1.75rem" }}>📊</span>
-          <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--text-muted)" }}>
-            Listener data will appear here once Icecast metrics are ingested
-          </p>
+        <div
+          style={{
+            height: "300px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              textAlign: "center",
+              maxWidth: "320px",
+            }}
+          >
+            <div
+              style={{
+                width: "120px",
+                height: "120px",
+                margin: "0 auto 20px",
+                border: "3px dashed var(--border)",
+                borderRadius: "var(--radius-lg)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                position: "relative",
+              }}
+            >
+              <svg
+                width="60"
+                height="60"
+                viewBox="0 0 60 60"
+                fill="none"
+                style={{ color: "var(--text-dim)" }}
+              >
+                <path
+                  d="M5 30 L15 20 L25 35 L35 25 L45 30 L55 20"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeDasharray="5,5"
+                />
+              </svg>
+            </div>
+            <h4
+              style={{
+                fontSize: "16px",
+                fontWeight: "600",
+                color: "var(--text)",
+                marginBottom: "8px",
+              }}
+            >
+              No listener data yet
+            </h4>
+            <p
+              style={{
+                fontSize: "14px",
+                color: "var(--text-muted)",
+                lineHeight: "1.5",
+              }}
+            >
+              Once your stations start getting listeners, analytics will appear here
+            </p>
+          </div>
         </div>
       )}
     </div>

@@ -6,28 +6,33 @@ type Props = { userName: string; isSuperAdmin?: boolean; children: React.ReactNo
 
 const navSections = [
   {
-    label: "Studio",
+    label: "Main",
     links: [
-      { href: "/dashboard", icon: "🏠", label: "Overview" },
-      { href: "/dashboard/studio", icon: "🎙", label: "Studio" },
-      { href: "/dashboard/music", icon: "🎵", label: "Music" },
-      { href: "/dashboard/stations/new", icon: "+", label: "Create Station" },
-      { href: "/dashboard/analytics", icon: "📊", label: "Analytics" },
-      { href: "/dashboard/podcasts", icon: "🎙", label: "Podcasts" },
+      { href: "/dashboard", icon: "○", label: "Overview" },
+      { href: "/dashboard/stations/new", icon: "+", label: "New Station" },
+      { href: "/dashboard/music", icon: "♪", label: "Music Library" },
+      { href: "/dashboard/analytics", icon: "┃", label: "Analytics" },
     ],
   },
   {
-    label: "Discover",
+    label: "Content",
     links: [
-      { href: "/explore", icon: "🌍", label: "Explore" },
-      { href: "/pricing", icon: "💳", label: "Pricing" },
+      { href: "/dashboard/podcasts", icon: "◉", label: "Podcasts" },
+      { href: "/dashboard/studio", icon: "∿", label: "Studio" },
     ],
   },
   {
-    label: "Account",
+    label: "Browse",
     links: [
-      { href: "/dashboard/settings", icon: "⚙️", label: "Settings" },
-      { href: "/dashboard/settings/billing", icon: "💳", label: "Billing" },
+      { href: "/explore", icon: "◎", label: "Explore" },
+      { href: "/pricing", icon: "☆", label: "Pricing" },
+    ],
+  },
+  {
+    label: "Settings",
+    links: [
+      { href: "/dashboard/settings", icon: "⚙", label: "Settings" },
+      { href: "/dashboard/settings/billing", icon: "▣", label: "Billing" },
     ],
   },
 ];
@@ -41,10 +46,7 @@ export function DashboardShell({ userName, isSuperAdmin = false, children }: Pro
     .toUpperCase();
 
   const sections = isSuperAdmin
-    ? [
-        { label: "Admin", links: [{ href: "/admin", icon: "🛡️", label: "Super Admin" }] },
-        ...navSections,
-      ]
+    ? [{ label: "Admin", links: [{ href: "/admin", icon: "◆", label: "Super Admin" }] }, ...navSections]
     : navSections;
 
   const sidebar = (
@@ -60,7 +62,7 @@ export function DashboardShell({ userName, isSuperAdmin = false, children }: Pro
             <p className="sidebar-section-label">{section.label}</p>
             {section.links.map((link) => (
               <Link key={link.href} href={link.href} className="sidebar-link">
-                <span style={{ fontSize: "0.95rem", width: 20, textAlign: "center", flexShrink: 0 }}>
+                <span style={{ fontSize: "0.9rem", width: 20, textAlign: "center", flexShrink: 0, opacity: 0.7 }}>
                   {link.icon}
                 </span>
                 {link.label}
@@ -72,13 +74,8 @@ export function DashboardShell({ userName, isSuperAdmin = false, children }: Pro
 
       <div className="sidebar-mobile-signout" style={{ flexShrink: 0, padding: "0 0.5rem" }}>
         <form action={signOutAction}>
-          <button
-            className="sidebar-link"
-            type="submit"
-            title="Sign out"
-            style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.8rem", whiteSpace: "nowrap" }}
-          >
-            <span style={{ fontSize: "0.9rem", width: 20, textAlign: "center" }}>→</span>
+          <button className="sidebar-link" type="submit" style={{ color: "var(--text-dim)", fontSize: "0.8rem" }}>
+            <span style={{ fontSize: "0.9rem", width: 20, textAlign: "center" }}>{"→"}</span>
             Sign out
           </button>
         </form>
@@ -93,8 +90,8 @@ export function DashboardShell({ userName, isSuperAdmin = false, children }: Pro
           </div>
         </div>
         <form action={signOutAction} style={{ marginTop: "0.4rem" }}>
-          <button className="sidebar-link" type="submit" style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.825rem" }}>
-            <span style={{ fontSize: "0.9rem", width: 20, textAlign: "center" }}>→</span>
+          <button className="sidebar-link" type="submit" style={{ color: "var(--text-dim)", fontSize: "0.8rem" }}>
+            <span style={{ fontSize: "0.9rem", width: 20, textAlign: "center" }}>{"→"}</span>
             Sign out
           </button>
         </form>
