@@ -6,9 +6,9 @@ import { db } from "@/lib/db";
 export default async function HomePage() {
   const liveStations = await db.station.findMany({
     where: {
-      status: "ACTIVE",
+      status: { in: ["ACTIVE", "PAUSED"] },
     },
-    take: 8,
+    take: 6,
     orderBy: {
       createdAt: "desc",
     },
@@ -78,7 +78,7 @@ export default async function HomePage() {
                 {liveStations.map((station) => (
                   <Link
                     key={station.id}
-                    href={`/${station.slug}`}
+                    href={`/stations/${station.slug}`}
                     className="station-card"
                   >
                     <div className="station-card-thumb">
