@@ -2,44 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { env } from "@/lib/env";
-
-// Icecast2 status JSON shape (subset we care about)
-type IcecastSource = {
-  mount: string;
-  listeners: number;
-  listener_peak: number;
-  listenurl: string;
-  title?: string;
-  artist?: string;
-  server_name?: string;
-};
-
-type IcecastStatus = {
-  icestats?: {
-    source?: IcecastSource | IcecastSource[];
-  };
-};
-
-async function fetchIcecastStatus(): Promise<IcecastStatus | null> {
-  try {
-    const base = `http://${env.STREAM_SOURCE_HOST}:${env.ICECAST_SOURCE_PORT}`;
-    const res = await fetch(`${base}/status-json.xsl`, {
-      headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(5000),
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as IcecastStatus;
-  } catch {
-    return null;
-  }
-}
-
-function normalizeSources(raw: IcecastSource | IcecastSource[] | undefined): IcecastSource[] {
-  if (!raw) return [];
-  return Array.isArray(raw) ? raw : [raw];
-}
+import { fetchIcecastStatus, findIcecastSource, normalizeIcecastSources } from "@/lib/icecast";
 
 // Internal endpoint — called by a cron / external scheduler.
 // Protected by a shared secret in the Authorization header.
@@ -55,7 +18,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: "Icecast unreachable" });
   }
 
-  const sources = normalizeSources(status?.icestats?.source);
+  const sources = normalizeIcecastSources(status?.icestats?.source);
 
   // Load all active stations
   const stations = await db.station.findMany({
@@ -66,8 +29,7 @@ export async function POST(req: NextRequest) {
   let updated = 0;
 
   for (const station of stations) {
-    const mount = station.mountPath.startsWith("/") ? station.mountPath : `/${station.mountPath}`;
-    const src = sources.find((s) => s.mount === mount || s.mount === mount.replace(/^\//, ""));
+    const src = findIcecastSource(sources, station.mountPath);
 
     const currentListeners = src?.listeners ?? 0;
     const prevPeak = station.metrics[0]?.peakListeners ?? 0;
@@ -75,7 +37,8 @@ export async function POST(req: NextRequest) {
     const prevHours = station.metrics[0]?.totalListeningHours ?? 0;
     // Add ~5 min worth of listener-hours since last sample
     const totalListeningHours = +(prevHours + (currentListeners * 5) / 60).toFixed(2);
-    const uptimePercent = src ? 100 : Math.max((station.metrics[0]?.uptimePercent ?? 95) - 1, 0);
+    const previousUptime = station.metrics[0]?.uptimePercent ?? 99;
+    const uptimePercent = src ? 100 : previousUptime;
 
     await db.listenerMetric.create({
       data: {
@@ -108,6 +71,6 @@ export async function POST(req: NextRequest) {
 // GET — public status check (no secret needed)
 export async function GET() {
   const status = await fetchIcecastStatus();
-  const sources = normalizeSources(status?.icestats?.source);
+  const sources = normalizeIcecastSources(status?.icestats?.source);
   return NextResponse.json({ reachable: !!status, mountsLive: sources.map((s) => s.mount) });
 }

@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     description: station.description ?? `Listen to ${station.name} live on OpenRadio`,
     openGraph: {
       title: station.name,
-      description: station.description ?? `Listen live`,
+      description: station.description ?? "Listen live",
       images: station.logoUrl ? [{ url: station.logoUrl }] : undefined,
     },
   };
@@ -36,6 +36,14 @@ function formatCompact(value: number) {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1_000) return `${(value / 1_000).toFixed(1)}k`;
   return String(value);
+}
+
+function formatClockTime(date: Date) {
+  return new Intl.DateTimeFormat("en", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
 }
 
 function getStationTimeParts(timezone: string, at = new Date()) {
@@ -157,6 +165,7 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
         }
       : null,
   });
+
   const publicPopularity = buildPublicPopularity({
     stationId: station.id,
     trackCount: station._count.tracks,
@@ -170,7 +179,7 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
   const fallbackPlaylist = station.playlists.find((playlist) => playlist.isDefault) ?? station.playlists[0] ?? null;
   const currentPlaylistName = activeScheduleBlock?.playlist?.name ?? fallbackPlaylist?.name ?? "AutoDJ rotation";
   const recentSpins = station.playLogs.slice(0, 5);
-
+  const fallbackLibraryTracks = station.tracks.slice(0, 5);
   const related = await getRelatedStations({
     stationId: station.id,
     genre: station.genre,
@@ -186,7 +195,6 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
     <main style={{ background: "var(--bg-page)", minHeight: "100vh" }}>
       <SiteHeader />
 
-      {/* ── Banner ───────────────────────────────────────────────── */}
       <div
         style={{
           width: "100%",
@@ -196,14 +204,11 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
           overflow: "hidden",
         }}
       >
-        {/* subtle noise texture via CSS */}
         <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.18)" }} />
       </div>
 
-      {/* ── Station identity row ─────────────────────────────────── */}
       <div style={{ background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
         <div className="container public-station-identity" style={{ position: "relative", paddingTop: "0.75rem", paddingBottom: "1.25rem" }}>
-          {/* Square logo — overlaps banner */}
           <div
             className="public-station-logo"
             style={{
@@ -231,11 +236,9 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
             )}
           </div>
 
-          {/* Spacer for logo */}
           <div className="public-station-info" style={{ marginLeft: 136 }}>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
               <div>
-                {/* Live badge */}
                 {station.status === "ACTIVE" && (
                   <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginBottom: "0.4rem" }}>
                     <span className="live-dot" />
@@ -247,7 +250,6 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
 
                 <h1 style={{ fontSize: "clamp(1.3rem,3.5vw,2rem)", margin: "0 0 0.35rem" }}>{station.name}</h1>
 
-                {/* Tags */}
                 <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "center" }}>
                   {station.genre && (
                     <Link
@@ -285,7 +287,6 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
                 </div>
               </div>
 
-              {/* Social links */}
               <div className="public-station-actions" style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                 {station.websiteUrl && (
                   <a href={station.websiteUrl} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm">Website</a>
@@ -299,7 +300,6 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
               </div>
             </div>
 
-            {/* Description */}
             {station.description && (
               <p style={{ margin: "0.75rem 0 0", color: "var(--text-muted)", fontSize: "0.9rem", maxWidth: "66ch" }}>
                 {station.description}
@@ -309,13 +309,8 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
         </div>
       </div>
 
-      {/* ── Main content ─────────────────────────────────────────── */}
       <div className="container public-station-layout" style={{ padding: "1.75rem 0 4rem", display: "grid", gridTemplateColumns: "1fr 320px", gap: "1.75rem", alignItems: "start" }}>
-
-        {/* Left column */}
         <div style={{ display: "grid", gap: "1.25rem" }}>
-
-          {/* Listen / Player */}
           <div
             className="card public-listen-card"
             style={{
@@ -342,7 +337,6 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
               </div>
             </div>
 
-            {/* Live now-playing + listener count — polls every 15 s */}
             <NowPlaying mountPath={station.mountPath} />
 
             <StationPlayer
@@ -394,11 +388,7 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
                 {recentSpins.map((spin) => (
                   <div key={spin.id} style={{ display: "flex", gap: "0.6rem", alignItems: "center" }}>
                     <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.45)", minWidth: 56 }}>
-                      {new Intl.DateTimeFormat("en", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        hour12: false,
-                      }).format(spin.playedAt)}
+                      {formatClockTime(spin.playedAt)}
                     </span>
                     <span style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.88)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {spin.artist} — {spin.title}
@@ -413,57 +403,85 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
             </p>
           </div>
 
-          {/* Recent tracks */}
           <div className="card" style={{ overflow: "hidden" }}>
             <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid var(--border)" }}>
-              <h2 style={{ fontSize: "1rem", margin: 0 }}>Recent Tracks</h2>
+              <h2 style={{ fontSize: "1rem", margin: 0 }}>{recentSpins.length > 0 ? "Recently Played" : "Station Rotation"}</h2>
             </div>
             <div>
-              {station.tracks.length > 0 ? station.tracks.map((track, i) => (
-                <div
-                  key={track.id}
-                  style={{
-                    display: "flex", alignItems: "center", gap: "0.85rem",
-                    padding: "0.75rem 1.25rem",
-                    borderBottom: i < station.tracks.length - 1 ? "1px solid var(--border)" : "none",
-                    background: i === 0 ? "rgba(0,200,160,0.04)" : undefined,
-                  }}
-                >
+              {recentSpins.length > 0 ? (
+                recentSpins.map((spin, i) => (
                   <div
+                    key={spin.id}
                     style={{
-                      width: 40, height: 40, borderRadius: 8, flexShrink: 0,
-                      background: `linear-gradient(135deg,hsl(${(i * 40 + rh1) % 360},55%,55%),hsl(${(i * 60 + rh1) % 360},65%,38%))`,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: "1.1rem",
+                      display: "flex", alignItems: "center", gap: "0.85rem",
+                      padding: "0.75rem 1.25rem",
+                      borderBottom: i < recentSpins.length - 1 ? "1px solid var(--border)" : "none",
+                      background: i === 0 ? "rgba(0,200,160,0.04)" : undefined,
                     }}
                   >
-                    🎵
+                    <div
+                      style={{
+                        width: 40, height: 40, borderRadius: 8, flexShrink: 0,
+                        background: `linear-gradient(135deg,hsl(${(i * 40 + rh1) % 360},55%,55%),hsl(${(i * 60 + rh1) % 360},65%,38%))`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: "1.1rem",
+                      }}
+                    >
+                      🎵
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <p style={{ margin: 0, fontWeight: 600, fontSize: "0.875rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {spin.title}
+                      </p>
+                      <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--text-muted)" }}>{spin.artist}</p>
+                    </div>
+                    <span style={{ fontSize: "0.72rem", color: "var(--text-light)", flexShrink: 0 }}>{formatClockTime(spin.playedAt)}</span>
                   </div>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <p style={{ margin: 0, fontWeight: 600, fontSize: "0.875rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {track.title}
-                    </p>
-                    <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--text-muted)" }}>{track.artist}</p>
+                ))
+              ) : fallbackLibraryTracks.length > 0 ? (
+                fallbackLibraryTracks.map((track, i) => (
+                  <div
+                    key={track.id}
+                    style={{
+                      display: "flex", alignItems: "center", gap: "0.85rem",
+                      padding: "0.75rem 1.25rem",
+                      borderBottom: i < fallbackLibraryTracks.length - 1 ? "1px solid var(--border)" : "none",
+                      background: i === 0 ? "rgba(0,200,160,0.04)" : undefined,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 40, height: 40, borderRadius: 8, flexShrink: 0,
+                        background: `linear-gradient(135deg,hsl(${(i * 40 + rh1) % 360},55%,55%),hsl(${(i * 60 + rh1) % 360},65%,38%))`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: "1.1rem",
+                      }}
+                    >
+                      🎵
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <p style={{ margin: 0, fontWeight: 600, fontSize: "0.875rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {track.title}
+                      </p>
+                      <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--text-muted)" }}>{track.artist}</p>
+                    </div>
+                    {i === 0 && (
+                      <span style={{ fontSize: "0.65rem", fontWeight: 700, background: "var(--brand-light)", color: "var(--brand-dark)", padding: "0.15rem 0.5rem", borderRadius: "999px", flexShrink: 0 }}>
+                        Library
+                      </span>
+                    )}
                   </div>
-                  {i === 0 && (
-                    <span style={{ fontSize: "0.65rem", fontWeight: 700, background: "var(--brand-light)", color: "var(--brand-dark)", padding: "0.15rem 0.5rem", borderRadius: "999px", flexShrink: 0 }}>
-                      Latest
-                    </span>
-                  )}
-                </div>
-              )) : (
+                ))
+              ) : (
                 <p style={{ padding: "1.5rem 1.25rem", color: "var(--text-muted)", margin: 0, fontSize: "0.875rem" }}>
-                  No tracks published yet.
+                  No recent plays or published tracks yet.
                 </p>
               )}
             </div>
           </div>
         </div>
 
-        {/* Right sidebar */}
         <div style={{ display: "grid", gap: "1.25rem" }}>
-
-          {/* Public social proof */}
           <div className="card" style={{ padding: "1.25rem", display: "grid", gap: "0.75rem" }}>
             <h3 style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700 }}>Community Pulse</h3>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -483,7 +501,6 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
             </p>
           </div>
 
-          {/* Metrics */}
           <div className="card" style={{ padding: "1.25rem", display: "grid", gap: "0.85rem" }}>
             <h3 style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700 }}>Live Metrics</h3>
             {[
@@ -502,7 +519,6 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
             </p>
           </div>
 
-          {/* Announcements */}
           {station.announcements.length > 0 && (
             <div className="card" style={{ padding: "1.25rem", display: "grid", gap: "0.75rem" }}>
               <h3 style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700 }}>Announcements</h3>
@@ -515,7 +531,6 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
             </div>
           )}
 
-          {/* Related stations */}
           {related.length > 0 && (
             <div className="card" style={{ overflow: "hidden" }}>
               <div style={{ padding: "0.85rem 1rem", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -566,7 +581,6 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
             </div>
           )}
 
-          {/* Back / CTA */}
           <div style={{ display: "grid", gap: "0.5rem" }}>
             <Link href="/explore" className="btn btn-secondary btn-full">← Back to Explore</Link>
             <Link href="/sign-up" className="btn btn-primary btn-full">Create Your Own Station</Link>
@@ -574,11 +588,9 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
         </div>
       </div>
 
-      {/* bottom padding so footer isn't hidden behind the player bar */}
       <div style={{ height: 80 }} />
       <SiteFooter />
 
-      {/* Persistent bottom player bar */}
       <PlayerBar
         stationName={station.name}
         stationSlug={station.slug}
