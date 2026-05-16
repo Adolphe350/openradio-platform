@@ -21,17 +21,22 @@ export default async function SchedulerPage({ params }: Props) {
       },
       playlists: {
         orderBy: { name: "asc" },
-        select: { id: true, name: true },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          _count: { select: { tracks: true } },
+        },
       },
       tracks: {
         orderBy: { title: "asc" },
-        select: { id: true, title: true, artist: true },
+        select: { id: true, title: true, artist: true, durationSec: true },
       },
       recordings: {
         where: { status: "done" },
         orderBy: { startedAt: "desc" },
         take: 50,
-        select: { id: true, startedAt: true, fileUrl: true, filePath: true },
+        select: { id: true, startedAt: true, fileUrl: true, filePath: true, sizeBytes: true },
       },
     },
   });
@@ -45,7 +50,7 @@ export default async function SchedulerPage({ params }: Props) {
       episodes: {
         orderBy: { publishedAt: "desc" },
         take: 100,
-        select: { id: true, title: true },
+        select: { id: true, title: true, durationSec: true, publishedAt: true },
       },
     },
     orderBy: { title: "asc" },
@@ -153,17 +158,30 @@ export default async function SchedulerPage({ params }: Props) {
             isActive: s.isActive,
             playlistName: s.playlist?.name ?? null,
           }))}
-          playlists={station.playlists}
-          tracks={station.tracks}
+          playlists={station.playlists.map((p) => ({
+            id: p.id,
+            name: p.name,
+            description: p.description ?? undefined,
+            trackCount: p._count.tracks,
+          }))}
+          tracks={station.tracks.map((t) => ({
+            id: t.id,
+            title: t.title,
+            artist: t.artist,
+            durationSec: t.durationSec ?? undefined,
+          }))}
           recordings={station.recordings.map((r) => ({
             id: r.id,
             label: `Recording ${r.startedAt.toLocaleDateString()}`,
+            date: r.startedAt.toLocaleDateString(),
             hasFile: !!(r.fileUrl || r.filePath),
           }))}
           episodes={podcasts.flatMap((p) =>
             p.episodes.map((e) => ({
               id: e.id,
-              label: `${p.title} — ${e.title}`,
+              title: e.title,
+              podcastTitle: p.title,
+              durationSec: e.durationSec ?? undefined,
             }))
           )}
         />
