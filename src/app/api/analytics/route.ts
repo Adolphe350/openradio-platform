@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/api-auth";
 import { db } from "@/lib/db";
+import { fetchIcecastStatus, findIcecastSource, normalizeIcecastSources } from "@/lib/icecast";
 
 export const dynamic = "force-dynamic";
 
@@ -108,8 +109,39 @@ export async function GET(req: NextRequest) {
     cursor.setDate(cursor.getDate() + 1);
   }
 
-  const thisTotal = current.reduce((s, d) => s + d.value, 0);
+  let thisTotal = current.reduce((s, d) => s + d.value, 0);
   const prevTotal = previous.reduce((s, d) => s + d.value, 0);
+
+  if (thisTotal === 0 && stationIds.length > 0) {
+    const status = await fetchIcecastStatus();
+    const sources = normalizeIcecastSources(status?.icestats?.source);
+    const stationsWithMounts = await db.station.findMany({
+      where: { id: { in: stationIds } },
+      select: { id: true, mountPath: true, name: true },
+    });
+
+    const liveCounts = stationsWithMounts.map((station) => {
+      const source = findIcecastSource(sources, station.mountPath);
+      return {
+        stationId: station.id,
+        name: station.name,
+        count: source?.listeners ?? 0,
+      };
+    });
+
+    const liveTotal = liveCounts.reduce((sum, item) => sum + item.count, 0);
+    if (liveTotal > 0) {
+      const today = now.toISOString().slice(0, 10);
+      const bucket = current.find((item) => item.date === today);
+      if (bucket) {
+        bucket.value = liveTotal;
+      } else {
+        current.push({ date: today, value: liveTotal });
+      }
+      thisTotal = current.reduce((s, d) => s + d.value, 0);
+    }
+  }
+
   const pctChange = prevTotal > 0 ? ((thisTotal - prevTotal) / prevTotal) * 100 : 0;
 
   return NextResponse.json({

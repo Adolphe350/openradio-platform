@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { buildPublicPopularity, resolveStationMetric } from "@/lib/analytics";
 import { fetchIcecastStatus as fetchIcecastStatusLive, findIcecastSource, normalizeIcecastSources, type IcecastStatus } from "@/lib/icecast";
 
 // Cache Icecast responses for 10 s to avoid hammering it
@@ -40,38 +39,11 @@ export async function GET(req: NextRequest) {
   const sources = normalizeIcecastSources(status?.icestats?.source);
   const src = findIcecastSource(sources, normalizedMount);
 
-  let publicListeners = 0;
-  if (station) {
-    const metricResult = resolveStationMetric({
-      stationId: station.id,
-      trackCount: station._count.tracks,
-      playlistCount: station._count.playlists,
-      createdAt: station.createdAt,
-      metric: station.metrics[0]
-        ? {
-            currentListeners: station.metrics[0].currentListeners,
-            peakListeners: station.metrics[0].peakListeners,
-            totalListeningHours: station.metrics[0].totalListeningHours,
-            uptimePercent: station.metrics[0].uptimePercent,
-            storageUsedMb: station.metrics[0].storageUsedMb,
-            sampledAt: station.metrics[0].sampledAt,
-          }
-        : null,
-    });
-
-    publicListeners = buildPublicPopularity({
-      stationId: station.id,
-      trackCount: station._count.tracks,
-      playlistCount: station._count.playlists,
-      createdAt: station.createdAt,
-      metric: metricResult.source === "live" ? metricResult.metric : null,
-      status: station.status,
-    }).listenersNow;
-  }
+  const liveListeners = src?.listeners ?? 0;
 
   return NextResponse.json({
     title: src?.title ?? src?.song ?? null,
-    listeners: publicListeners,
+    listeners: liveListeners,
     live: !!src,
   });
 }

@@ -267,7 +267,20 @@ export function PersistentPlayerHost() {
         return;
       }
 
-      playFallbackTrack(fallbackIndexRef.current);
+      const hasFallback = (configRef.current?.fallbackTracks?.length ?? 0) > 0;
+      if (hasFallback) {
+        playFallbackTrack(fallbackIndexRef.current);
+        return;
+      }
+
+      updatePlaybackState({
+        error: true,
+        errorMsg: "Live stream unavailable.",
+        loading: false,
+        playing: false,
+        currentTrack: null,
+        streamMode: "idle",
+      });
     };
 
     const onEnded = () => {

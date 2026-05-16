@@ -6,7 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 import { PlayerBar } from "@/components/player-bar";
 import { NowPlaying } from "@/components/now-playing";
 import { StationPlayer } from "@/components/station-player";
-import { buildPublicPopularity, metricSourceLabel, resolveStationMetric } from "@/lib/analytics";
+import { metricSourceLabel, resolveStationMetric } from "@/lib/analytics";
 import { db } from "@/lib/db";
 import { getRelatedStations } from "@/lib/explore";
 import { getPublicStreamUrl } from "@/lib/stream";
@@ -164,15 +164,6 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
           sampledAt: station.metrics[0].sampledAt,
         }
       : null,
-  });
-
-  const publicPopularity = buildPublicPopularity({
-    stationId: station.id,
-    trackCount: station._count.tracks,
-    playlistCount: station._count.playlists,
-    createdAt: station.createdAt,
-    metric: metricState.source === "live" ? metricState.metric : null,
-    status: station.status,
   });
 
   const activeScheduleBlock = resolveCurrentScheduleBlock(station.schedules, station.timezone);
@@ -376,7 +367,7 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
                 </p>
               )}
               <p style={{ margin: 0, fontSize: "0.77rem", color: "rgba(255,255,255,0.62)" }}>
-                Community pulse: {formatCompact(publicPopularity.listenersNow)} tuning in now · {formatCompact(publicPopularity.weeklyReach)} weekly reach
+                Live listeners now: {metricState.source === "live" ? formatCompact(metricState.metric.currentListeners) : "Unavailable"}
               </p>
             </div>
 
@@ -403,13 +394,13 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
             </p>
           </div>
 
-          <div className="card" style={{ overflow: "hidden" }}>
-            <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid var(--border)" }}>
-              <h2 style={{ fontSize: "1rem", margin: 0 }}>{recentSpins.length > 0 ? "Recently Played" : "Station Rotation"}</h2>
-            </div>
-            <div>
-              {recentSpins.length > 0 ? (
-                recentSpins.map((spin, i) => (
+          {recentSpins.length > 0 && (
+            <div className="card" style={{ overflow: "hidden" }}>
+              <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid var(--border)" }}>
+                <h2 style={{ fontSize: "1rem", margin: 0 }}>Recently Played</h2>
+              </div>
+              <div>
+                {recentSpins.map((spin, i) => (
                   <div
                     key={spin.id}
                     style={{
@@ -437,74 +428,13 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
                     </div>
                     <span style={{ fontSize: "0.72rem", color: "var(--text-light)", flexShrink: 0 }}>{formatClockTime(spin.playedAt)}</span>
                   </div>
-                ))
-              ) : fallbackLibraryTracks.length > 0 ? (
-                fallbackLibraryTracks.map((track, i) => (
-                  <div
-                    key={track.id}
-                    style={{
-                      display: "flex", alignItems: "center", gap: "0.85rem",
-                      padding: "0.75rem 1.25rem",
-                      borderBottom: i < fallbackLibraryTracks.length - 1 ? "1px solid var(--border)" : "none",
-                      background: i === 0 ? "rgba(0,200,160,0.04)" : undefined,
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 40, height: 40, borderRadius: 8, flexShrink: 0,
-                        background: `linear-gradient(135deg,hsl(${(i * 40 + rh1) % 360},55%,55%),hsl(${(i * 60 + rh1) % 360},65%,38%))`,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: "1.1rem",
-                      }}
-                    >
-                      🎵
-                    </div>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <p style={{ margin: 0, fontWeight: 600, fontSize: "0.875rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {track.title}
-                      </p>
-                      <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--text-muted)" }}>{track.artist}</p>
-                    </div>
-                    {i === 0 && (
-                      <span style={{ fontSize: "0.65rem", fontWeight: 700, background: "var(--brand-light)", color: "var(--brand-dark)", padding: "0.15rem 0.5rem", borderRadius: "999px", flexShrink: 0 }}>
-                        Library
-                      </span>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <p style={{ padding: "1.5rem 1.25rem", color: "var(--text-muted)", margin: 0, fontSize: "0.875rem" }}>
-                  No recent plays or published tracks yet.
-                </p>
-              )}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <div style={{ display: "grid", gap: "1.25rem" }}>
-          <div className="card" style={{ padding: "1.25rem", display: "grid", gap: "0.75rem" }}>
-            <h3 style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700 }}>Community Pulse</h3>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: "0.825rem", color: "var(--text-muted)" }}>Tuning in now</span>
-              <span style={{ fontSize: "1.05rem", fontWeight: 800 }}>{formatCompact(publicPopularity.listenersNow)}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: "0.825rem", color: "var(--text-muted)" }}>Weekly reach</span>
-              <span style={{ fontSize: "0.95rem", fontWeight: 700 }}>{formatCompact(publicPopularity.weeklyReach)}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: "0.825rem", color: "var(--text-muted)" }}>Trend</span>
-              <span style={{ fontSize: "0.86rem", fontWeight: 700, textTransform: "capitalize" }}>{publicPopularity.trend}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: "0.825rem", color: "var(--text-muted)" }}>Uptime</span>
-              <span style={{ fontSize: "0.9rem", fontWeight: 700 }}>{publicPopularity.publicUptimePercent.toFixed(0)}%</span>
-            </div>
-            <p style={{ margin: "0.2rem 0 0", fontSize: "0.72rem", color: "var(--text-light)" }}>
-              Popularity is public-facing social proof. Creator analytics show the real measured listener data.
-            </p>
-          </div>
-
           <div className="card" style={{ padding: "1.25rem", display: "grid", gap: "0.85rem" }}>
             <h3 style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700 }}>Live Metrics</h3>
             {[
