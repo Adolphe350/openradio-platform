@@ -1,106 +1,81 @@
 import Link from "next/link";
 
-type SiteHeaderProps = {
+interface SiteHeaderProps {
   showAuthActions?: boolean;
-};
-
-const genres = ["Pop","Rock","Hip-Hop","Electronic","Jazz","Classical","R&B","Country","Reggae","Metal","Blues","Soul","Latin","Dance","Indie"];
-const locations = ["United States","Brazil","United Kingdom","Mexico","France","Germany","India","Australia","Canada","Spain","Portugal","Nigeria","South Africa","Japan","Argentina"];
-const languages = ["English","Spanish","Portuguese","French","Arabic","Hindi","German","Italian","Russian","Japanese","Korean","Dutch","Polish","Turkish","Swedish"];
+}
 
 export function SiteHeader({ showAuthActions = true }: SiteHeaderProps) {
   return (
-    <header className="site-nav">
+    <nav className="site-nav">
       <div className="container">
-        <div className="site-nav-inner">
-          {/* Logo */}
-          <Link href="/" className="nav-logo">
-            <div className="nav-logo-icon">O</div>
-            <span className="nav-logo-name">openradio</span>
-          </Link>
+        <Link href="/" className="nav-logo">
+          <div className="nav-logo-icon">O</div>
+          <span className="nav-logo-name">openradio</span>
+        </Link>
 
-          <div className="nav-divider" />
-
-          {/* Create a Station */}
-          <Link href="/sign-up" className="nav-link nav-hide-mobile" style={{ fontWeight: 600, color: "var(--text)" }}>
+        <div className="nav-links">
+          <Link href="/create" className="nav-link">
             Create a Station
           </Link>
-
-          {/* Explore */}
           <Link href="/explore" className="nav-link">
             Explore
           </Link>
-
-          {/* Religious */}
-          <Link href="/explore?genre=Religious" className="nav-link nav-hide-mobile">
-            Religious
-          </Link>
-
-          {/* Music */}
-          <Link href="/explore?genre=Music" className="nav-link nav-hide-mobile">
+          <Link href="/music" className="nav-link">
             Music
           </Link>
-
-          {/* News */}
-          <Link href="/explore?genre=News" className="nav-link nav-hide-mobile">
+          <Link href="/news" className="nav-link">
             News
           </Link>
 
-          {/* By Genre dropdown — desktop only */}
           <div className="nav-dropdown nav-hide-mobile">
-            <button className="nav-link" style={{ cursor: "pointer" }}>
-              By Genre ▾
-            </button>
-            <div className="nav-dropdown-menu" style={{ columnCount: 2, columnGap: "0.25rem", minWidth: "280px" }}>
-              {genres.map((g) => (
-                <Link key={g} href={`/explore?genre=${encodeURIComponent(g)}`} className="nav-dropdown-item">
-                  {g}
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* By Location dropdown — desktop only */}
-          <div className="nav-dropdown nav-hide-mobile">
-            <button className="nav-link" style={{ cursor: "pointer" }}>
-              By Location ▾
-            </button>
-            <div className="nav-dropdown-menu" style={{ minWidth: "220px" }}>
-              {locations.map((l) => (
-                <Link key={l} href={`/explore?country=${encodeURIComponent(l)}`} className="nav-dropdown-item">
-                  {l}
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* By Language dropdown — desktop only */}
-          <div className="nav-dropdown nav-hide-mobile">
-            <button className="nav-link" style={{ cursor: "pointer" }}>
-              By Language ▾
-            </button>
-            <div className="nav-dropdown-menu" style={{ minWidth: "200px" }}>
-              {languages.map((l) => (
-                <Link key={l} href={`/explore?language=${encodeURIComponent(l)}`} className="nav-dropdown-item">
-                  {l}
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* Right side */}
-          {showAuthActions ? (
-            <div className="nav-right">
-              <Link href="/sign-in" className="nav-link" style={{ padding: "0 0.75rem" }}>
-                Log in
+            <button className="nav-link">By Genre ↓</button>
+            <div className="nav-dropdown-menu">
+              <Link href="/explore?genre=pop" className="nav-dropdown-item">
+                Pop
               </Link>
-              <Link href="/sign-up" className="nav-link-create btn">
-                Sign up
+              <Link href="/explore?genre=rock" className="nav-dropdown-item">
+                Rock
+              </Link>
+              <Link href="/explore?genre=electronic" className="nav-dropdown-item">
+                Electronic
+              </Link>
+              <Link href="/explore?genre=hip-hop" className="nav-dropdown-item">
+                Hip Hop
+              </Link>
+              <Link href="/explore?genre=jazz" className="nav-dropdown-item">
+                Jazz
+              </Link>
+              <div className="nav-divider"></div>
+              <Link href="/explore?genre=classical" className="nav-dropdown-item">
+                Classical
+              </Link>
+              <Link href="/explore?genre=country" className="nav-dropdown-item">
+                Country
+              </Link>
+              <Link href="/explore?genre=talk" className="nav-dropdown-item">
+                Talk Radio
+              </Link>
+              <Link href="/explore?genre=news" className="nav-dropdown-item">
+                News
+              </Link>
+              <Link href="/explore?genre=sports" className="nav-dropdown-item">
+                Sports
               </Link>
             </div>
-          ) : null}
+          </div>
         </div>
+
+        {showAuthActions && (
+          <div className="nav-right">
+            <Link href="/sign-in" className="btn btn-sm btn-secondary">
+              Sign in
+            </Link>
+            <Link href="/sign-up" className="btn btn-sm btn-primary">
+              Get started
+            </Link>
+          </div>
+        )}
       </div>
-    </header>
+    </nav>
   );
 }

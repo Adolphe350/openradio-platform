@@ -1,187 +1,228 @@
 import Link from "next/link";
-
-import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
 import { db } from "@/lib/db";
-import { getPublicStreamUrl } from "@/lib/stream";
-
-/* ── helpers ─────────────────────────────────────────────────────── */
-function stationColor(id: string) {
-  const h1 = (id.charCodeAt(0) * 47 + id.charCodeAt(1) * 31) % 360;
-  const h2 = (h1 + 40) % 360;
-  return `linear-gradient(135deg,hsl(${h1},55%,48%),hsl(${h2},60%,35%))`;
-}
-
-const creatorFeatures = [
-  { icon: "📡", title: "Unlimited Listeners", desc: "No listener caps. Stream to your entire audience with unlimited bandwidth and relay creation." },
-  { icon: "📊", title: "Up to 6 Months Analytics", desc: "Track listener growth, peak times, geographic reach, and total listening hours over time." },
-  { icon: "💰", title: "Audio Advertising", desc: "Monetize your station through audio ad insertion. Turn listeners into revenue automatically." },
-  { icon: "🎙️", title: "Show Recording", desc: "Record your live shows and publish them as on-demand podcast episodes automatically." },
-  { icon: "🤖", title: "Auto-DJ Automation", desc: "Keep your station live 24/7 with playlist automation. Never go silent between live shows." },
-  { icon: "📞", title: "Call-to-Listen", desc: "Let listeners call in via a dedicated phone line and hear your stream directly (USA)." },
-];
-
-const trustedBy = ["NPR", "BBC", "Washington Post", "Estrella Media", "Radio France"];
 
 export default async function HomePage() {
-  const liveStations = await db.station
-    .findMany({ where: { status: "ACTIVE" }, orderBy: { updatedAt: "desc" }, take: 8 })
-    .catch(() => []);
+  const liveStations = await db.station.findMany({
+    where: {
+      status: "ACTIVE",
+    },
+    take: 8,
+    orderBy: {
+      createdAt: "desc",
+    },
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      description: true,
+      genre: true,
+      logoUrl: true,
+    },
+  });
+
+  const genres = [
+    "Pop",
+    "Rock",
+    "Electronic",
+    "Hip Hop",
+    "Jazz",
+    "Classical",
+    "Country",
+    "Latin",
+  ];
 
   return (
-    <main>
+    <>
       <SiteHeader />
 
-      {/* ── Hero ─────────────────────────────────────────────────── */}
-      <section className="hero">
-        <div className="container" style={{ display: "grid", gap: "1.5rem", justifyItems: "center" }}>
-          <h1 className="hero-title">Listen to Global Radio or Create Your Own</h1>
-          <p className="hero-sub">
-            OpenRadio is a free, open-source platform to launch and grow an internet radio station.
-            Full broadcasting features, no vendor lock-in.
-          </p>
-          <div className="hero-cta-group">
-            <Link href="/sign-up" className="btn btn-primary btn-xl">
-              Create a Station — Free
-            </Link>
-            <Link href="/explore" className="btn btn-ghost-dark btn-xl">
-              Listen Now
-            </Link>
-          </div>
-          <p style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.4)", margin: 0 }}>
-            No credit card required · Self-hosted · MIT licensed
-          </p>
-        </div>
-      </section>
-
-      {/* ── Trusted by ───────────────────────────────────────────── */}
-      <section style={{ borderBottom: "1px solid var(--border)", background: "#fafafa", padding: "1.25rem 0" }}>
-        <div className="container" style={{ display: "flex", alignItems: "center", gap: "2rem", flexWrap: "wrap", justifyContent: "center" }}>
-          <span style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text-light)" }}>
-            Inspired by workflows used at
-          </span>
-          {trustedBy.map((b) => (
-            <span key={b} style={{ fontSize: "0.9rem", fontWeight: 700, color: "#9ca3af" }}>{b}</span>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Popular Live Radio ────────────────────────────────────── */}
-      {liveStations.length > 0 && (
-        <section style={{ padding: "2.5rem 0" }}>
+      <main>
+        <section className="hero">
           <div className="container">
-            <div className="section-row">
-              <h2 className="section-title">Popular Live Radio</h2>
-              <Link href="/explore" style={{ fontSize: "0.875rem", color: "var(--brand)", fontWeight: 600 }}>
-                Show All
+            <h1 className="hero-title">
+              Listen to Global Radio
+              <br />
+              or Create Your Own
+            </h1>
+            <p className="hero-sub">
+              The open-source platform for broadcasting and discovering radio
+              stations. Stream live to unlimited listeners, analyze your
+              audience, and grow your community.
+            </p>
+            <div className="hero-cta-group">
+              <Link href="/create" className="btn btn-xl btn-primary">
+                Create a Station →
               </Link>
-            </div>
-            <div className="grid-cards">
-              {liveStations.map((station) => (
-                <Link key={station.id} href={`/stations/${station.slug}`} className="station-card">
-                  <div
-                    className="station-card-thumb"
-                    style={{
-                      background: station.logoUrl ? undefined : stationColor(station.id),
-                      position: "relative",
-                    }}
-                  >
-                    {station.logoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={station.logoUrl} alt={station.name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                    ) : (
-                      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2.2rem" }}>📻</div>
-                    )}
-                  </div>
-                  <div className="station-card-body">
-                    <p className="station-card-title">{station.name}</p>
-                    <p className="station-card-meta">{station.genre ?? "Radio"}</p>
-                  </div>
-                </Link>
-              ))}
+              <Link href="/explore" className="btn btn-xl btn-ghost-dark">
+                Listen Now
+              </Link>
             </div>
           </div>
         </section>
-      )}
 
-      {/* ── Creator Features ─────────────────────────────────────── */}
-      <section style={{ padding: "3rem 0", background: "var(--bg-page)" }}>
-        <div className="container" style={{ display: "grid", gap: "2.5rem" }}>
-          <div style={{ textAlign: "center" }}>
-            <p style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--brand)", margin: "0 0 0.6rem" }}>
-              Creator Tools
-            </p>
-            <h2 style={{ fontSize: "clamp(1.6rem,4vw,2.4rem)", margin: "0 auto 0.8rem", maxWidth: "22ch" }}>
-              Everything you need to run a professional radio station
-            </h2>
-            <p style={{ color: "var(--text-muted)", maxWidth: "54ch", margin: "0 auto", fontSize: "0.95rem" }}>
-              OpenRadio gives you all the tools that top broadcasters use — completely free and open source.
-            </p>
-          </div>
-          <div className="mobile-stack-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: "1.25rem" }}>
-            {creatorFeatures.map((f) => (
-              <div key={f.title} className="feature-item card" style={{ padding: "1.25rem" }}>
-                <div className="feature-icon">{f.icon}</div>
-                <div>
-                  <p style={{ margin: "0 0 0.3rem", fontWeight: 700, fontSize: "0.95rem" }}>{f.title}</p>
-                  <p style={{ margin: 0, fontSize: "0.855rem", color: "var(--text-muted)", lineHeight: 1.55 }}>{f.desc}</p>
-                </div>
+        <section className="section-row">
+          <div className="container">
+            <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "32px" }}>
+              <h2 className="section-title" style={{ marginBottom: 0 }}>
+                Popular Live Radio
+              </h2>
+              <span className="badge badge-live">
+                <span className="live-dot"></span>
+                LIVE NOW
+              </span>
+            </div>
+
+            {liveStations.length > 0 ? (
+              <div className="grid-cards">
+                {liveStations.map((station) => (
+                  <Link
+                    key={station.id}
+                    href={`/${station.slug}`}
+                    className="station-card"
+                  >
+                    <div className="station-card-thumb">
+                      {station.logoUrl ? (
+                        <img src={station.logoUrl} alt={station.name} />
+                      ) : (
+                        <span>{station.name.charAt(0).toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div className="station-card-body">
+                      <h3 className="station-card-title">{station.name}</h3>
+                      <div className="station-card-meta">
+                        <span>{station.genre || "General"}</span>
+                        <span>•</span>
+                        <span className="text-brand">● LIVE</span>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
               </div>
-            ))}
+            ) : (
+              <div className="empty-state">
+                <div className="empty-icon">📻</div>
+                <h3>No live stations yet</h3>
+                <p>Be the first to broadcast on OpenRadio</p>
+              </div>
+            )}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ── Discovery ────────────────────────────────────────────── */}
-      <section style={{ padding: "3rem 0" }}>
-        <div className="container mobile-stack-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: "3rem", alignItems: "center" }}>
-          <div style={{ display: "grid", gap: "1rem" }}>
-            <p style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--brand)", margin: 0 }}>
-              Listener Discovery
-            </p>
-            <h2 style={{ fontSize: "clamp(1.5rem,3.5vw,2.2rem)", margin: 0 }}>
-              Browse by country, language, genre and creator
+        <section className="section-row" style={{ background: "var(--bg-surface)" }}>
+          <div className="container">
+            <h2 className="section-title text-center">
+              Everything You Need to Broadcast
             </h2>
-            <p style={{ color: "var(--text-muted)", margin: 0, fontSize: "0.93rem", lineHeight: 1.65 }}>
-              Discover radio stations from around the world. Filter by genre, language, or location to find your perfect station.
+            <p className="text-center muted" style={{ fontSize: "1.125rem", marginBottom: "48px", maxWidth: "600px", margin: "0 auto 48px" }}>
+              Professional broadcasting tools for creators of all sizes. From
+              solo podcasters to global radio networks.
             </p>
-            <div className="mobile-full-actions" style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              <Link href="/explore" className="btn btn-primary">Browse Stations</Link>
-              <Link href="/sign-up" className="btn btn-secondary">Start Broadcasting</Link>
+
+            <div className="grid-cards">
+              <div className="feature-item">
+                <div className="feature-icon">∞</div>
+                <h3>Unlimited Listeners</h3>
+                <p>
+                  Scale to millions without worrying about bandwidth costs.
+                  Auto-scaling infrastructure handles traffic spikes.
+                </p>
+              </div>
+
+              <div className="feature-item">
+                <div className="feature-icon">📊</div>
+                <h3>Real-Time Analytics</h3>
+                <p>
+                  Track listeners, peak hours, geographic distribution, and
+                  engagement metrics in beautiful dashboards.
+                </p>
+              </div>
+
+              <div className="feature-item">
+                <div className="feature-icon">🤖</div>
+                <h3>Auto-DJ System</h3>
+                <p>
+                  Upload your music library and let our AI DJ keep the music
+                  playing 24/7 when you are offline.
+                </p>
+              </div>
+
+              <div className="feature-item">
+                <div className="feature-icon">🎙️</div>
+                <h3>Live Recording</h3>
+                <p>
+                  Archive every broadcast automatically. Download recordings or
+                  publish them as podcast episodes.
+                </p>
+              </div>
+
+              <div className="feature-item">
+                <div className="feature-icon">🔗</div>
+                <h3>Embed Anywhere</h3>
+                <p>
+                  Add a beautiful web player to your website with one line of
+                  code. Works on all modern browsers.
+                </p>
+              </div>
+
+              <div className="feature-item">
+                <div className="feature-icon">⚡</div>
+                <h3>Low Latency Streaming</h3>
+                <p>
+                  Sub-second latency for real-time interaction with your
+                  audience. Perfect for live events and talk shows.
+                </p>
+              </div>
             </div>
           </div>
-          <div className="mobile-two-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.65rem" }}>
-            {["Pop","Hip-Hop","Jazz","News","Rock","Electronic","Classical","R&B"].map((g) => (
-              <Link
-                key={g}
-                href={`/explore?genre=${encodeURIComponent(g)}`}
-                className="card"
-                style={{ padding: "0.85rem 1rem", display: "flex", alignItems: "center", gap: "0.5rem", fontWeight: 600, fontSize: "0.875rem", transition: "box-shadow 150ms" }}
-              >
-                🎵 {g}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ── CTA Banner ───────────────────────────────────────────── */}
-      <section style={{ padding: "3rem 0", background: "var(--bg-dark)" }}>
-        <div className="container" style={{ textAlign: "center", display: "grid", gap: "1.2rem", justifyItems: "center" }}>
-          <h2 style={{ fontSize: "clamp(1.5rem,4vw,2.4rem)", color: "#fff", margin: 0 }}>
-            Join the OpenRadio Community Today
-          </h2>
-          <p style={{ color: "rgba(255,255,255,0.6)", maxWidth: "48ch", margin: 0, fontSize: "0.95rem" }}>
-            Thousands of creators broadcast with OpenRadio Cloud. Free, open-source, and yours to own.
-          </p>
-          <div className="mobile-full-actions" style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", justifyContent: "center" }}>
-            <Link href="/sign-up" className="btn btn-primary btn-lg">Create Free Station</Link>
-            <Link href="/explore" className="btn btn-ghost-dark btn-lg">Explore Stations</Link>
+        <section className="section-row">
+          <div className="container">
+            <h2 className="section-title text-center">Discover by Genre</h2>
+            <p className="text-center muted" style={{ marginBottom: "40px" }}>
+              Explore thousands of stations across every genre
+            </p>
+
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", justifyContent: "center" }}>
+              {genres.map((genre) => (
+                <Link
+                  key={genre}
+                  href={`/explore?genre=${genre.toLowerCase()}`}
+                  className="trending-tag"
+                >
+                  {genre}
+                </Link>
+              ))}
+              <Link href="/explore" className="trending-tag text-brand">
+                View All Genres →
+              </Link>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+
+        <section className="section-row" style={{ background: "linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-elevated) 100%)", padding: "80px 0" }}>
+          <div className="container" style={{ textAlign: "center" }}>
+            <h2 style={{ fontSize: "2.5rem", marginBottom: "20px" }}>
+              Ready to Start Broadcasting?
+            </h2>
+            <p className="muted" style={{ fontSize: "1.125rem", marginBottom: "32px", maxWidth: "500px", margin: "0 auto 32px" }}>
+              Join thousands of creators streaming to millions of listeners
+              worldwide. Get started in minutes.
+            </p>
+            <div style={{ display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap" }}>
+              <Link href="/sign-up" className="btn btn-xl btn-primary">
+                Create Your Station
+              </Link>
+              <Link href="/pricing" className="btn btn-xl btn-secondary">
+                View Pricing
+              </Link>
+            </div>
+          </div>
+        </section>
+      </main>
 
       <SiteFooter />
-    </main>
+    </>
   );
 }
