@@ -12,6 +12,14 @@ import { generateLiqScript, type LiqConfig, type ScheduleEntry } from "@/lib/liq
 
 const LIQ_CONFIG_DIR = env.LIQ_CONFIG_DIR;
 
+function toLiquidsoapPath(trackPath: string | null | undefined): string {
+  if (!trackPath) return "";
+  if (trackPath.startsWith(`${env.UPLOAD_DIR}/`)) {
+    return trackPath.replace(env.UPLOAD_DIR, "/uploads");
+  }
+  return trackPath;
+}
+
 export async function generateStationConfig(stationId: string): Promise<void> {
   const station = await db.station.findUnique({
     where: { id: stationId },
@@ -45,6 +53,7 @@ export async function generateStationConfig(stationId: string): Promise<void> {
     stationName: station.name,
     mountPath: station.mountPath,
     sourcePassword: station.sourcePassword,
+    icecastOutputPassword: env.ICECAST_SOURCE_PASSWORD,
     icecastHost: env.STREAM_SOURCE_HOST,
     icecastPort: env.ICECAST_SOURCE_PORT,
     genre: station.genre ?? "Mixed",
@@ -67,7 +76,7 @@ export async function generateStationConfig(stationId: string): Promise<void> {
   // Per-playlist .m3u files
   for (const playlist of station.playlists) {
     const lines = playlist.tracks
-      .map((pt) => pt.track.filePath ?? pt.track.fileUrl ?? "")
+      .map((pt) => toLiquidsoapPath(pt.track.filePath ?? pt.track.fileUrl))
       .filter(Boolean);
     await writeFile(
       path.join(stationDir, `${playlist.id}.m3u`),
@@ -82,7 +91,7 @@ export async function generateStationConfig(stationId: string): Promise<void> {
     select: { filePath: true, fileUrl: true },
   });
   const allTrackLines = allTracks
-    .map((t) => t.filePath ?? t.fileUrl ?? "")
+    .map((t) => toLiquidsoapPath(t.filePath ?? t.fileUrl))
     .filter(Boolean);
   await writeFile(
     path.join(stationDir, "all_tracks.m3u"),

@@ -25,6 +25,7 @@ export type LiqConfig = {
   stationName: string;
   mountPath: string;
   sourcePassword: string;
+  icecastOutputPassword: string;
   icecastHost: string;
   icecastPort: number;
   genre: string;
@@ -147,7 +148,7 @@ export function generateLiqScript(cfg: LiqConfig): string {
 
   lines.push(``);  
   lines.push(`# Attach on_track handler`);
-  lines.push(`radio = source.on_track(on_track_handler, radio)`);
+  lines.push(`radio = source.on_track(radio, on_track_handler)`);
   lines.push(``);
 
   // Live source input — allows external encoders to connect
@@ -169,7 +170,7 @@ export function generateLiqScript(cfg: LiqConfig): string {
   lines.push(`  %mp3(bitrate=${bitrate}, samplerate=44100, stereo=true),`);
   lines.push(`  host="${liqEscape(cfg.icecastHost)}",`);
   lines.push(`  port=${cfg.icecastPort},`);
-  lines.push(`  password="${liqEscape(cfg.sourcePassword)}",`);
+  lines.push(`  password="${liqEscape(cfg.icecastOutputPassword)}",`);
   lines.push(`  mount="${liqEscape(mount)}",`);
   lines.push(`  name="${liqEscape(cfg.stationName)}",`);
   lines.push(`  description="${liqEscape(cfg.description)}",`);
