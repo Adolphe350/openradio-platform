@@ -132,11 +132,11 @@ export default async function StationDetailPage({ params, searchParams }: Props)
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
         <div>
           <Link href="/dashboard" className="muted" style={{ fontSize: "0.8rem", display: "inline-flex", alignItems: "center", gap: "0.3rem", marginBottom: "0.5rem" }}>
-            &larr; Back to stations
+            ← Back to stations
           </Link>
           <h1 style={{ margin: "0 0 0.25rem", fontSize: "1.5rem" }}>{station.name}</h1>
           <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
-            /{station.slug} &middot; {station.status}
+            /{station.slug} · {station.status}
           </p>
         </div>
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
@@ -823,14 +823,14 @@ export default async function StationDetailPage({ params, searchParams }: Props)
                           <input type="hidden" name="playlistId" value={playlist.id} />
                           <input type="hidden" name="playlistTrackId" value={pt.id} />
                           <input type="hidden" name="direction" value="up" />
-                          <button className="btn secondary" type="submit" disabled={index === 0} style={{ padding: "0.25rem 0.4rem", fontSize: "0.7rem" }}>&uarr;</button>
+                          <button className="btn secondary" type="submit" disabled={index === 0} style={{ padding: "0.25rem 0.4rem", fontSize: "0.7rem" }}>↑</button>
                         </form>
                         <form action={movePlaylistTrackAction}>
                           <input type="hidden" name="stationId" value={station.id} />
                           <input type="hidden" name="playlistId" value={playlist.id} />
                           <input type="hidden" name="playlistTrackId" value={pt.id} />
                           <input type="hidden" name="direction" value="down" />
-                          <button className="btn secondary" type="submit" disabled={index === playlist.tracks.length - 1} style={{ padding: "0.25rem 0.4rem", fontSize: "0.7rem" }}>&darr;</button>
+                          <button className="btn secondary" type="submit" disabled={index === playlist.tracks.length - 1} style={{ padding: "0.25rem 0.4rem", fontSize: "0.7rem" }}>↓</button>
                         </form>
                         <form action={removePlaylistTrackAction}>
                           <input type="hidden" name="stationId" value={station.id} />

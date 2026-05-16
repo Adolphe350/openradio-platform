@@ -245,7 +245,7 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
                   <article key={related.id} className="card" style={{ padding: "1rem" }}>
                     <h3 style={{ margin: "0 0 0.25rem", fontSize: "0.95rem" }}>{related.name}</h3>
                     <p className="muted" style={{ margin: "0 0 0.5rem", fontSize: "0.8rem" }}>
-                      {related.genre ?? "Mixed"} &middot; {related.language}
+                      {related.genre ?? "Mixed"} · {related.language}
                     </p>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span style={{ fontSize: "0.8rem" }}>{related.currentListeners} listeners</span>
