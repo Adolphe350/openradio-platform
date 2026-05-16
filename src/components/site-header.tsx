@@ -14,16 +14,16 @@ export function SiteHeader({ showAuthActions = true }: SiteHeaderProps) {
         </Link>
 
         <div className="nav-links">
-          <Link href="/create" className="nav-link">
+          <Link href="/sign-up" className="nav-link">
             Create a Station
           </Link>
           <Link href="/explore" className="nav-link">
             Explore
           </Link>
-          <Link href="/music" className="nav-link">
+          <Link href="/explore?genre=Music" className="nav-link">
             Music
           </Link>
-          <Link href="/news" className="nav-link">
+          <Link href="/explore?genre=News" className="nav-link">
             News
           </Link>
 

@@ -1,26 +1,10 @@
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
-import { db } from "@/lib/db";
+import { getExploreStations } from "@/lib/explore";
 
 export default async function HomePage() {
-  const liveStations = await db.station.findMany({
-    where: {
-      status: { in: ["ACTIVE", "PAUSED"] },
-    },
-    take: 6,
-    orderBy: {
-      createdAt: "desc",
-    },
-    select: {
-      id: true,
-      slug: true,
-      name: true,
-      description: true,
-      genre: true,
-      logoUrl: true,
-    },
-  }).catch(() => []);
+  const liveStations = await getExploreStations({ sort: "trending", limit: 6 }).catch(() => []);
 
   const genres = [
     "Pop",
