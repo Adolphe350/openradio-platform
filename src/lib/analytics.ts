@@ -1,3 +1,5 @@
+import { env } from "@/lib/env";
+
 export type ListenerMetricSnapshot = {
   currentListeners: number;
   peakListeners: number;
@@ -7,9 +9,18 @@ export type ListenerMetricSnapshot = {
   sampledAt: Date;
 };
 
-export type MetricSource = "live" | "sample";
+export type MetricSource = "live" | "icecast" | "sample";
 
 type ResolveMetricInput = {
+  stationId: string;
+  mountPath: string;
+  trackCount: number;
+  playlistCount: number;
+  createdAt: Date;
+  metric: ListenerMetricSnapshot | null;
+};
+
+type ResolveMetricSyncInput = {
   stationId: string;
   trackCount: number;
   playlistCount: number;
@@ -17,59 +28,96 @@ type ResolveMetricInput = {
   metric: ListenerMetricSnapshot | null;
 };
 
-function hashString(value: string) {
-  let hash = 17;
+async function fetchIcecastListeners(mountPath: string): Promise<{ listeners: number; peak: number } | null> {
+  try {
+    const url = `http://${env.STREAM_SOURCE_HOST}:${env.ICECAST_SOURCE_PORT}/status-json.xsl`;
+    const res = await fetch(url, {
+      next: { revalidate: 0 },
+      signal: AbortSignal.timeout(3000),
+    });
 
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const source = data?.icestats?.source;
+    if (!source) return null;
+
+    const sources = Array.isArray(source) ? source : [source];
+    const match = sources.find((s: Record<string, unknown>) => {
+      const listenUrl = String(s.listenurl ?? "");
+      return listenUrl.endsWith(mountPath) || listenUrl.endsWith(mountPath.replace(/^\//, ""));
+    });
+
+    if (!match) return null;
+
+    return {
+      listeners: Number(match.listeners ?? 0),
+      peak: Number(match.listener_peak ?? match.listeners ?? 0),
+    };
+  } catch {
+    return null;
   }
-
-  return hash;
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, value));
-}
-
-function buildSampleMetric(input: Omit<ResolveMetricInput, "metric">): ListenerMetricSnapshot {
-  const seed = hashString(input.stationId);
-  const baseline = 10 + (seed % 26) + input.trackCount * 2 + input.playlistCount * 3;
-  const currentListeners = clamp(baseline, 6, 220);
-  const peakListeners = clamp(currentListeners + 12 + (seed % 34), currentListeners + 3, 390);
-  const listeningHours = Number((currentListeners * 5.4 + peakListeners * 1.2).toFixed(1));
-  const uptimePercent = Number((96 + (seed % 35) / 10).toFixed(1));
-  const storageUsedMb = Number((input.trackCount * 12 + input.playlistCount * 22 + (seed % 120)).toFixed(0));
-  const sampledAt = new Date(Math.max(input.createdAt.getTime(), Date.now() - 1000 * 60 * 60));
-
-  return {
-    currentListeners,
-    peakListeners,
-    totalListeningHours: listeningHours,
-    uptimePercent,
-    storageUsedMb,
-    sampledAt
-  };
-}
-
-export function resolveStationMetric(input: ResolveMetricInput) {
+export async function resolveStationMetric(input: ResolveMetricInput) {
   if (input.metric) {
     return {
       source: "live" as MetricSource,
-      metric: input.metric
+      metric: input.metric,
+    };
+  }
+
+  const icecast = await fetchIcecastListeners(input.mountPath);
+  if (icecast) {
+    return {
+      source: "icecast" as MetricSource,
+      metric: {
+        currentListeners: icecast.listeners,
+        peakListeners: icecast.peak,
+        totalListeningHours: 0,
+        uptimePercent: 99.9,
+        storageUsedMb: 0,
+        sampledAt: new Date(),
+      },
     };
   }
 
   return {
     source: "sample" as MetricSource,
-    metric: buildSampleMetric({
-      stationId: input.stationId,
-      trackCount: input.trackCount,
-      playlistCount: input.playlistCount,
-      createdAt: input.createdAt
-    })
+    metric: {
+      currentListeners: 0,
+      peakListeners: 0,
+      totalListeningHours: 0,
+      uptimePercent: 0,
+      storageUsedMb: 0,
+      sampledAt: new Date(),
+    },
+  };
+}
+
+export function resolveStationMetricSync(input: ResolveMetricSyncInput) {
+  if (input.metric) {
+    return {
+      source: "live" as MetricSource,
+      metric: input.metric,
+    };
+  }
+
+  return {
+    source: "sample" as MetricSource,
+    metric: {
+      currentListeners: 0,
+      peakListeners: 0,
+      totalListeningHours: 0,
+      uptimePercent: 0,
+      storageUsedMb: 0,
+      sampledAt: new Date(),
+    },
   };
 }
 
 export function metricSourceLabel(source: MetricSource) {
-  return source === "live" ? "Live" : "Sample";
+  if (source === "live") return "Live";
+  if (source === "icecast") return "Icecast";
+  return "Offline";
 }

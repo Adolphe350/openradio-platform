@@ -6,12 +6,12 @@
     <clients>500</clients>
     <sources>32</sources>
     <threadpool>8</threadpool>
-    <queue-size>524288</queue-size>
+    <queue-size>1048576</queue-size>
     <client-timeout>30</client-timeout>
     <header-timeout>15</header-timeout>
     <source-timeout>10</source-timeout>
     <burst-on-connect>1</burst-on-connect>
-    <burst-size>65535</burst-size>
+    <burst-size>262144</burst-size>
   </limits>
 
   <authentication>
@@ -28,8 +28,6 @@
 
   <mount type="default">
     <max-listeners>0</max-listeners>
-    <fallback-override>1</fallback-override>
-    <fallback-when-full>1</fallback-when-full>
     <public>0</public>
   </mount>
 
@@ -52,5 +50,9 @@
 
   <security>
     <chroot>0</chroot>
+    <changeowner>
+      <user>icecast2</user>
+      <group>icecast</group>
+    </changeowner>
   </security>
 </icecast>

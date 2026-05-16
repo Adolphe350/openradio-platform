@@ -17,10 +17,11 @@ import {
   deleteTrackAction,
   movePlaylistTrackAction,
   removePlaylistTrackAction,
+  renameStationAction,
   updatePlaylistAction,
   updateStationMetadataAction,
   updateStationStatusAction,
-  updateTrackAction
+  updateTrackAction,
 } from "../../actions";
 
 type StationDetailPageProps = {
@@ -36,41 +37,27 @@ export default async function StationDetailPage({ params, searchParams }: Statio
   const { error } = await searchParams;
 
   const station = await db.station.findFirst({
-    where: {
-      id: stationId,
-      ownerId: user.id
-    },
+    where: { id: stationId, ownerId: user.id },
     include: {
-      metrics: {
-        orderBy: { sampledAt: "desc" },
-        take: 1
-      },
-      tracks: {
-        orderBy: { createdAt: "desc" }
-      },
+      metrics: { orderBy: { sampledAt: "desc" }, take: 1 },
+      tracks: { orderBy: { createdAt: "desc" } },
       playlists: {
         orderBy: { createdAt: "asc" },
         include: {
-          tracks: {
-            orderBy: { position: "asc" },
-            include: {
-              track: true
-            }
-          }
-        }
-      }
-    }
+          tracks: { orderBy: { position: "asc" }, include: { track: true } },
+        },
+      },
+    },
   });
 
-  if (!station) {
-    notFound();
-  }
+  if (!station) notFound();
 
   const source = getSourceEndpoint(station.mountPath);
   const publicStreamUrl = getPublicStreamUrl(station.mountPath);
 
-  const metricState = resolveStationMetric({
+  const metricState = await resolveStationMetric({
     stationId: station.id,
+    mountPath: station.mountPath,
     trackCount: station.tracks.length,
     playlistCount: station.playlists.length,
     createdAt: station.createdAt,
@@ -81,240 +68,115 @@ export default async function StationDetailPage({ params, searchParams }: Statio
           totalListeningHours: station.metrics[0].totalListeningHours,
           uptimePercent: station.metrics[0].uptimePercent,
           storageUsedMb: station.metrics[0].storageUsedMb,
-          sampledAt: station.metrics[0].sampledAt
+          sampledAt: station.metrics[0].sampledAt,
         }
-      : null
+      : null,
   });
 
-  const analytics = [
-    {
-      label: "Current listeners",
-      value: metricState.metric.currentListeners.toString(),
-      state: metricSourceLabel(metricState.source),
-      hint: metricState.source === "live" ? "Listener metric sample" : "Seeded sample until live ingestion"
-    },
-    {
-      label: "Peak listeners",
-      value: metricState.metric.peakListeners.toString(),
-      state: metricSourceLabel(metricState.source),
-      hint: metricState.source === "live" ? "Latest peak sample" : "Seeded sample until live ingestion"
-    },
-    {
-      label: "Total listening hours",
-      value: metricState.metric.totalListeningHours.toFixed(1),
-      state: metricSourceLabel(metricState.source),
-      hint: metricState.source === "live" ? "Aggregated sample" : "Seeded sample until live ingestion"
-    },
-    {
-      label: "Uptime",
-      value: `${metricState.metric.uptimePercent.toFixed(1)}%`,
-      state: metricSourceLabel(metricState.source),
-      hint: metricState.source === "live" ? "Recent sample window" : "Seeded sample until live ingestion"
-    },
-    {
-      label: "Storage used",
-      value: `${metricState.metric.storageUsedMb.toFixed(0)} MB`,
-      state: metricSourceLabel(metricState.source),
-      hint: metricState.source === "live" ? "Track storage sample" : "Seeded estimate from library metadata"
-    },
-    {
-      label: "Top listener countries",
-      value: "Planned",
-      state: "Planned",
-      hint: "Geo analytics pipeline is not implemented in this MVP"
-    }
-  ];
-
-  const firstBroadcastChecklist = [
-    {
-      label: "Create station",
-      done: true,
-      detail: "Station created and studio access enabled"
-    },
-    {
-      label: "Connect encoder",
-      done: station.status !== StationStatus.DRAFT,
-      detail: station.status !== StationStatus.DRAFT ? "Station status indicates encoder setup is in progress/live" : "Switch status to ACTIVE once encoder is connected"
-    },
-    {
-      label: "Add track",
-      done: station.tracks.length > 0,
-      detail: station.tracks.length > 0 ? `${station.tracks.length} tracks in library` : "Add at least one track metadata entry"
-    },
-    {
-      label: "Create playlist",
-      done: station.playlists.length > 0,
-      detail: station.playlists.length > 0 ? `${station.playlists.length} playlists configured` : "Create your first playlist"
-    },
-    {
-      label: "Publish and share page",
-      done: station.status === StationStatus.ACTIVE,
-      detail: station.status === StationStatus.ACTIVE ? "Public page is ready to share" : "Set station status to ACTIVE"
-    }
-  ];
-
-  const completedChecklistCount = firstBroadcastChecklist.filter((item) => item.done).length;
-
-  const diagnostics = [
-    {
-      label: "Station lifecycle",
-      state: "Live",
-      detail: `Current status: ${station.status}`
-    },
-    {
-      label: "Encoder credential pack",
-      state: "Live",
-      detail: "Host, port, mount path, username, and source password are generated."
-    },
-    {
-      label: "Stream ingest probes",
-      state: "Planned",
-      detail: "Automated Icecast ingest health checks are planned; validate manually in MVP."
-    },
-    {
-      label: "AutoDJ worker diagnostics",
-      state: "Planned",
-      detail: "Per-station worker telemetry is planned while baseline Liquidsoap mode is active."
-    }
-  ];
-
   return (
-    <main className="container" style={{ width: "100%", margin: 0, padding: "0.5rem 0 2rem", display: "grid", gap: "1rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+    <main className="container" style={{ width: "100%", margin: 0, padding: "1.5rem 0 2rem", display: "grid", gap: "1.25rem" }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
         <div>
-          <span className="badge">Station studio</span>
-          <h1 style={{ margin: "0.5rem 0 0.2rem" }}>{station.name}</h1>
-          <p className="muted" style={{ margin: 0 }}>
-            Slug: <code>{station.slug}</code> · Status: <strong>{station.status}</strong>
+          <Link href="/dashboard" className="muted" style={{ fontSize: "0.8rem", display: "inline-flex", alignItems: "center", gap: "0.3rem", marginBottom: "0.5rem" }}>
+            &larr; Back to stations
+          </Link>
+          <h1 style={{ margin: "0 0 0.25rem", fontSize: "1.5rem" }}>{station.name}</h1>
+          <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
+            /{station.slug} &middot; {station.status}
           </p>
         </div>
-        <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
-          <Link href="/dashboard" className="btn secondary">
-            Back to stations
-          </Link>
-          <Link href={`/stations/${station.slug}`} className="btn secondary">
-            Public page
-          </Link>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+          <Link href={`/stations/${station.slug}`} className="btn secondary">Public page</Link>
         </div>
       </div>
 
       {error ? <p className="error">{error}</p> : null}
 
-      <section className="card" style={{ padding: "1rem" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}>
-          <div>
-            <h2 style={{ marginBottom: "0.25rem" }}>First broadcast checklist</h2>
-            <p className="muted" style={{ margin: 0 }}>
-              {completedChecklistCount}/{firstBroadcastChecklist.length} steps complete.
-            </p>
-          </div>
-
-          <form action={updateStationStatusAction} style={{ display: "flex", gap: "0.45rem", alignItems: "center", flexWrap: "wrap" }}>
+      {/* Rename + Status Row */}
+      <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+        <div className="card" style={{ padding: "1.25rem" }}>
+          <h3 style={{ margin: "0 0 0.75rem", fontSize: "0.9rem" }}>Rename station</h3>
+          <form action={renameStationAction} style={{ display: "flex", gap: "0.5rem" }}>
             <input type="hidden" name="stationId" value={station.id} />
-            <label htmlFor="status" style={{ fontWeight: 600, fontSize: "0.9rem" }}>
-              Station status
-            </label>
-            <select id="status" name="status" defaultValue={station.status}>
-              {statusOptions.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-            <button className="btn secondary" type="submit">
-              Update status
-            </button>
+            <input className="input" name="name" defaultValue={station.name} required minLength={3} style={{ flex: 1 }} />
+            <button className="btn secondary" type="submit">Rename</button>
           </form>
         </div>
-
-        <div className="grid" style={{ marginTop: "0.8rem", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.65rem" }}>
-          {firstBroadcastChecklist.map((item) => (
-            <article key={item.label} className="card" style={{ padding: "0.75rem" }}>
-              <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700 }}>{item.done ? "[x]" : "[ ]"} {item.label}</p>
-              <p className="muted" style={{ margin: "0.25rem 0 0", fontSize: "0.8rem" }}>
-                {item.detail}
-              </p>
-            </article>
-          ))}
+        <div className="card" style={{ padding: "1.25rem" }}>
+          <h3 style={{ margin: "0 0 0.75rem", fontSize: "0.9rem" }}>Station status</h3>
+          <form action={updateStationStatusAction} style={{ display: "flex", gap: "0.5rem" }}>
+            <input type="hidden" name="stationId" value={station.id} />
+            <select name="status" defaultValue={station.status} style={{ flex: 1 }}>
+              {statusOptions.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+            <button className="btn secondary" type="submit">Update</button>
+          </form>
         </div>
-      </section>
+      </div>
 
-      <section className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))" }}>
-        {analytics.map((item) => (
-          <article key={item.label} className="card" style={{ padding: "0.9rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-              <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>
-                {item.label}
-              </p>
-              <span className="badge">{item.state}</span>
-            </div>
-            <strong style={{ fontSize: "1.45rem" }}>{item.value}</strong>
-            <p className="muted" style={{ margin: "0.25rem 0 0", fontSize: "0.78rem" }}>
-              {item.hint}
-            </p>
-          </article>
-        ))}
-      </section>
-
-      <section className="card" style={{ padding: "1rem" }}>
-        <h2 style={{ marginBottom: "0.4rem" }}>Stream diagnostics</h2>
-        <p className="muted" style={{ marginTop: 0 }}>
-          Diagnostics are explicit about what is live in the MVP versus planned for later parity phases.
-        </p>
-        <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.65rem" }}>
-          {diagnostics.map((item) => (
-            <article key={item.label} className="card" style={{ padding: "0.75rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-                <h3 style={{ margin: 0, fontSize: "0.98rem" }}>{item.label}</h3>
-                <span className="badge">{item.state}</span>
-              </div>
-              <p className="muted" style={{ margin: "0.3rem 0 0", fontSize: "0.82rem" }}>
-                {item.detail}
-              </p>
-            </article>
-          ))}
+      {/* Live Stats */}
+      <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" }}>
+        <div className="card stat-card" style={{ padding: "1rem" }}>
+          <span className="stat-label">Listeners</span>
+          <span className="stat-value">{metricState.metric.currentListeners}</span>
+          <span className="badge" style={{ marginTop: "0.25rem", fontSize: "0.65rem" }}>{metricSourceLabel(metricState.source)}</span>
         </div>
-      </section>
+        <div className="card stat-card" style={{ padding: "1rem" }}>
+          <span className="stat-label">Peak</span>
+          <span className="stat-value">{metricState.metric.peakListeners}</span>
+        </div>
+        <div className="card stat-card" style={{ padding: "1rem" }}>
+          <span className="stat-label">Uptime</span>
+          <span className="stat-value">{metricState.metric.uptimePercent.toFixed(1)}%</span>
+        </div>
+        <div className="card stat-card" style={{ padding: "1rem" }}>
+          <span className="stat-label">Tracks</span>
+          <span className="stat-value">{station.tracks.length}</span>
+        </div>
+        <div className="card stat-card" style={{ padding: "1rem" }}>
+          <span className="stat-label">Playlists</span>
+          <span className="stat-value">{station.playlists.length}</span>
+        </div>
+      </div>
 
-      <section className="card" style={{ padding: "1rem" }}>
-        <h2 style={{ marginBottom: "0.4rem" }}>Live source connection (Icecast compatible)</h2>
-        <p className="muted" style={{ marginTop: 0 }}>
-          Use these settings in RadioBOSS, BUTT, Mixxx, Liquidsoap, or any Icecast-compatible encoder.
-        </p>
-        <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.65rem" }}>
-          <article className="card" style={{ padding: "0.75rem" }}>
-            <p className="muted" style={{ margin: 0, fontSize: "0.77rem" }}>Host</p>
+      {/* Connection Info */}
+      <div className="card" style={{ padding: "1.25rem" }}>
+        <h2 style={{ margin: "0 0 0.75rem", fontSize: "1rem" }}>Encoder Connection</h2>
+        <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.75rem" }}>
+          <div style={{ padding: "0.6rem", background: "var(--bg-subtle)", borderRadius: "var(--radius-sm)" }}>
+            <p className="muted" style={{ margin: 0, fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase" }}>Host</p>
             <code>{source.host}</code>
-          </article>
-          <article className="card" style={{ padding: "0.75rem" }}>
-            <p className="muted" style={{ margin: 0, fontSize: "0.77rem" }}>Port</p>
+          </div>
+          <div style={{ padding: "0.6rem", background: "var(--bg-subtle)", borderRadius: "var(--radius-sm)" }}>
+            <p className="muted" style={{ margin: 0, fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase" }}>Port</p>
             <code>{source.port}</code>
-          </article>
-          <article className="card" style={{ padding: "0.75rem" }}>
-            <p className="muted" style={{ margin: 0, fontSize: "0.77rem" }}>Mount</p>
+          </div>
+          <div style={{ padding: "0.6rem", background: "var(--bg-subtle)", borderRadius: "var(--radius-sm)" }}>
+            <p className="muted" style={{ margin: 0, fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase" }}>Mount</p>
             <code>{source.mountPath}</code>
-          </article>
-          <article className="card" style={{ padding: "0.75rem" }}>
-            <p className="muted" style={{ margin: 0, fontSize: "0.77rem" }}>Source username</p>
+          </div>
+          <div style={{ padding: "0.6rem", background: "var(--bg-subtle)", borderRadius: "var(--radius-sm)" }}>
+            <p className="muted" style={{ margin: 0, fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase" }}>Username</p>
             <code>{station.sourceUsername}</code>
-          </article>
-          <article className="card" style={{ padding: "0.75rem" }}>
-            <p className="muted" style={{ margin: 0, fontSize: "0.77rem" }}>Source password</p>
+          </div>
+          <div style={{ padding: "0.6rem", background: "var(--bg-subtle)", borderRadius: "var(--radius-sm)" }}>
+            <p className="muted" style={{ margin: 0, fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase" }}>Password</p>
             <code>{station.sourcePassword}</code>
-          </article>
-          <article className="card" style={{ padding: "0.75rem" }}>
-            <p className="muted" style={{ margin: 0, fontSize: "0.77rem" }}>Public stream URL</p>
-            <code>{publicStreamUrl}</code>
-          </article>
+          </div>
+          <div style={{ padding: "0.6rem", background: "var(--bg-subtle)", borderRadius: "var(--radius-sm)" }}>
+            <p className="muted" style={{ margin: 0, fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase" }}>Stream URL</p>
+            <code style={{ fontSize: "0.75rem", wordBreak: "break-all" }}>{publicStreamUrl}</code>
+          </div>
         </div>
-        <p className="muted" style={{ marginBottom: 0, marginTop: "0.7rem" }}>
-          Encoder URL format: <code>{source.sourceUrl}</code>
-        </p>
-      </section>
+      </div>
 
-      <section className="card" style={{ padding: "1rem" }}>
-        <h2 style={{ marginBottom: "0.4rem" }}>Station metadata</h2>
-        <form action={updateStationMetadataAction} className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
+      {/* Station metadata */}
+      <div className="card" style={{ padding: "1.25rem" }}>
+        <h2 style={{ margin: "0 0 0.75rem", fontSize: "1rem" }}>Metadata</h2>
+        <form action={updateStationMetadataAction} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.75rem", alignItems: "end" }}>
           <input type="hidden" name="stationId" value={station.id} />
           <div className="field">
             <label htmlFor="genre">Genre</label>
@@ -324,296 +186,205 @@ export default async function StationDetailPage({ params, searchParams }: Statio
             <label htmlFor="description">Description</label>
             <input id="description" name="description" className="input" defaultValue={station.description ?? ""} />
           </div>
-          <div className="field" style={{ gridColumn: "1 / -1" }}>
-            <label htmlFor="streamDescription">Stream metadata description</label>
-            <input
-              id="streamDescription"
-              name="streamDescription"
-              className="input"
-              defaultValue={station.streamDescription ?? ""}
-              placeholder="Optional text shown by some players"
-            />
+          <div className="field">
+            <label htmlFor="streamDescription">Stream description</label>
+            <input id="streamDescription" name="streamDescription" className="input" defaultValue={station.streamDescription ?? ""} />
           </div>
           <div>
-            <button className="btn primary" type="submit">
-              Save metadata
-            </button>
+            <button className="btn primary" type="submit">Save metadata</button>
           </div>
         </form>
-      </section>
+      </div>
 
-      <section className="station-split">
-        <article className="card" style={{ padding: "1rem" }}>
-          <h2 style={{ marginBottom: "0.45rem" }}>AutoDJ tracks</h2>
-          <p className="muted" style={{ marginTop: 0 }}>
-            MVP metadata storage for tracks. Replace <code>fileUrl</code> with storage integration in a future phase.
-          </p>
+      {/* Tracks and Playlists */}
+      <div className="station-split">
+        {/* Tracks */}
+        <div className="card" style={{ padding: "1.25rem" }}>
+          <h2 style={{ margin: "0 0 0.75rem", fontSize: "1rem" }}>Tracks ({station.tracks.length})</h2>
 
-          <form action={createTrackAction} className="grid" style={{ marginBottom: "1rem" }}>
+          <form action={createTrackAction} style={{ display: "grid", gap: "0.5rem", marginBottom: "1rem", padding: "1rem", background: "var(--bg-subtle)", borderRadius: "var(--radius-sm)" }}>
             <input type="hidden" name="stationId" value={station.id} />
-            <div className="field">
-              <label htmlFor="title">Title</label>
-              <input id="title" className="input" name="title" required maxLength={120} />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+              <div className="field">
+                <label htmlFor="title">Title</label>
+                <input id="title" className="input" name="title" required maxLength={120} />
+              </div>
+              <div className="field">
+                <label htmlFor="artist">Artist</label>
+                <input id="artist" className="input" name="artist" required maxLength={120} />
+              </div>
             </div>
-            <div className="field">
-              <label htmlFor="artist">Artist</label>
-              <input id="artist" className="input" name="artist" required maxLength={120} />
-            </div>
-            <div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: "0.5rem" }}>
               <div className="field">
                 <label htmlFor="album">Album</label>
                 <input id="album" className="input" name="album" maxLength={120} />
               </div>
               <div className="field">
-                <label htmlFor="durationSec">Duration (seconds)</label>
+                <label htmlFor="durationSec">Duration (s)</label>
                 <input id="durationSec" className="input" name="durationSec" type="number" min={1} />
               </div>
+              <div className="field">
+                <label htmlFor="fileUrl">File URL</label>
+                <input id="fileUrl" className="input" name="fileUrl" type="url" placeholder="https://..." />
+              </div>
             </div>
-            <div className="field">
-              <label htmlFor="fileUrl">File URL</label>
-              <input id="fileUrl" className="input" name="fileUrl" placeholder="https://..." type="url" />
-            </div>
-            <button className="btn primary" type="submit">
-              Add track
-            </button>
+            <button className="btn primary" type="submit" style={{ justifySelf: "start" }}>Add track</button>
           </form>
 
-          <div style={{ maxHeight: "440px", overflowY: "auto", borderTop: "1px solid #e2e8f0", paddingTop: "0.7rem" }}>
+          <div style={{ maxHeight: "500px", overflowY: "auto", display: "grid", gap: "0.5rem" }}>
             {station.tracks.map((track) => (
-              <article key={track.id} className="card" style={{ padding: "0.7rem", marginBottom: "0.55rem" }}>
-                <strong>{track.title}</strong>
-                <p className="muted" style={{ margin: "0.2rem 0" }}>
-                  {track.artist} · {fallbackValue(track.album)} · {formatDuration(track.durationSec)}
-                </p>
-                {track.fileUrl ? (
-                  <p style={{ margin: "0.15rem 0", fontSize: "0.8rem" }}>
-                    <a href={track.fileUrl} target="_blank" rel="noreferrer">
-                      {track.fileUrl}
-                    </a>
-                  </p>
-                ) : null}
+              <div key={track.id} style={{ padding: "0.75rem", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", display: "grid", gap: "0.4rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <strong style={{ fontSize: "0.9rem" }}>{track.title}</strong>
+                    <span className="muted" style={{ marginLeft: "0.5rem", fontSize: "0.8rem" }}>{track.artist}</span>
+                  </div>
+                  <span className="muted" style={{ fontSize: "0.8rem" }}>{formatDuration(track.durationSec)}</span>
+                </div>
 
-                <details style={{ marginTop: "0.45rem" }}>
-                  <summary style={{ cursor: "pointer", fontWeight: 600 }}>Edit track</summary>
-                  <form action={updateTrackAction} className="grid" style={{ marginTop: "0.5rem" }}>
+                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                  <details style={{ width: "100%" }}>
+                    <summary style={{ fontSize: "0.8rem" }}>Edit</summary>
+                    <form action={updateTrackAction} style={{ display: "grid", gap: "0.4rem", marginTop: "0.5rem" }}>
+                      <input type="hidden" name="stationId" value={station.id} />
+                      <input type="hidden" name="trackId" value={track.id} />
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.4rem" }}>
+                        <input className="input" name="title" defaultValue={track.title} required />
+                        <input className="input" name="artist" defaultValue={track.artist} required />
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: "0.4rem" }}>
+                        <input className="input" name="album" defaultValue={track.album ?? ""} />
+                        <input className="input" name="durationSec" type="number" defaultValue={track.durationSec ?? ""} />
+                        <input className="input" name="fileUrl" type="url" defaultValue={track.fileUrl ?? ""} />
+                      </div>
+                      <div style={{ display: "flex", gap: "0.4rem" }}>
+                        <button className="btn secondary" type="submit">Save</button>
+                      </div>
+                    </form>
+                  </details>
+                  <form action={deleteTrackAction}>
                     <input type="hidden" name="stationId" value={station.id} />
                     <input type="hidden" name="trackId" value={track.id} />
-                    <div className="field">
-                      <label htmlFor={`title-${track.id}`}>Title</label>
-                      <input id={`title-${track.id}`} className="input" name="title" defaultValue={track.title} required maxLength={120} />
-                    </div>
-                    <div className="field">
-                      <label htmlFor={`artist-${track.id}`}>Artist</label>
-                      <input id={`artist-${track.id}`} className="input" name="artist" defaultValue={track.artist} required maxLength={120} />
-                    </div>
-                    <div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-                      <div className="field">
-                        <label htmlFor={`album-${track.id}`}>Album</label>
-                        <input id={`album-${track.id}`} className="input" name="album" defaultValue={track.album ?? ""} maxLength={120} />
-                      </div>
-                      <div className="field">
-                        <label htmlFor={`duration-${track.id}`}>Duration (seconds)</label>
-                        <input
-                          id={`duration-${track.id}`}
-                          className="input"
-                          name="durationSec"
-                          type="number"
-                          min={1}
-                          defaultValue={track.durationSec ?? ""}
-                        />
-                      </div>
-                    </div>
-                    <div className="field">
-                      <label htmlFor={`file-${track.id}`}>File URL</label>
-                      <input id={`file-${track.id}`} className="input" name="fileUrl" type="url" defaultValue={track.fileUrl ?? ""} />
-                    </div>
-                    <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-                      <button className="btn secondary" type="submit">
-                        Save track
-                      </button>
-                    </div>
+                    <button className="btn danger" type="submit" style={{ fontSize: "0.75rem", padding: "0.4rem 0.7rem" }}>Delete</button>
                   </form>
-                </details>
-
-                <form action={deleteTrackAction} style={{ marginTop: "0.55rem" }}>
-                  <input type="hidden" name="stationId" value={station.id} />
-                  <input type="hidden" name="trackId" value={track.id} />
-                  <button className="btn secondary" type="submit" style={{ borderColor: "#fecaca", color: "#b91c1c" }}>
-                    Delete track
-                  </button>
-                </form>
-              </article>
+                </div>
+              </div>
             ))}
-            {station.tracks.length === 0 ? (
-              <p className="muted" style={{ margin: 0 }}>
-                No tracks yet.
-              </p>
-            ) : null}
+            {station.tracks.length === 0 ? <p className="muted" style={{ margin: 0 }}>No tracks yet.</p> : null}
           </div>
-        </article>
+        </div>
 
-        <article className="card" style={{ padding: "1rem" }}>
-          <h2 style={{ marginBottom: "0.45rem" }}>Playlists</h2>
-          <form action={createPlaylistAction} className="grid" style={{ marginBottom: "1rem" }}>
+        {/* Playlists */}
+        <div className="card" style={{ padding: "1.25rem" }}>
+          <h2 style={{ margin: "0 0 0.75rem", fontSize: "1rem" }}>Playlists ({station.playlists.length})</h2>
+
+          <form action={createPlaylistAction} style={{ display: "grid", gap: "0.5rem", marginBottom: "1rem", padding: "1rem", background: "var(--bg-subtle)", borderRadius: "var(--radius-sm)" }}>
             <input type="hidden" name="stationId" value={station.id} />
             <div className="field">
-              <label htmlFor="playlistName">Playlist name</label>
+              <label htmlFor="playlistName">Name</label>
               <input id="playlistName" className="input" name="name" required maxLength={80} />
             </div>
             <div className="field">
               <label htmlFor="playlistDescription">Description</label>
               <input id="playlistDescription" className="input" name="description" maxLength={200} />
             </div>
-            <button className="btn primary" type="submit">
-              Create playlist
-            </button>
+            <button className="btn primary" type="submit" style={{ justifySelf: "start" }}>Create playlist</button>
           </form>
 
-          <div style={{ display: "grid", gap: "0.8rem", maxHeight: "590px", overflowY: "auto" }}>
+          <div style={{ maxHeight: "500px", overflowY: "auto", display: "grid", gap: "0.75rem" }}>
             {station.playlists.map((playlist) => (
-              <article key={playlist.id} className="card" style={{ padding: "0.8rem" }}>
-                <h3 style={{ marginBottom: "0.2rem", fontSize: "1rem" }}>
-                  {playlist.name} {playlist.isDefault ? <span className="badge">Default</span> : null}
-                </h3>
-                <p className="muted" style={{ marginTop: 0 }}>
-                  {playlist.description ?? "No description"}
-                </p>
+              <div key={playlist.id} style={{ padding: "0.75rem", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+                  <h3 style={{ margin: 0, fontSize: "0.95rem" }}>
+                    {playlist.name}
+                    {playlist.isDefault ? <span className="badge" style={{ marginLeft: "0.4rem" }}>Default</span> : null}
+                  </h3>
+                  <span className="muted" style={{ fontSize: "0.75rem" }}>{playlist.tracks.length} tracks</span>
+                </div>
 
-                <details style={{ marginBottom: "0.7rem" }}>
-                  <summary style={{ cursor: "pointer", fontWeight: 600 }}>Edit playlist</summary>
-                  <div className="grid" style={{ marginTop: "0.5rem", gap: "0.45rem" }}>
-                    <form action={updatePlaylistAction} className="grid">
+                <details>
+                  <summary style={{ fontSize: "0.8rem" }}>Edit playlist</summary>
+                  <div style={{ marginTop: "0.5rem", display: "grid", gap: "0.4rem" }}>
+                    <form action={updatePlaylistAction} style={{ display: "grid", gap: "0.4rem" }}>
                       <input type="hidden" name="stationId" value={station.id} />
                       <input type="hidden" name="playlistId" value={playlist.id} />
-                      <div className="field">
-                        <label htmlFor={`playlist-name-${playlist.id}`}>Playlist name</label>
-                        <input
-                          id={`playlist-name-${playlist.id}`}
-                          className="input"
-                          name="name"
-                          required
-                          maxLength={80}
-                          defaultValue={playlist.name}
-                        />
-                      </div>
-                      <div className="field">
-                        <label htmlFor={`playlist-description-${playlist.id}`}>Description</label>
-                        <input
-                          id={`playlist-description-${playlist.id}`}
-                          className="input"
-                          name="description"
-                          maxLength={200}
-                          defaultValue={playlist.description ?? ""}
-                        />
-                      </div>
-                      <div>
-                        <button className="btn secondary" type="submit">
-                          Save playlist
-                        </button>
-                      </div>
+                      <input className="input" name="name" required defaultValue={playlist.name} />
+                      <input className="input" name="description" defaultValue={playlist.description ?? ""} />
+                      <button className="btn secondary" type="submit" style={{ justifySelf: "start" }}>Save</button>
                     </form>
                     {!playlist.isDefault ? (
                       <form action={deletePlaylistAction}>
                         <input type="hidden" name="stationId" value={station.id} />
                         <input type="hidden" name="playlistId" value={playlist.id} />
-                        <button className="btn secondary" type="submit" style={{ borderColor: "#fecaca", color: "#b91c1c" }}>
-                          Delete playlist
-                        </button>
+                        <button className="btn danger" type="submit" style={{ fontSize: "0.75rem" }}>Delete playlist</button>
                       </form>
                     ) : null}
                   </div>
                 </details>
 
-                <form action={addTrackToPlaylistAction} className="grid" style={{ gridTemplateColumns: "1fr auto" }}>
+                <form action={addTrackToPlaylistAction} style={{ display: "flex", gap: "0.4rem", marginTop: "0.5rem" }}>
                   <input type="hidden" name="stationId" value={station.id} />
                   <input type="hidden" name="playlistId" value={playlist.id} />
-                  <select name="trackId" required>
-                    <option value="">Select track</option>
+                  <select name="trackId" required style={{ flex: 1 }}>
+                    <option value="">Add track...</option>
                     {station.tracks.map((track) => (
-                      <option key={track.id} value={track.id}>
-                        {track.artist} - {track.title}
-                      </option>
+                      <option key={track.id} value={track.id}>{track.artist} - {track.title}</option>
                     ))}
                   </select>
-                  <button className="btn secondary" type="submit">
-                    Add
-                  </button>
+                  <button className="btn secondary" type="submit">Add</button>
                 </form>
 
-                <div style={{ marginTop: "0.6rem", display: "grid", gap: "0.45rem" }}>
-                  {playlist.tracks.map((playlistTrack, index) => (
-                    <article
-                      key={playlistTrack.id}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr auto",
-                        alignItems: "center",
-                        gap: "0.6rem",
-                        padding: "0.55rem",
-                        border: "1px solid #dbe3ed",
-                        borderRadius: "10px",
-                        background: "#fff"
-                      }}
-                    >
-                      <div>
-                        <strong style={{ fontSize: "0.93rem" }}>{playlistTrack.track.title}</strong>
-                        <p className="muted" style={{ margin: 0, fontSize: "0.84rem" }}>
-                          {playlistTrack.track.artist}
-                        </p>
+                <div style={{ marginTop: "0.5rem", display: "grid", gap: "0.3rem" }}>
+                  {playlist.tracks.map((pt, index) => (
+                    <div key={pt.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.4rem 0.6rem", background: "var(--bg-subtle)", borderRadius: "var(--radius-sm)", gap: "0.5rem" }}>
+                      <div style={{ minWidth: 0 }}>
+                        <strong style={{ fontSize: "0.8rem" }}>{pt.track.title}</strong>
+                        <span className="muted" style={{ fontSize: "0.75rem", marginLeft: "0.3rem" }}>{pt.track.artist}</span>
                       </div>
-                      <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                      <div style={{ display: "flex", gap: "0.2rem", flexShrink: 0 }}>
                         <form action={movePlaylistTrackAction}>
                           <input type="hidden" name="stationId" value={station.id} />
                           <input type="hidden" name="playlistId" value={playlist.id} />
-                          <input type="hidden" name="playlistTrackId" value={playlistTrack.id} />
+                          <input type="hidden" name="playlistTrackId" value={pt.id} />
                           <input type="hidden" name="direction" value="up" />
-                          <button className="btn secondary" type="submit" disabled={index === 0}>
-                            ↑
-                          </button>
+                          <button className="btn secondary" type="submit" disabled={index === 0} style={{ padding: "0.25rem 0.4rem", fontSize: "0.7rem" }}>&uarr;</button>
                         </form>
                         <form action={movePlaylistTrackAction}>
                           <input type="hidden" name="stationId" value={station.id} />
                           <input type="hidden" name="playlistId" value={playlist.id} />
-                          <input type="hidden" name="playlistTrackId" value={playlistTrack.id} />
+                          <input type="hidden" name="playlistTrackId" value={pt.id} />
                           <input type="hidden" name="direction" value="down" />
-                          <button className="btn secondary" type="submit" disabled={index === playlist.tracks.length - 1}>
-                            ↓
-                          </button>
+                          <button className="btn secondary" type="submit" disabled={index === playlist.tracks.length - 1} style={{ padding: "0.25rem 0.4rem", fontSize: "0.7rem" }}>&darr;</button>
                         </form>
                         <form action={removePlaylistTrackAction}>
                           <input type="hidden" name="stationId" value={station.id} />
                           <input type="hidden" name="playlistId" value={playlist.id} />
-                          <input type="hidden" name="playlistTrackId" value={playlistTrack.id} />
-                          <button className="btn secondary" type="submit" style={{ borderColor: "#fecaca", color: "#b91c1c" }}>
-                            Remove
-                          </button>
+                          <input type="hidden" name="playlistTrackId" value={pt.id} />
+                          <button className="btn danger" type="submit" style={{ padding: "0.25rem 0.4rem", fontSize: "0.7rem" }}>x</button>
                         </form>
                       </div>
-                    </article>
+                    </div>
                   ))}
-
-                  {playlist.tracks.length === 0 ? <p className="muted">No tracks in this playlist yet.</p> : null}
+                  {playlist.tracks.length === 0 ? <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>Empty playlist.</p> : null}
                 </div>
-              </article>
+              </div>
             ))}
-
             {station.playlists.length === 0 ? <p className="muted">No playlists yet.</p> : null}
           </div>
-        </article>
-      </section>
+        </div>
+      </div>
 
-      <section className="card" style={{ padding: "1rem" }}>
-        <h2 style={{ marginBottom: "0.35rem", color: "#b91c1c" }}>Danger zone</h2>
-        <p className="muted" style={{ marginTop: 0 }}>
-          Delete the station and all associated tracks, playlists, and metrics.
+      {/* Danger Zone */}
+      <div className="card" style={{ padding: "1.25rem", borderColor: "rgba(239, 68, 68, 0.2)" }}>
+        <h2 style={{ margin: "0 0 0.5rem", fontSize: "1rem", color: "var(--danger)" }}>Danger zone</h2>
+        <p className="muted" style={{ margin: "0 0 0.75rem", fontSize: "0.85rem" }}>
+          Permanently delete this station and all its tracks, playlists, and metrics.
         </p>
         <form action={deleteStationAction}>
           <input type="hidden" name="stationId" value={station.id} />
-          <button className="btn secondary" type="submit" style={{ borderColor: "#fecaca", color: "#b91c1c" }}>
-            Delete station
-          </button>
+          <button className="btn danger" type="submit">Delete station</button>
         </form>
-      </section>
+      </div>
     </main>
   );
 }

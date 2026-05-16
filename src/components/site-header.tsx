@@ -4,62 +4,77 @@ type SiteHeaderProps = {
   showAuthActions?: boolean;
 };
 
-const marketingLinks = [
+const navLinks = [
   { href: "/explore", label: "Explore" },
   { href: "/streaming", label: "Streaming" },
   { href: "/automation", label: "Automation" },
-  { href: "/pricing", label: "Pricing" }
+  { href: "/pricing", label: "Pricing" },
 ];
 
 export function SiteHeader({ showAuthActions = true }: SiteHeaderProps) {
   return (
-    <header style={{ borderBottom: "1px solid #e2e8f0", backdropFilter: "blur(8px)", background: "rgba(255,255,255,0.8)" }}>
+    <header
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 100,
+        borderBottom: "1px solid var(--border)",
+        backdropFilter: "blur(12px) saturate(180%)",
+        background: "rgba(255, 255, 255, 0.85)",
+      }}
+    >
       <div
         className="container"
         style={{
-          minHeight: "74px",
+          height: "64px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           gap: "1rem",
-          flexWrap: "wrap",
-          padding: "0.45rem 0"
         }}
       >
-        <Link href="/" style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+        <Link href="/" style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
           <div
             aria-hidden
             style={{
-              width: "36px",
-              height: "36px",
-              borderRadius: "10px",
-              background:
-                "conic-gradient(from 220deg at 50% 50%, #0284c7 0deg, #0ea5e9 160deg, #1e3a8a 300deg, #0284c7 360deg)"
+              width: "32px",
+              height: "32px",
+              borderRadius: "8px",
+              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              boxShadow: "0 2px 8px rgba(99, 102, 241, 0.3)",
             }}
           />
-          <div>
-            <strong style={{ fontSize: "1rem" }}>OpenRadio Cloud</strong>
-            <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>
-              Open-source internet radio stack
-            </p>
-          </div>
+          <span style={{ fontWeight: 700, fontSize: "1rem", letterSpacing: "-0.02em" }}>
+            OpenRadio
+          </span>
         </Link>
 
-        <nav style={{ display: "flex", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
-          {marketingLinks.map((link) => (
-            <Link key={link.href} href={link.href} className="btn secondary" style={{ padding: "0.54rem 0.95rem" }}>
+        <nav style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              style={{
+                padding: "0.4rem 0.75rem",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                color: "var(--text-secondary)",
+                borderRadius: "var(--radius-sm)",
+                transition: "all 150ms",
+              }}
+            >
               {link.label}
             </Link>
           ))}
           {showAuthActions ? (
-            <>
+            <div style={{ display: "flex", gap: "0.4rem", marginLeft: "0.75rem" }}>
               <Link href="/sign-in" className="btn secondary">
                 Sign in
               </Link>
               <Link href="/sign-up" className="btn primary">
                 Get started
               </Link>
-            </>
+            </div>
           ) : null}
         </nav>
       </div>

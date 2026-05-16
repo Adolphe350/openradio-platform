@@ -3,25 +3,20 @@ import { notFound } from "next/navigation";
 
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { resolveStationMetric } from "@/lib/analytics";
+import { resolveStationMetric, metricSourceLabel } from "@/lib/analytics";
 import { db } from "@/lib/db";
 import { getRelatedStations } from "@/lib/explore";
 import { getPublicStreamUrl } from "@/lib/stream";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-
   const station = await db.station.findUnique({ where: { slug } });
 
-  if (!station) {
-    return {
-      title: "Station"
-    };
-  }
+  if (!station) return { title: "Station" };
 
   return {
     title: station.name,
-    description: station.description ?? station.streamDescription ?? "Listen live on OpenRadio Cloud"
+    description: station.description ?? "Listen live on OpenRadio Cloud",
   };
 }
 
@@ -31,31 +26,19 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
   const station = await db.station.findUnique({
     where: { slug },
     include: {
-      metrics: {
-        orderBy: { sampledAt: "desc" },
-        take: 1
-      },
-      tracks: {
-        orderBy: { createdAt: "desc" },
-        take: 8
-      },
-      _count: {
-        select: {
-          tracks: true,
-          playlists: true
-        }
-      }
-    }
+      metrics: { orderBy: { sampledAt: "desc" }, take: 1 },
+      tracks: { orderBy: { createdAt: "desc" }, take: 8 },
+      _count: { select: { tracks: true, playlists: true } },
+    },
   });
 
-  if (!station) {
-    notFound();
-  }
+  if (!station) notFound();
 
   const streamUrl = getPublicStreamUrl(station.mountPath);
 
-  const metricState = resolveStationMetric({
+  const metricState = await resolveStationMetric({
     stationId: station.id,
+    mountPath: station.mountPath,
     trackCount: station._count.tracks,
     playlistCount: station._count.playlists,
     createdAt: station.createdAt,
@@ -66,9 +49,9 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
           totalListeningHours: station.metrics[0].totalListeningHours,
           uptimePercent: station.metrics[0].uptimePercent,
           storageUsedMb: station.metrics[0].storageUsedMb,
-          sampledAt: station.metrics[0].sampledAt
+          sampledAt: station.metrics[0].sampledAt,
         }
-      : null
+      : null,
   });
 
   const relatedStations = await getRelatedStations({
@@ -76,110 +59,105 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
     genre: station.genre,
     language: station.language,
     country: station.country,
-    limit: 4
+    limit: 4,
   });
 
   return (
     <main>
       <SiteHeader />
 
-      <section style={{ minHeight: "100vh", padding: "2rem 0" }}>
-        <div className="container" style={{ maxWidth: "900px" }}>
-          <header className="card" style={{ padding: "1.2rem", marginBottom: "1rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "flex-start", flexWrap: "wrap" }}>
+      <section style={{ padding: "3rem 0" }}>
+        <div className="container" style={{ maxWidth: "800px", margin: "0 auto", display: "grid", gap: "1.5rem" }}>
+          {/* Station Header */}
+          <div className="card" style={{ padding: "2rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
               <div>
-                <span className="badge">Live station</span>
-                <h1 style={{ margin: "0.6rem 0 0.25rem" }}>{station.name}</h1>
-                <p className="muted" style={{ marginTop: 0 }}>{station.description ?? "Independent internet radio stream"}</p>
-                <p style={{ margin: 0, fontSize: "0.9rem" }}>
-                  Genre: <strong>{station.genre ?? "Mixed"}</strong> · Language: <strong>{station.language}</strong>
-                  {station.country ? (
-                    <>
-                      {" "}· Country: <strong>{station.country}</strong>
-                    </>
-                  ) : null}
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
+                  <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: station.status === "ACTIVE" ? "var(--success)" : "var(--warning)" }} />
+                  <span className="badge success">{station.status}</span>
+                </div>
+                <h1 style={{ margin: "0 0 0.4rem", fontSize: "1.75rem" }}>{station.name}</h1>
+                <p className="muted" style={{ margin: 0, fontSize: "0.95rem" }}>
+                  {station.description ?? "Internet radio station"}
                 </p>
               </div>
-              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                <Link href="/explore" className="btn secondary">
-                  Explore
-                </Link>
-                <Link href="/" className="btn secondary">
-                  Home
-                </Link>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <Link href="/explore" className="btn secondary">Explore</Link>
               </div>
             </div>
 
-            <div style={{ marginTop: "1rem" }}>
-              <audio controls preload="none" style={{ width: "100%" }} src={streamUrl} />
-              <p className="muted" style={{ marginTop: "0.5rem", marginBottom: 0 }}>
-                Stream URL: <code>{streamUrl}</code>
-              </p>
+            <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginBottom: "1.5rem", fontSize: "0.875rem" }}>
+              <span>Genre: <strong>{station.genre ?? "Mixed"}</strong></span>
+              <span>Language: <strong>{station.language}</strong></span>
+              {station.country ? <span>Country: <strong>{station.country}</strong></span> : null}
             </div>
-          </header>
 
-          <section className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", marginBottom: "1rem" }}>
-            <article className="card" style={{ padding: "0.9rem" }}>
-              <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>Current listeners</p>
-              <strong style={{ fontSize: "1.3rem" }}>{metricState.metric.currentListeners}</strong>
-              <p className="muted" style={{ margin: "0.25rem 0 0", fontSize: "0.75rem" }}>
-                {metricState.source === "live" ? "Live metric sample" : "Seeded sample metric"}
+            {/* Player */}
+            <div style={{ padding: "1.25rem", background: "var(--bg-subtle)", borderRadius: "var(--radius-md)" }}>
+              <audio controls preload="none" style={{ width: "100%", marginBottom: "0.75rem" }} src={streamUrl} />
+              <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>
+                Stream: <code style={{ fontSize: "0.75rem" }}>{streamUrl}</code>
               </p>
-            </article>
-            <article className="card" style={{ padding: "0.9rem" }}>
-              <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>Peak listeners</p>
-              <strong style={{ fontSize: "1.3rem" }}>{metricState.metric.peakListeners}</strong>
-              <p className="muted" style={{ margin: "0.25rem 0 0", fontSize: "0.75rem" }}>
-                {metricState.source === "live" ? "Live metric sample" : "Seeded sample metric"}
-              </p>
-            </article>
-            <article className="card" style={{ padding: "0.9rem" }}>
-              <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>Uptime</p>
-              <strong style={{ fontSize: "1.3rem" }}>{metricState.metric.uptimePercent.toFixed(1)}%</strong>
-              <p className="muted" style={{ margin: "0.25rem 0 0", fontSize: "0.75rem" }}>
-                {metricState.source === "live" ? "Live metric sample" : "Seeded sample metric"}
-              </p>
-            </article>
-          </section>
+            </div>
+          </div>
 
-          <section className="card" style={{ padding: "1rem", marginBottom: "1rem" }}>
-            <h2 style={{ marginBottom: "0.4rem" }}>Recent library additions</h2>
-            <div style={{ display: "grid", gap: "0.45rem" }}>
-              {station.tracks.map((track) => (
-                <article key={track.id} style={{ border: "1px solid #e2e8f0", borderRadius: "10px", padding: "0.6rem" }}>
-                  <strong>{track.title}</strong>
-                  <p className="muted" style={{ margin: 0 }}>{track.artist}</p>
-                </article>
-              ))}
-              {station.tracks.length === 0 ? <p className="muted">No published tracks yet.</p> : null}
+          {/* Stats */}
+          <div className="grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+            <div className="card stat-card" style={{ padding: "1.25rem", textAlign: "center" }}>
+              <span className="stat-label">Listeners</span>
+              <span className="stat-value">{metricState.metric.currentListeners}</span>
+              <span className="badge" style={{ marginTop: "0.25rem", fontSize: "0.6rem" }}>{metricSourceLabel(metricState.source)}</span>
             </div>
-          </section>
+            <div className="card stat-card" style={{ padding: "1.25rem", textAlign: "center" }}>
+              <span className="stat-label">Peak</span>
+              <span className="stat-value">{metricState.metric.peakListeners}</span>
+            </div>
+            <div className="card stat-card" style={{ padding: "1.25rem", textAlign: "center" }}>
+              <span className="stat-label">Uptime</span>
+              <span className="stat-value">{metricState.metric.uptimePercent.toFixed(1)}%</span>
+            </div>
+          </div>
 
-          <section className="card" style={{ padding: "1rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.8rem", flexWrap: "wrap" }}>
-              <h2 style={{ margin: 0 }}>Related and recent stations</h2>
-              <Link href="/explore" className="btn secondary">
-                More stations
-              </Link>
+          {/* Recent Tracks */}
+          {station.tracks.length > 0 ? (
+            <div className="card" style={{ padding: "1.5rem" }}>
+              <h2 style={{ margin: "0 0 1rem", fontSize: "1.1rem" }}>Recent tracks</h2>
+              <div style={{ display: "grid", gap: "0.4rem" }}>
+                {station.tracks.map((track) => (
+                  <div key={track.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.6rem 0.75rem", background: "var(--bg-subtle)", borderRadius: "var(--radius-sm)" }}>
+                    <div>
+                      <strong style={{ fontSize: "0.875rem" }}>{track.title}</strong>
+                      <span className="muted" style={{ marginLeft: "0.5rem", fontSize: "0.8rem" }}>{track.artist}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", marginTop: "0.8rem" }}>
-              {relatedStations.map((related) => (
-                <article key={related.id} className="card" style={{ padding: "0.8rem" }}>
-                  <h3 style={{ margin: "0 0 0.2rem", fontSize: "1rem" }}>{related.name}</h3>
-                  <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
-                    {related.genre ?? "Mixed"} · {related.language}
-                  </p>
-                  <p style={{ margin: "0.3rem 0", fontSize: "0.84rem" }}>
-                    Listeners: <strong>{related.currentListeners}</strong>
-                  </p>
-                  <Link href={`/stations/${related.slug}`} className="btn secondary">
-                    Open
-                  </Link>
-                </article>
-              ))}
+          ) : null}
+
+          {/* Related Stations */}
+          {relatedStations.length > 0 ? (
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                <h2 style={{ margin: 0, fontSize: "1.1rem" }}>More stations</h2>
+                <Link href="/explore" className="btn secondary" style={{ fontSize: "0.8rem" }}>View all</Link>
+              </div>
+              <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+                {relatedStations.map((related) => (
+                  <article key={related.id} className="card" style={{ padding: "1rem" }}>
+                    <h3 style={{ margin: "0 0 0.25rem", fontSize: "0.95rem" }}>{related.name}</h3>
+                    <p className="muted" style={{ margin: "0 0 0.5rem", fontSize: "0.8rem" }}>
+                      {related.genre ?? "Mixed"} &middot; {related.language}
+                    </p>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: "0.8rem" }}>{related.currentListeners} listeners</span>
+                      <Link href={`/stations/${related.slug}`} className="btn secondary" style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem" }}>Listen</Link>
+                    </div>
+                  </article>
+                ))}
+              </div>
             </div>
-            {relatedStations.length === 0 ? <p className="muted">More stations will appear here as creators publish.</p> : null}
-          </section>
+          ) : null}
         </div>
       </section>
 
