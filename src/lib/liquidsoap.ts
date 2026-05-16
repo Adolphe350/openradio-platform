@@ -52,19 +52,19 @@ function liqEscape(s: string): string {
 }
 
 // Liquidsoap day-of-week: 0=Sunday ... 6=Saturday (matches JS)
-// time() returns seconds since midnight
+// Liquidsoap 2.x time predicate: { Nw HH:MM-HH:MM }
+// N: 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat, 7=Sun
 function buildTimeCondition(e: ScheduleEntry): string {
-  const startSec = e.startHour * 3600 + e.startMin * 60;
-  const endSec = e.endHour * 3600 + e.endMin * 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const startTime = `${pad(e.startHour)}:${pad(e.startMin)}`;
+  const endTime = `${pad(e.endHour)}:${pad(e.endMin)}`;
 
   if (e.dayOfWeek === -1) {
-    // Every day
-    return `(time() >= ${startSec} and time() < ${endSec})`;
+    return `{ ${startTime}-${endTime} }`;
   }
-  // Liquidsoap uses 1w ... 7w for Mon-Sun (1=Mon, 7=Sun)
   // Convert JS day (0=Sun...6=Sat) to Liquidsoap day (1=Mon...7=Sun)
   const liqDay = e.dayOfWeek === 0 ? 7 : e.dayOfWeek;
-  return `(weekday() == ${liqDay} and time() >= ${startSec} and time() < ${endSec})`;
+  return `{ ${liqDay}w ${startTime}-${endTime} }`;
 }
 
 export function generateLiqScript(cfg: LiqConfig): string {
