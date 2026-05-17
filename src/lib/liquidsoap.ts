@@ -106,6 +106,7 @@ export function generateLiqScript(cfg: LiqConfig): string {
   lines.push(`  mode="random",`);
   lines.push(`  reload_mode="watch",`);
   lines.push(`  reload=10,`);
+  lines.push(`  prefetch=2,`);
   lines.push(`  "${configDir}/all_tracks.m3u")`);
   lines.push(``);
   lines.push(`# Fallback: scan local upload directory if available`);
@@ -113,6 +114,7 @@ export function generateLiqScript(cfg: LiqConfig): string {
   lines.push(`  id="station_${cfg.stationId}_uploads",`);
   lines.push(`  mode="random",`);
   lines.push(`  reload_mode="watch",`);
+  lines.push(`  prefetch=2,`);
   lines.push(`  "${uploadDir}")`);
   lines.push(``);
   lines.push(`# Combine: prefer m3u tracks, fall back to uploads, then silence`);
@@ -153,6 +155,7 @@ export function generateLiqScript(cfg: LiqConfig): string {
     lines.push(`  id="${varName}",`);
     lines.push(`  mode="random",`);
     lines.push(`  reload_mode="watch",`);
+    lines.push(`  prefetch=2,`);
     lines.push(`  "${configDir}/${plId}.m3u")`);
     lines.push(``);
   }
@@ -163,6 +166,7 @@ export function generateLiqScript(cfg: LiqConfig): string {
     lines.push(`  id="${varName}",`);
     lines.push(`  mode="normal",`);
     lines.push(`  reload_mode="watch",`);
+    lines.push(`  prefetch=1,`);
     lines.push(`  "${configDir}/source_${srcId}.m3u")`);
     lines.push(``);
   }
@@ -206,6 +210,9 @@ export function generateLiqScript(cfg: LiqConfig): string {
   }
 
   lines.push(``);  
+  lines.push(`# Smooth AutoDJ transitions and keep the next songs ready`);
+  lines.push(`radio = crossfade(duration=2.0, fade_in=1.0, fade_out=1.0, radio)`);
+  lines.push(``);
   lines.push(`# Attach on_track handler`);
   lines.push(`radio = source.on_track(radio, on_track_handler)`);
   lines.push(``);
@@ -221,6 +228,9 @@ export function generateLiqScript(cfg: LiqConfig): string {
   lines.push(``);
   lines.push(`# Final radio: live source takes priority over AutoDJ`);
   lines.push(`radio = fallback(track_sensitive=false, [live_input, radio, blank()])`);
+  lines.push(``);
+  lines.push(`# Add a short source buffer to avoid audible dropouts during decoding/network jitter`);
+  lines.push(`radio = mksafe(buffer(buffer=3.0, max=10.0, fallible=false, radio))`);
   lines.push(``);
 
   // Output
