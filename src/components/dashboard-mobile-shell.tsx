@@ -47,7 +47,16 @@ export function DashboardMobileShell({ title, children }: Props) {
           className="dashboard-mobile-menu-btn"
           aria-label={open ? "Close menu" : "Open menu"}
           aria-expanded={open}
-          onClick={() => setOpen((value) => !value)}
+          aria-controls="dashboard-mobile-drawer"
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setOpen((value) => !value);
+          }}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
         >
           <span />
           <span />
@@ -62,7 +71,10 @@ export function DashboardMobileShell({ title, children }: Props) {
         onClick={() => setOpen(false)}
       />
 
-      <div className={`dashboard-mobile-drawer${open ? " open" : ""}`}>
+      <div
+        id="dashboard-mobile-drawer"
+        className={`dashboard-mobile-drawer${open ? " open" : ""}`}
+      >
         <div className="dashboard-mobile-drawer-inner" onClick={handleDrawerClick}>
           {children}
         </div>

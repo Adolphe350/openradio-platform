@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getPublicStreamUrl } from "@/lib/stream";
+import { fetchIcecastStatus, findIcecastSource, normalizeIcecastSources } from "@/lib/icecast";
 import { DashboardStats } from "./dashboard-stats";
 
 export const metadata = {
@@ -11,6 +12,30 @@ export const metadata = {
 interface DataPoint {
   label: string;
   value: number;
+}
+
+function startOfUtcDay(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function dayKey(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function formatDayLabel(date: Date) {
+  return date.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
+}
+
+function emptyWeekBuckets(start: Date) {
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(start);
+    date.setUTCDate(start.getUTCDate() + index);
+    return {
+      key: dayKey(date),
+      label: formatDayLabel(date),
+      value: 0,
+    };
+  });
 }
 
 function getStationColor(id: string): string {
@@ -39,30 +64,94 @@ export default async function DashboardPage() {
     orderBy: { createdAt: "desc" },
   });
 
-  // Calculate mock metrics (replace with real analytics later)
   const totalStations = stations.length;
   const activeStations = stations.filter((s) => s.status === "ACTIVE").length;
   const totalTracks = stations.reduce((sum, s) => sum + s._count.tracks, 0);
+  const stationIds = stations.map((station) => station.id);
 
-  // Mock listener data
-  const thisWeekTotal = Math.floor(Math.random() * 5000) + 1000;
-  const lastWeekTotal = Math.floor(thisWeekTotal * (0.7 + Math.random() * 0.4));
-  const pctChange = ((thisWeekTotal - lastWeekTotal) / lastWeekTotal) * 100;
+  const today = startOfUtcDay(new Date());
+  const thisWeekStart = new Date(today);
+  thisWeekStart.setUTCDate(today.getUTCDate() - 6);
+  const lastWeekStart = new Date(thisWeekStart);
+  lastWeekStart.setUTCDate(thisWeekStart.getUTCDate() - 7);
 
-  const thisWeek: DataPoint[] = [
-    { label: "Mon", value: Math.floor(Math.random() * 800) + 200 },
-    { label: "Tue", value: Math.floor(Math.random() * 800) + 200 },
-    { label: "Wed", value: Math.floor(Math.random() * 800) + 200 },
-    { label: "Thu", value: Math.floor(Math.random() * 800) + 200 },
-    { label: "Fri", value: Math.floor(Math.random() * 800) + 200 },
-    { label: "Sat", value: Math.floor(Math.random() * 800) + 200 },
-    { label: "Sun", value: Math.floor(Math.random() * 800) + 200 },
-  ];
+  const [icecastStatus, metrics] = await Promise.all([
+    fetchIcecastStatus(3500),
+    stationIds.length > 0
+      ? db.listenerMetric.findMany({
+          where: {
+            stationId: { in: stationIds },
+            sampledAt: { gte: lastWeekStart },
+          },
+          orderBy: { sampledAt: "asc" },
+          select: {
+            stationId: true,
+            sampledAt: true,
+            currentListeners: true,
+            peakListeners: true,
+            uptimePercent: true,
+          },
+        })
+      : [],
+  ]);
 
-  const lastWeek: DataPoint[] = thisWeek.map((d) => ({
-    ...d,
-    value: Math.floor(d.value * (0.7 + Math.random() * 0.4)),
-  }));
+  const sources = normalizeIcecastSources(icecastStatus?.icestats?.source);
+  const liveByStation = new Map(
+    stations.map((station) => {
+      const source = findIcecastSource(sources, station.mountPath);
+      return [
+        station.id,
+        {
+          currentListeners: source?.listeners ?? 0,
+          peakListeners: source?.listener_peak ?? source?.listeners ?? 0,
+          isLive: Boolean(source),
+        },
+      ];
+    }),
+  );
+
+  const latestMetricByStation = new Map<string, (typeof metrics)[number]>();
+  for (const metric of metrics) {
+    latestMetricByStation.set(metric.stationId, metric);
+  }
+
+  const getStationListenerCount = (stationId: string) => {
+    const live = liveByStation.get(stationId)?.currentListeners;
+    if (typeof live === "number" && live > 0) return live;
+    return latestMetricByStation.get(stationId)?.currentListeners ?? 0;
+  };
+
+  const currentListeners = stations.reduce((sum, station) => sum + getStationListenerCount(station.id), 0);
+
+  const thisWeekBuckets = emptyWeekBuckets(thisWeekStart);
+  const lastWeekBuckets = emptyWeekBuckets(lastWeekStart);
+  const thisWeekMap = new Map(thisWeekBuckets.map((bucket) => [bucket.key, bucket]));
+  const lastWeekMap = new Map(lastWeekBuckets.map((bucket) => [bucket.key, bucket]));
+
+  for (const metric of metrics) {
+    const key = dayKey(metric.sampledAt);
+    const thisBucket = thisWeekMap.get(key);
+    if (thisBucket) {
+      thisBucket.value += metric.currentListeners;
+      continue;
+    }
+
+    const lastBucket = lastWeekMap.get(key);
+    if (lastBucket) {
+      lastBucket.value += metric.currentListeners;
+    }
+  }
+
+  const todayBucket = thisWeekMap.get(dayKey(today));
+  if (todayBucket && currentListeners > todayBucket.value) {
+    todayBucket.value = currentListeners;
+  }
+
+  const thisWeek: DataPoint[] = thisWeekBuckets.map(({ label, value }) => ({ label, value }));
+  const lastWeek: DataPoint[] = lastWeekBuckets.map(({ label, value }) => ({ label, value }));
+  const thisWeekTotal = thisWeek.reduce((sum, point) => sum + point.value, 0);
+  const lastWeekTotal = lastWeek.reduce((sum, point) => sum + point.value, 0);
+  const pctChange = lastWeekTotal > 0 ? ((thisWeekTotal - lastWeekTotal) / lastWeekTotal) * 100 : 0;
 
   const statCards = [
     {
@@ -81,9 +170,9 @@ export default async function DashboardPage() {
       change: null,
     },
     {
-      label: "Listeners This Week",
-      value: thisWeekTotal.toLocaleString(),
-      change: pctChange,
+      label: "Current Listeners",
+      value: currentListeners.toLocaleString(),
+      change: null,
     },
   ];
 
@@ -249,7 +338,7 @@ export default async function DashboardPage() {
                           Listeners
                         </div>
                         <div style={{ fontSize: "20px", fontWeight: "700", color: "var(--text)" }}>
-                          {Math.floor(Math.random() * 500)}
+                          {getStationListenerCount(station.id)}
                         </div>
                       </div>
                       <div>
@@ -265,7 +354,7 @@ export default async function DashboardPage() {
                           Uptime
                         </div>
                         <div style={{ fontSize: "20px", fontWeight: "700", color: "var(--text)" }}>
-                          {station.status === "ACTIVE" ? "99%" : "0%"}
+                          {`${Math.round(latestMetricByStation.get(station.id)?.uptimePercent ?? (liveByStation.get(station.id)?.isLive ? 100 : 0))}%`}
                         </div>
                       </div>
                     </div>
@@ -279,7 +368,7 @@ export default async function DashboardPage() {
                         Manage
                       </Link>
                       <Link
-                        href={`/stations/${station.id}`}
+                        href={`/stations/${station.slug}`}
                         className="btn btn-secondary"
                         style={{ flex: 1 }}
                       >
