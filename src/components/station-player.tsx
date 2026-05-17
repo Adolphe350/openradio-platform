@@ -114,7 +114,7 @@ export function StationPlayer({
 
   const subtitle =
     errorMsg ||
-    (playing ? "Auto DJ is playing" : "Tap play to start the live stream");
+    (playing ? "Live broadcast is playing" : "Tap play to start the live stream");
 
   const label = loading
     ? "Connecting..."
