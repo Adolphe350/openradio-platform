@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { fetchIcecastStatus, findIcecastSource, normalizeIcecastSources } from "@/lib/icecast";
+import { fetchIcecastStatus, findIcecastSource, getIcecastSourceMounts, normalizeIcecastSources } from "@/lib/icecast";
 
 // Internal endpoint — called by a cron / external scheduler.
 // Protected by a shared secret in the Authorization header.
@@ -72,5 +72,5 @@ export async function POST(req: NextRequest) {
 export async function GET() {
   const status = await fetchIcecastStatus();
   const sources = normalizeIcecastSources(status?.icestats?.source);
-  return NextResponse.json({ reachable: !!status, mountsLive: sources.map((s) => s.mount) });
+  return NextResponse.json({ reachable: !!status, mountsLive: sources.map((source) => getIcecastSourceMounts(source)[0] ?? null) });
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { db } from "@/lib/db";
-import { fetchIcecastStatus, findIcecastSource, normalizeIcecastSources } from "@/lib/icecast";
+import { fetchIcecastStatus, findIcecastSource, getIcecastSourceMounts, normalizeIcecastSources } from "@/lib/icecast";
 
 // This route is designed to be called by an external cron (docker-compose curl cron
 // or Vercel cron). Protected by METRICS_POLL_SECRET header or query param.
@@ -70,5 +70,5 @@ export async function GET(req: NextRequest) {
     updated++;
   }
 
-  return NextResponse.json({ ok: true, updated, mountsLive: sources.map((s) => s.mount) });
+  return NextResponse.json({ ok: true, updated, mountsLive: sources.map((source) => getIcecastSourceMounts(source)[0] ?? null) });
 }

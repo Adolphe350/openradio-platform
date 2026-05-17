@@ -1,7 +1,7 @@
 import { env } from "@/lib/env";
 
 export type IcecastSource = {
-  mount: string;
+  mount?: string;
   listeners: number;
   listener_peak: number;
   title?: string;
@@ -26,11 +26,35 @@ export function normalizeIcecastSources(raw: IcecastSource | IcecastSource[] | u
   return Array.isArray(raw) ? raw : [raw];
 }
 
+function normalizeMountCandidate(value: string | undefined | null) {
+  if (!value) return null;
+
+  try {
+    const parsed = value.startsWith("http://") || value.startsWith("https://")
+      ? new URL(value).pathname
+      : value;
+    return normalizeIcecastMount(decodeURIComponent(parsed).trim());
+  } catch {
+    return normalizeIcecastMount(value.trim());
+  }
+}
+
+export function getIcecastSourceMounts(source: IcecastSource) {
+  const candidates = [source.mount, source.listenurl]
+    .map(normalizeMountCandidate)
+    .filter((value): value is string => Boolean(value));
+
+  return Array.from(new Set(candidates.flatMap((value) => [value, value.replace(/^\//, "")])));
+}
+
 export function findIcecastSource(sources: IcecastSource[], mountPath: string) {
   const mount = normalizeIcecastMount(mountPath);
   const unprefixed = mount.replace(/^\//, "");
 
-  return sources.find((source) => source.mount === mount || source.mount === unprefixed) ?? null;
+  return sources.find((source) => {
+    const sourceMounts = getIcecastSourceMounts(source);
+    return sourceMounts.includes(mount) || sourceMounts.includes(unprefixed);
+  }) ?? null;
 }
 
 export async function fetchIcecastStatus(timeoutMs = 5000): Promise<IcecastStatus | null> {

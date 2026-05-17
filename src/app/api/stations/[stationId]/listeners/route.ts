@@ -1,39 +1,14 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { env } from "@/lib/env";
+import { fetchIcecastStatus, findIcecastSource, normalizeIcecastSources } from "@/lib/icecast";
 
 export const dynamic = "force-dynamic";
 
-type IcecastSource = {
-  mount: string;
-  listeners: number;
-  listener_peak: number;
-};
-
-type IcecastStatus = {
-  icestats?: {
-    source?: IcecastSource | IcecastSource[];
-  };
-};
-
 async function getListenerCount(mountPath: string): Promise<number> {
-  try {
-    const base = `http://${env.STREAM_SOURCE_HOST}:${env.ICECAST_SOURCE_PORT}`;
-    const res = await fetch(`${base}/status-json.xsl`, {
-      headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(5000),
-      cache: "no-store",
-    });
-    if (!res.ok) return 0;
-    const status = (await res.json()) as IcecastStatus;
-    const raw = status?.icestats?.source;
-    const sources: IcecastSource[] = !raw ? [] : Array.isArray(raw) ? raw : [raw];
-    const mount = mountPath.startsWith("/") ? mountPath : `/${mountPath}`;
-    const src = sources.find((s) => s.mount === mount || s.mount === mount.replace(/^\//, ""));
-    return src?.listeners ?? 0;
-  } catch {
-    return 0;
-  }
+  const status = await fetchIcecastStatus(5000);
+  const sources = normalizeIcecastSources(status?.icestats?.source);
+  const src = findIcecastSource(sources, mountPath);
+  return src?.listeners ?? 0;
 }
 
 export async function GET(

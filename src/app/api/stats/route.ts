@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { fetchIcecastStatus, findIcecastSource, normalizeIcecastSources } from "@/lib/icecast";
+import { fetchIcecastStatus, findIcecastSource, getIcecastSourceMounts, normalizeIcecastSources } from "@/lib/icecast";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +43,7 @@ export async function GET() {
 
   return NextResponse.json({
     sources: sources.map((source) => ({
-      mount: source.mount,
+      mount: getIcecastSourceMounts(source)[0] ?? null,
       listeners: source.listeners ?? 0,
       peak: source.listener_peak ?? source.listeners ?? 0,
     })),
