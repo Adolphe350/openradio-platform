@@ -1424,9 +1424,6 @@ textarea {
 }
 
 .stat-value {
-<<<<<<< HEAD
-  font-size: 1.6rem;
-=======
   font-size: 1.75rem;
   font-weight: 800;
   color: var(--text);
@@ -1435,6 +1432,7 @@ textarea {
 
 .stat-label {
   font-size: 0.8rem;
+  font-weight: 600;
   color: var(--text-muted);
   margin-top: 0.3rem;
 }
@@ -1527,17 +1525,11 @@ textarea {
 
 .nav-logo-name {
   font-size: 1.1rem;
->>>>>>> 5edd94c (fix: restore mobile hamburger navigation)
   font-weight: 800;
   color: var(--text);
   letter-spacing: -0.02em;
 }
 
-<<<<<<< HEAD
-.stat-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-=======
 .nav-link {
   display: flex;
   align-items: center;
@@ -1857,11 +1849,10 @@ textarea {
   color: #fff;
   font-size: 0.72rem;
   font-weight: 700;
->>>>>>> 5edd94c (fix: restore mobile hamburger navigation)
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-muted);
-  margin-top: 0.2rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-full);
 }
 
 /* Checklist */
