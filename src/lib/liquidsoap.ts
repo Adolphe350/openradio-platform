@@ -116,7 +116,7 @@ export function generateLiqScript(cfg: LiqConfig): string {
   lines.push(`  "${uploadDir}")`);
   lines.push(``);
   lines.push(`# Combine: prefer m3u tracks, fall back to uploads, then silence`);
-  lines.push(`combined_autodj = fallback(track_sensitive=true, [default_playlist, upload_playlist, blank()])`);
+  lines.push(`combined_autodj = fallback(track_sensitive=false, [default_playlist, upload_playlist, blank()])`);
   lines.push(``);
 
   // Collect unique sources referenced in schedule entries
