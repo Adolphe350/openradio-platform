@@ -95,16 +95,16 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
       <SiteHeader />
 
       {/* Station Hero Banner */}
-      <div style={{ width: "100%", height: 200, background: grad, position: "relative", overflow: "hidden" }}>
+      <div className="public-station-hero" style={{ width: "100%", height: 200, background: grad, position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 40%, var(--bg) 100%)" }} />
       </div>
 
       {/* Station Identity */}
       <div style={{ borderBottom: "1px solid var(--border)" }}>
         <div className="container" style={{ position: "relative", paddingTop: "0.5rem", paddingBottom: "1.5rem" }}>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: "1.25rem", flexWrap: "wrap" }}>
+          <div className="public-station-identity" style={{ display: "flex", alignItems: "flex-end", gap: "1.25rem", flexWrap: "wrap" }}>
             {/* Logo */}
-            <div style={{ width: 110, height: 110, borderRadius: 14, border: "3px solid var(--bg)", overflow: "hidden", background: grad, marginTop: -55, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2.5rem", color: "#fff", fontWeight: 800, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", flexShrink: 0 }}>
+            <div className="public-station-logo" style={{ width: 110, height: 110, borderRadius: 14, border: "3px solid var(--bg)", overflow: "hidden", background: grad, marginTop: -55, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2.5rem", color: "#fff", fontWeight: 800, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", flexShrink: 0 }}>
               {station.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={station.logoUrl} alt={station.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -138,11 +138,11 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
       </div>
 
       {/* Main Content */}
-      <div className="container" style={{ padding: "2rem 0 4rem", display: "grid", gridTemplateColumns: "1fr 300px", gap: "1.5rem", alignItems: "start" }}>
+      <div className="container public-station-layout" style={{ padding: "2rem 0 4rem", display: "grid", gridTemplateColumns: "1fr 300px", gap: "1.5rem", alignItems: "start" }}>
         {/* Left - Player */}
-        <div style={{ display: "grid", gap: "1.25rem" }}>
+        <div className="public-station-main" style={{ display: "grid", gap: "1.25rem" }}>
           {/* Player Card */}
-          <div className="card" style={{ padding: "1.5rem", background: "var(--bg-elevated)", border: "1px solid var(--border)" }}>
+          <div className="card public-player-card" style={{ padding: "1.5rem", background: "var(--bg-elevated)", border: "1px solid var(--border)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
               <div>
                 <p style={{ margin: 0, fontWeight: 700, fontSize: "1rem" }}>Now Playing</p>
@@ -182,7 +182,7 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
             </div>
 
             <p style={{ margin: "0.75rem 0 0", fontSize: "0.72rem", color: "var(--text-dim)" }}>
-              Stream: <code style={{ background: "var(--bg-surface)", padding: "0.1rem 0.4rem", borderRadius: 4, fontSize: "0.7rem" }}>{streamUrl}</code>
+              Stream: <code className="stream-url-code" style={{ background: "var(--bg-surface)", padding: "0.1rem 0.4rem", borderRadius: 4, fontSize: "0.7rem" }}>{streamUrl}</code>
             </p>
           </div>
 
@@ -229,7 +229,7 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
         </div>
 
         {/* Right Sidebar */}
-        <div style={{ display: "grid", gap: "1.25rem" }}>
+        <div className="public-station-sidebar" style={{ display: "grid", gap: "1.25rem" }}>
           {/* Stats */}
           <div className="card" style={{ padding: "1.25rem" }}>
             <h3 style={{ margin: "0 0 0.85rem", fontSize: "0.9rem" }}>Live Metrics</h3>

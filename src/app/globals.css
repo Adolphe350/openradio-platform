@@ -1778,3 +1778,399 @@ textarea {
     padding: 0.75rem;
   }
 }
+
+/* ========================================
+   MOBILE RESPONSIVE POLISH
+   Keeps public, auth, admin/dashboard, and streaming pages usable on phones.
+   ======================================== */
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+pre,
+code,
+.stream-url-code {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.btn-full {
+  width: 100%;
+}
+
+.mobile-scroll-x,
+.table-scroll,
+.card-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 900px) {
+  .container {
+    width: 100%;
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+
+  .section-title {
+    font-size: clamp(1.35rem, 6vw, 1.75rem);
+    margin-bottom: 20px;
+  }
+
+  .site-nav {
+    padding: 10px 0;
+  }
+
+  .site-nav .container {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .nav-logo {
+    min-width: max-content;
+  }
+
+  .nav-links {
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-top: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .nav-links::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-link {
+    white-space: nowrap;
+  }
+
+  .nav-right {
+    gap: 8px;
+  }
+
+  .hero-title {
+    font-size: clamp(2rem, 10vw, 2.6rem);
+  }
+
+  .hero-cta-group .btn,
+  .hero-cta-group a {
+    flex: 1 1 220px;
+  }
+
+  .grid-cards {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+
+  .public-station-layout,
+  .podcast-public-layout,
+  .mobile-stack-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .public-station-sidebar {
+    order: 2;
+  }
+
+  .public-station-main {
+    min-width: 0;
+  }
+
+  .data-table {
+    min-width: 640px;
+  }
+}
+
+@media (max-width: 640px) {
+  body {
+    font-size: 14px;
+  }
+
+  h1 { font-size: clamp(1.7rem, 8vw, 2.1rem); }
+  h2 { font-size: clamp(1.35rem, 7vw, 1.75rem); }
+  h3 { font-size: clamp(1.05rem, 5vw, 1.25rem); }
+
+  .container {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+
+  .card,
+  .feature-item,
+  .public-player-card {
+    padding: 1rem !important;
+    border-radius: 14px;
+  }
+
+  .btn,
+  button.btn,
+  a.btn {
+    min-height: 44px;
+    padding: 11px 16px;
+    white-space: normal;
+    text-align: center;
+  }
+
+  .btn-xl,
+  .btn-lg {
+    width: 100%;
+    padding: 13px 18px;
+    font-size: 0.95rem;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  .auth-image-panel {
+    display: none;
+  }
+
+  .auth-form-panel {
+    min-height: 100vh;
+    align-items: flex-start;
+    padding: 32px 16px;
+  }
+
+  .auth-form-header {
+    margin-bottom: 24px;
+  }
+
+  .auth-form-header h1 {
+    font-size: 1.65rem;
+  }
+
+  .site-nav .container {
+    align-items: center;
+  }
+
+  .nav-logo-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+  }
+
+  .nav-logo-name {
+    font-size: 18px;
+  }
+
+  .nav-right .btn-secondary {
+    display: none;
+  }
+
+  .nav-right .btn-primary {
+    padding: 8px 12px;
+    min-height: 36px;
+    font-size: 0.82rem;
+  }
+
+  .hero {
+    padding: 56px 0 44px;
+  }
+
+  .hero-sub {
+    font-size: 1rem;
+    margin-bottom: 28px;
+  }
+
+  .grid-cards {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .station-card-thumb {
+    height: 160px;
+  }
+
+  .station-card-body {
+    padding: 16px;
+  }
+
+  .station-card-meta {
+    flex-wrap: wrap;
+    gap: 6px 10px;
+  }
+
+  .tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-bottom: 18px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab {
+    white-space: nowrap;
+    padding: 10px 14px;
+  }
+
+  .explore-search-box {
+    flex-direction: column;
+  }
+
+  .explore-search-box button {
+    min-height: 44px;
+  }
+
+  .explore-filter-actions {
+    align-items: stretch !important;
+  }
+
+  .explore-filter-actions .btn {
+    width: 100%;
+  }
+
+  .footer-top-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .public-station-hero {
+    height: 132px !important;
+  }
+
+  .public-station-identity {
+    align-items: center !important;
+    justify-content: center;
+    text-align: center;
+    gap: 0.8rem !important;
+  }
+
+  .public-station-logo {
+    width: 88px !important;
+    height: 88px !important;
+    margin-top: -44px !important;
+    font-size: 2rem !important;
+  }
+
+  .public-station-layout {
+    padding-top: 1rem !important;
+    padding-bottom: calc(6rem + env(safe-area-inset-bottom)) !important;
+    gap: 1rem !important;
+  }
+
+  .stream-url-code {
+    display: inline-block;
+    margin-top: 0.25rem;
+  }
+
+  .player-bar {
+    height: auto !important;
+    min-height: 72px;
+    padding: 0.6rem max(12px, env(safe-area-inset-right)) calc(0.6rem + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)) !important;
+    gap: 0.65rem !important;
+  }
+
+  .player-bar-logo {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .player-bar-main {
+    justify-content: flex-start !important;
+    gap: 0.55rem !important;
+    min-width: 0;
+  }
+
+  .player-bar-title {
+    max-width: 38vw !important;
+  }
+
+  .player-bar-status {
+    display: none !important;
+  }
+
+  .player-bar-volume,
+  .player-bar-live {
+    display: none !important;
+  }
+
+  .player-bar-open {
+    font-size: 0.72rem !important;
+  }
+
+  .dash-page-header,
+  .mobile-control-row,
+  .mobile-date-row,
+  .mobile-full-actions {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .dash-page {
+    gap: 1rem;
+  }
+
+  .mobile-segment-row {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dashboard-content,
+  .station-main {
+    padding: 0.75rem !important;
+  }
+
+  .station-detail-layout,
+  .dashboard-shell {
+    min-width: 0;
+  }
+
+  .checklist-item {
+    align-items: flex-start;
+  }
+
+  .podcast-header-row {
+    text-align: center;
+    justify-content: center;
+  }
+}
+
+/* Mobile safeguards for inline grid/table-heavy app pages */
+@media (max-width: 640px) {
+  [style*="grid-template-columns: 1fr 1fr"],
+  [style*="grid-template-columns: 2fr 1fr"],
+  [style*="grid-template-columns: 1.3fr 1fr"],
+  [style*="grid-template-columns: 1fr 2fr auto"],
+  [style*="grid-template-columns: 1fr 1fr auto"],
+  [style*="grid-template-columns: 120px 1fr"],
+  [style*="grid-template-columns: repeat(2"],
+  [style*="grid-template-columns: repeat(3"],
+  [style*="grid-template-columns: repeat(4"],
+  [style*="minmax(260px"],
+  [style*="minmax(280px"],
+  [style*="minmax(340px"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  .card:has(table),
+  .card:has(.data-table) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  audio {
+    width: 100%;
+    max-width: 100%;
+  }
+}

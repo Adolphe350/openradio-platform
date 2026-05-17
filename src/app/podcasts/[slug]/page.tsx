@@ -34,11 +34,11 @@ export default async function PublicPodcastPage({ params }: Props) {
       <SiteHeader />
 
       <div className="container" style={{ padding: "2rem 0 4rem" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: "1.75rem", alignItems: "start" }}>
+        <div className="podcast-public-layout" style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: "1.75rem", alignItems: "start" }}>
 
           <div>
             <div className="card" style={{ padding: "1.5rem", marginBottom: "1.25rem" }}>
-              <div style={{ display: "flex", gap: "1.25rem", alignItems: "flex-start" }}>
+              <div className="podcast-header-row" style={{ display: "flex", gap: "1.25rem", alignItems: "flex-start", flexWrap: "wrap" }}>
                 <div style={{ width: 80, height: 80, borderRadius: 12, background: "var(--brand-light)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem", flexShrink: 0 }}>
                   {podcast.imageUrl
                     // eslint-disable-next-line @next/next/no-img-element
@@ -77,7 +77,7 @@ export default async function PublicPodcastPage({ params }: Props) {
                     </div>
                   </div>
                   {ep.fileUrl && (
-                    <audio controls preload="none" src={ep.fileUrl} style={{ height: 36, borderRadius: 8 }} />
+                    <audio controls preload="none" src={ep.fileUrl} style={{ height: 36, borderRadius: 8, maxWidth: "100%" }} />
                   )}
                 </div>
               ))}
