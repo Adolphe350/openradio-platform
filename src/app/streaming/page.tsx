@@ -89,8 +89,8 @@ export default function StreamingPage() {
       <section style={{ padding: "3rem 0" }}>
         <div className="container" style={{ maxWidth: 720 }}>
           <h2 style={{ fontSize: "1.5rem", margin: "0 0 1.25rem" }}>Stream Specifications</h2>
-          <div className="card" style={{ overflow: "hidden" }}>
-            <table className="data-table">
+          <div className="card stream-spec-card" style={{ overflow: "hidden" }}>
+            <table className="data-table stream-spec-table">
               <tbody>
                 {specs.map((row) => (
                   <tr key={row.label}>
