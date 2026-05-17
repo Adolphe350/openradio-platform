@@ -48,14 +48,10 @@ export function DashboardMobileShell({ title, children }: Props) {
           aria-label={open ? "Close menu" : "Open menu"}
           aria-expanded={open}
           aria-controls="dashboard-mobile-drawer"
-          onPointerDown={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            setOpen((value) => !value);
-          }}
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
+            setOpen((value) => !value);
           }}
         >
           <span />
