@@ -33,6 +33,23 @@ type PlaybackState = {
 
 const DEFAULT_VOLUME = 0.8;
 
+declare global {
+  interface Window {
+    __openradioPlayerConfig?: Partial<PlayerConfig>;
+  }
+}
+
+function cacheBustStreamUrl(streamUrl: string) {
+  try {
+    const url = new URL(streamUrl, window.location.href);
+    url.searchParams.set("t", String(Date.now()));
+    return url.toString();
+  } catch {
+    const joiner = streamUrl.includes("?") ? "&" : "?";
+    return `${streamUrl}${joiner}t=${Date.now()}`;
+  }
+}
+
 function normalizeConfig(input: Partial<PlayerConfig>): PlayerConfig | null {
   if (typeof input.streamUrl !== "string" || input.streamUrl.trim().length < 1) {
     return null;
@@ -184,7 +201,7 @@ export function PersistentPlayerHost() {
     clearLiveStartTimer();
     // Stop any current playback first
     audio.pause();
-    audio.src = config.streamUrl;
+    audio.src = cacheBustStreamUrl(config.streamUrl);
     // Do NOT call audio.load() for live streams - it causes buffering issues
 
     updatePlaybackState({
@@ -294,6 +311,10 @@ export function PersistentPlayerHost() {
       const nextConfig = normalizeConfig(customEvent.detail ?? {});
       if (!nextConfig) return;
 
+      if (typeof window !== "undefined") {
+        window.__openradioPlayerConfig = nextConfig;
+      }
+
       const previous = configRef.current;
       configRef.current = nextConfig;
       fallbackIndexRef.current = 0;
@@ -325,9 +346,26 @@ export function PersistentPlayerHost() {
       }
     };
 
-    const handleTogglePlayback = () => {
+    const handleTogglePlayback = (event: Event) => {
       const audio = audioRef.current;
       if (!audio) return;
+
+      const customEvent = event as CustomEvent<Partial<PlayerConfig> | undefined>;
+      const eventConfig = normalizeConfig(customEvent.detail ?? {});
+      const rememberedConfig = typeof window !== "undefined" ? normalizeConfig(window.__openradioPlayerConfig ?? {}) : null;
+      const nextConfig = eventConfig ?? rememberedConfig;
+
+      if (nextConfig) {
+        configRef.current = nextConfig;
+        if (typeof window !== "undefined") {
+          window.__openradioPlayerConfig = nextConfig;
+        }
+        updatePlaybackState({
+          stationId: nextConfig.stationId ?? null,
+          stationName: nextConfig.stationName ?? null,
+          stationSlug: nextConfig.stationSlug ?? null,
+        });
+      }
 
       if (audio.paused) {
         connectLiveStream();
@@ -362,6 +400,16 @@ export function PersistentPlayerHost() {
     window.addEventListener("openradio:configure-player", handleConfigure as EventListener);
     window.addEventListener("openradio:toggle-playback", handleTogglePlayback);
     window.addEventListener("openradio:set-volume", handleSetVolume as EventListener);
+
+    const rememberedConfig = normalizeConfig(window.__openradioPlayerConfig ?? {});
+    if (rememberedConfig) {
+      configRef.current = rememberedConfig;
+      updatePlaybackState({
+        stationId: rememberedConfig.stationId ?? null,
+        stationName: rememberedConfig.stationName ?? null,
+        stationSlug: rememberedConfig.stationSlug ?? null,
+      });
+    }
 
     dispatchPlaybackState(playbackStateRef.current);
     dispatchVolumeState(volumeRef.current);

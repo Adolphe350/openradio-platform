@@ -4,9 +4,7 @@ import { notFound } from "next/navigation";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { StationPlayer } from "@/components/station-player";
-import { NowPlaying } from "@/components/now-playing";
 import { PlayerBar } from "@/components/player-bar";
-import { metricSourceLabel, resolveStationMetric } from "@/lib/analytics";
 import { db } from "@/lib/db";
 import { getRelatedStations } from "@/lib/explore";
 import { getPublicStreamUrl } from "@/lib/stream";
@@ -27,60 +25,17 @@ function stationGradient(id: string) {
   return `linear-gradient(135deg,hsl(${h1},55%,42%),hsl(${h2},60%,28%))`;
 }
 
-function formatCompact(value: number) {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}k`;
-  return String(value);
-}
-
-function formatClockTime(date: Date) {
-  return new Intl.DateTimeFormat("en", { hour: "2-digit", minute: "2-digit", hour12: false }).format(date);
-}
-
 export default async function PublicStationPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
 
   const station = await db.station.findUnique({
     where: { slug },
-    include: {
-      metrics: { orderBy: { sampledAt: "desc" }, take: 1 },
-      tracks: { orderBy: { createdAt: "desc" }, take: 10 },
-      playlists: { orderBy: { createdAt: "asc" }, select: { id: true, name: true, isDefault: true }, take: 10 },
-      playLogs: { orderBy: { playedAt: "desc" }, select: { id: true, title: true, artist: true, playedAt: true }, take: 8 },
-      schedules: {
-        where: { isActive: true },
-        orderBy: [{ dayOfWeek: "asc" }, { startHour: "asc" }, { startMin: "asc" }],
-        select: { id: true, name: true, dayOfWeek: true, startHour: true, startMin: true, endHour: true, endMin: true, playlist: { select: { id: true, name: true } } },
-      },
-      _count: { select: { tracks: true, playlists: true } },
-    },
   });
 
   if (!station) notFound();
 
   const streamUrl = getPublicStreamUrl(station.mountPath);
   const grad = stationGradient(station.id);
-
-  const metricState = resolveStationMetric({
-    stationId: station.id,
-    trackCount: station._count.tracks,
-    playlistCount: station._count.playlists,
-    createdAt: station.createdAt,
-    metric: station.metrics[0]
-      ? {
-          currentListeners: station.metrics[0].currentListeners,
-          peakListeners: station.metrics[0].peakListeners,
-          totalListeningHours: station.metrics[0].totalListeningHours,
-          uptimePercent: station.metrics[0].uptimePercent,
-          storageUsedMb: station.metrics[0].storageUsedMb,
-          sampledAt: station.metrics[0].sampledAt,
-        }
-      : null,
-  });
-
-  const fallbackPlaylist = station.playlists.find((p) => p.isDefault) ?? station.playlists[0] ?? null;
-  const currentPlaylistName = fallbackPlaylist?.name ?? "AutoDJ";
-  const recentSpins = station.playLogs.slice(0, 5);
 
   const related = await getRelatedStations({
     stationId: station.id,
@@ -156,7 +111,6 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
               )}
             </div>
 
-            <NowPlaying mountPath={station.mountPath} />
 
             <StationPlayer
               stationId={station.id}
@@ -169,85 +123,12 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
 
             />
 
-            {/* Current Playlist Info */}
-            <div style={{ marginTop: "1rem", padding: "0.85rem 1rem", background: "var(--bg-surface)", borderRadius: 10, border: "1px solid var(--border)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Current Playlist</span>
-                <span style={{ fontSize: "0.85rem", fontWeight: 700 }}>{currentPlaylistName}</span>
-              </div>
-              <div style={{ marginTop: "0.5rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Listeners now</span>
-                <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--brand)" }}>{formatCompact(metricState.metric.currentListeners)}</span>
-              </div>
-            </div>
-
-            <p style={{ margin: "0.75rem 0 0", fontSize: "0.72rem", color: "var(--text-dim)" }}>
-              Stream: <code className="stream-url-code" style={{ background: "var(--bg-surface)", padding: "0.1rem 0.4rem", borderRadius: 4, fontSize: "0.7rem" }}>{streamUrl}</code>
-            </p>
           </div>
 
-          {/* Recently Played */}
-          {recentSpins.length > 0 && (
-            <div className="card" style={{ overflow: "hidden" }}>
-              <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid var(--border)" }}>
-                <h2 style={{ fontSize: "0.95rem", margin: 0 }}>Recently Played</h2>
-              </div>
-              {recentSpins.map((spin, i) => (
-                <div key={spin.id} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.65rem 1.25rem", borderBottom: i < recentSpins.length - 1 ? "1px solid var(--border)" : "none" }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 8, background: `hsl(${(i * 50) % 360}, 50%, 35%)`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "0.7rem", fontWeight: 700, flexShrink: 0 }}>
-                    {spin.title.charAt(0)}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: 0, fontWeight: 600, fontSize: "0.85rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{spin.title}</p>
-                    <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-muted)" }}>{spin.artist}</p>
-                  </div>
-                  <span style={{ fontSize: "0.7rem", color: "var(--text-dim)", flexShrink: 0 }}>{formatClockTime(spin.playedAt)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Track Library */}
-          {station.tracks.length > 0 && recentSpins.length === 0 && (
-            <div className="card" style={{ overflow: "hidden" }}>
-              <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid var(--border)" }}>
-                <h2 style={{ fontSize: "0.95rem", margin: 0 }}>Track Library</h2>
-              </div>
-              {station.tracks.slice(0, 6).map((track, i) => (
-                <div key={track.id} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.65rem 1.25rem", borderBottom: i < Math.min(station.tracks.length, 6) - 1 ? "1px solid var(--border)" : "none" }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 8, background: `hsl(${(i * 60 + 120) % 360}, 45%, 35%)`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "0.7rem", fontWeight: 700, flexShrink: 0 }}>
-                    {track.title.charAt(0)}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: 0, fontWeight: 600, fontSize: "0.85rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{track.title}</p>
-                    <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-muted)" }}>{track.artist}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Right Sidebar */}
         <div className="public-station-sidebar" style={{ display: "grid", gap: "1.25rem" }}>
-          {/* Stats */}
-          <div className="card" style={{ padding: "1.25rem" }}>
-            <h3 style={{ margin: "0 0 0.85rem", fontSize: "0.9rem" }}>Live Metrics</h3>
-            <div style={{ display: "grid", gap: "0.6rem" }}>
-              {[
-                { label: "Listeners", value: formatCompact(metricState.metric.currentListeners) },
-                { label: "Peak", value: formatCompact(metricState.metric.peakListeners) },
-                { label: "Uptime", value: `${metricState.metric.uptimePercent.toFixed(1)}%` },
-                { label: "Total hours", value: `${metricState.metric.totalListeningHours.toFixed(1)}h` },
-              ].map((s) => (
-                <div key={s.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{s.label}</span>
-                  <span style={{ fontSize: "0.9rem", fontWeight: 700 }}>{s.value}</span>
-                </div>
-              ))}
-            </div>
-            <p style={{ margin: "0.6rem 0 0", fontSize: "0.7rem", color: "var(--text-dim)" }}>Source: {metricSourceLabel(metricState.source)}</p>
-          </div>
 
           {/* Related Stations */}
           {related.length > 0 && (
@@ -266,7 +147,7 @@ export default async function PublicStationPage({ params }: { params: Promise<{ 
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <p style={{ margin: 0, fontWeight: 600, fontSize: "0.82rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</p>
-                    <p style={{ margin: 0, fontSize: "0.72rem", color: "var(--text-muted)" }}>{r.genre ?? "Radio"} - {formatCompact(r.publicListenersNow)} listeners</p>
+                    <p style={{ margin: 0, fontSize: "0.72rem", color: "var(--text-muted)" }}>{r.genre ?? "Radio"}</p>
                   </div>
                 </Link>
               ))}

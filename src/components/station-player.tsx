@@ -50,22 +50,24 @@ export function StationPlayer({
     return (fallbackTracks ?? []).filter((track) => track?.url);
   }, [fallbackTracks]);
 
+  const playerConfig = useMemo(
+    () => ({
+      stationId,
+      stationName,
+      stationSlug,
+      streamUrl,
+      genre,
+      logoUrl,
+      stationColor,
+      fallbackTracks: normalizedFallback,
+    }),
+    [stationId, stationName, stationSlug, streamUrl, genre, logoUrl, stationColor, normalizedFallback],
+  );
+
   useEffect(() => {
-    window.dispatchEvent(
-      new CustomEvent("openradio:configure-player", {
-        detail: {
-          stationId,
-          stationName,
-          stationSlug,
-          streamUrl,
-          genre,
-          logoUrl,
-          stationColor,
-          fallbackTracks: normalizedFallback,
-        },
-      }),
-    );
-  }, [stationId, stationName, stationSlug, streamUrl, genre, logoUrl, stationColor, normalizedFallback]);
+    window.__openradioPlayerConfig = playerConfig;
+    window.dispatchEvent(new CustomEvent("openradio:configure-player", { detail: playerConfig }));
+  }, [playerConfig]);
 
   useEffect(() => {
     const onPlaybackState = (event: Event) => {
@@ -100,8 +102,9 @@ export function StationPlayer({
   }, [stationId]);
 
   const togglePlay = useCallback(() => {
-    window.dispatchEvent(new CustomEvent("openradio:toggle-playback"));
-  }, []);
+    window.dispatchEvent(new CustomEvent("openradio:configure-player", { detail: playerConfig }));
+    window.dispatchEvent(new CustomEvent("openradio:toggle-playback", { detail: playerConfig }));
+  }, [playerConfig]);
 
   const handleVolume = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const next = Math.max(0, Math.min(1, Number(event.target.value)));
