@@ -39,21 +39,39 @@ function normalizeMountCandidate(value: string | undefined | null) {
   }
 }
 
+export function getIcecastMountAliases(mountPath: string) {
+  const normalized = normalizeIcecastMount(mountPath.trim());
+  const withoutMp3 = normalized.replace(/\.mp3$/i, "");
+  const withMp3 = withoutMp3.endsWith(".mp3") ? withoutMp3 : `${withoutMp3}.mp3`;
+
+  return Array.from(new Set([
+    normalized,
+    normalized.replace(/^\//, ""),
+    withoutMp3,
+    withoutMp3.replace(/^\//, ""),
+    withMp3,
+    withMp3.replace(/^\//, ""),
+  ]));
+}
+
 export function getIcecastSourceMounts(source: IcecastSource) {
   const candidates = [source.mount, source.listenurl]
     .map(normalizeMountCandidate)
     .filter((value): value is string => Boolean(value));
 
-  return Array.from(new Set(candidates.flatMap((value) => [value, value.replace(/^\//, "")])));
+  return Array.from(new Set(candidates.flatMap((value) => getIcecastMountAliases(value))));
+}
+
+export function getIcecastCanonicalMount(source: IcecastSource) {
+  return normalizeMountCandidate(source.mount) ?? normalizeMountCandidate(source.listenurl);
 }
 
 export function findIcecastSource(sources: IcecastSource[], mountPath: string) {
-  const mount = normalizeIcecastMount(mountPath);
-  const unprefixed = mount.replace(/^\//, "");
+  const mountAliases = getIcecastMountAliases(mountPath);
 
   return sources.find((source) => {
     const sourceMounts = getIcecastSourceMounts(source);
-    return sourceMounts.includes(mount) || sourceMounts.includes(unprefixed);
+    return mountAliases.some((mount) => sourceMounts.includes(mount));
   }) ?? null;
 }
 

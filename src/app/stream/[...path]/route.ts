@@ -87,7 +87,9 @@ export async function GET(
     return stationPlaylistResponse(req, station, extension);
   }
 
-  const icecastUrl = `http://${env.STREAM_SOURCE_HOST}:${env.ICECAST_SOURCE_PORT}${mountPath}`;
+  const station = segments.length === 1 ? await findStationBySlugOrMount(segments[0]) : null;
+  const resolvedMountPath = station?.mountPath ?? mountPath;
+  const icecastUrl = `http://${env.STREAM_SOURCE_HOST}:${env.ICECAST_SOURCE_PORT}${resolvedMountPath}`;
 
   try {
     const upstream = await fetch(icecastUrl, {
@@ -108,7 +110,7 @@ export async function GET(
         JSON.stringify({
           error: "Station is not currently live",
           status: "offline",
-          mount: mountPath,
+          mount: resolvedMountPath,
         }),
         {
           status: 503,
