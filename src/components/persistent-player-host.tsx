@@ -40,14 +40,10 @@ declare global {
 }
 
 function cacheBustStreamUrl(streamUrl: string) {
-  try {
-    const url = new URL(streamUrl, window.location.href);
-    url.searchParams.set("t", String(Date.now()));
-    return url.toString();
-  } catch {
-    const joiner = streamUrl.includes("?") ? "&" : "?";
-    return `${streamUrl}${joiner}t=${Date.now()}`;
-  }
+  // Do not append cache-busting query params to Icecast live streams.
+  // Some Icecast/proxy combinations accept them, but browser media stacks can
+  // treat each reconnect as a brand-new resource and produce audible hiccups.
+  return streamUrl;
 }
 
 function normalizeConfig(input: Partial<PlayerConfig>): PlayerConfig | null {
@@ -92,6 +88,8 @@ export function PersistentPlayerHost() {
   const volumeRef = useRef(DEFAULT_VOLUME);
   const fallbackIndexRef = useRef(0);
   const liveStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptsRef = useRef(0);
   const playbackStateRef = useRef<PlaybackState>({
     playing: false,
     loading: false,
@@ -129,6 +127,13 @@ export function PersistentPlayerHost() {
     if (liveStartTimerRef.current) {
       clearTimeout(liveStartTimerRef.current);
       liveStartTimerRef.current = null;
+    }
+  }, []);
+
+  const clearReconnectTimer = useCallback(() => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
     }
   }, []);
 
@@ -199,10 +204,17 @@ export function PersistentPlayerHost() {
     }
 
     clearLiveStartTimer();
+    clearReconnectTimer();
     // Stop any current playback first
     audio.pause();
-    audio.src = cacheBustStreamUrl(config.streamUrl);
-    // Do NOT call audio.load() for live streams - it causes buffering issues
+
+    const nextSrc = cacheBustStreamUrl(config.streamUrl);
+    if (audio.src !== nextSrc) {
+      audio.src = nextSrc;
+      // Load only when the source actually changes. Re-loading an unchanged live
+      // stream is what causes avoidable buffer drops in browsers.
+      audio.load();
+    }
 
     updatePlaybackState({
       loading: true,
@@ -222,13 +234,13 @@ export function PersistentPlayerHost() {
         streamMode: "idle",
       });
     });
-  }, [clearLiveStartTimer, updatePlaybackState]);
+  }, [clearLiveStartTimer, clearReconnectTimer, updatePlaybackState]);
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    audio.preload = "none";
+    audio.preload = "auto";
 
     if (typeof window !== "undefined") {
       const savedVolume = window.localStorage.getItem("openradio:volume");
@@ -245,6 +257,8 @@ export function PersistentPlayerHost() {
 
     const onPlaying = () => {
       clearLiveStartTimer();
+      clearReconnectTimer();
+      reconnectAttemptsRef.current = 0;
       updatePlaybackState({
         playing: true,
         loading: false,
@@ -269,22 +283,41 @@ export function PersistentPlayerHost() {
       updatePlaybackState({ loading: false });
     };
 
+    const scheduleLiveReconnect = () => {
+      if (playbackStateRef.current.streamMode !== "live") {
+        return;
+      }
+
+      clearReconnectTimer();
+      reconnectAttemptsRef.current += 1;
+      const delayMs = Math.min(1500 * reconnectAttemptsRef.current, 8000);
+      reconnectTimerRef.current = setTimeout(() => {
+        reconnectTimerRef.current = null;
+        connectLiveStream();
+      }, delayMs);
+    };
+
     const onError = () => {
       updatePlaybackState({
         error: true,
-        errorMsg: "Stream unavailable. Try again shortly.",
-        loading: false,
+        errorMsg: "Stream interrupted. Reconnecting...",
+        loading: true,
         playing: false,
         currentTrack: null,
-        streamMode: "idle",
+        streamMode: "live",
       });
+      scheduleLiveReconnect();
+    };
+
+    const onStalled = () => {
+      // Stalls can recover on their own once the browser has buffered more audio.
+      // Reconnecting here would restart the live resource and can itself sound like a hiccup.
+      updatePlaybackState({ loading: true });
     };
 
     const onEnded = () => {
       // Live streams don't end; reconnect if dropped
-      if (playbackStateRef.current.streamMode === "live") {
-        connectLiveStream();
-      }
+      scheduleLiveReconnect();
     };
 
     audio.addEventListener("playing", onPlaying);
@@ -292,18 +325,21 @@ export function PersistentPlayerHost() {
     audio.addEventListener("waiting", onWaiting);
     audio.addEventListener("canplay", onCanPlay);
     audio.addEventListener("error", onError);
+    audio.addEventListener("stalled", onStalled);
     audio.addEventListener("ended", onEnded);
 
     return () => {
       clearLiveStartTimer();
+      clearReconnectTimer();
       audio.removeEventListener("playing", onPlaying);
       audio.removeEventListener("pause", onPause);
       audio.removeEventListener("waiting", onWaiting);
       audio.removeEventListener("canplay", onCanPlay);
       audio.removeEventListener("error", onError);
+      audio.removeEventListener("stalled", onStalled);
       audio.removeEventListener("ended", onEnded);
     };
-  }, [clearLiveStartTimer, connectLiveStream, updatePlaybackState]);
+  }, [clearLiveStartTimer, clearReconnectTimer, connectLiveStream, updatePlaybackState]);
 
   useEffect(() => {
     const handleConfigure = (event: Event) => {
