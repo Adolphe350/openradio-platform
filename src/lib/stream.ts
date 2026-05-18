@@ -12,16 +12,22 @@ export function normalizeMountPath(mountPath: string) {
   return mountPath.startsWith("/") ? mountPath : `/${mountPath}`;
 }
 
+function getEffectivePublicHlsBase() {
+  if (!env.STREAM_HLS_BASE_URL) return null;
+  const base = trimTrailingSlash(env.STREAM_HLS_BASE_URL);
+  return base.endsWith("/api/hls") ? null : base;
+}
+
 export function getPublicStreamUrl(mountPath: string) {
   const normalizedMountPath = normalizeMountPath(mountPath);
 
-  // Prefer HLS for public playback when configured. This is the most reliable
-  // path for iPhone/Safari while remaining compatible with Android and modern
-  // browsers.
-  if (env.STREAM_HLS_BASE_URL) {
-    const base = trimTrailingSlash(env.STREAM_HLS_BASE_URL);
+  // Prefer HLS for public playback when configured with a real asset origin.
+  // If env points back to `/api/hls`, that is only the proxy route, not the
+  // upstream asset host, so keep public playback on MP3 until HLS is truly live.
+  const publicHlsBase = getEffectivePublicHlsBase();
+  if (publicHlsBase) {
     const slug = normalizedMountPath.replace(/^\//, "").replace(/\.mp3$/i, "");
-    return `${base}/${slug}/index.m3u8`;
+    return `${publicHlsBase}/${slug}/index.m3u8`;
   }
 
   const publicIcecastBase = env.SERVICE_URL_ICECAST || env.STREAM_PUBLIC_BASE_URL;
@@ -46,9 +52,9 @@ export function getPublicMp3StreamUrl(mountPath: string) {
 }
 
 export function getPublicHlsStreamUrl(mountPath: string) {
-  if (!env.STREAM_HLS_BASE_URL) return null;
+  const base = getEffectivePublicHlsBase();
+  if (!base) return null;
   const normalizedMountPath = normalizeMountPath(mountPath);
-  const base = trimTrailingSlash(env.STREAM_HLS_BASE_URL);
   const slug = normalizedMountPath.replace(/^\//, "").replace(/\.mp3$/i, "");
   return `${base}/${slug}/index.m3u8`;
 }
