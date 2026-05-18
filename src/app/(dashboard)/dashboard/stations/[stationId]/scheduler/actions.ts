@@ -50,6 +50,12 @@ export async function createScheduleBlockAction(fd: FormData) {
   const notes = val(fd, "notes") || null;
 
   if (!name) throw new Error("Block name is required");
+  if (dayOfWeek < -1 || dayOfWeek > 6) throw new Error("Invalid day selected");
+  if (startHour < 0 || startHour > 23 || endHour < 0 || endHour > 24) throw new Error("Invalid hour selected");
+  if (![0, 15, 30, 45].includes(startMin) || ![0, 15, 30, 45].includes(endMin)) {
+    throw new Error("Invalid minutes selected");
+  }
+  if (endHour === 24 && endMin !== 0) throw new Error("End time after 24:00 is not supported");
   if (startHour * 60 + startMin >= endHour * 60 + endMin) {
     throw new Error("Start time must be before end time");
   }
@@ -59,6 +65,14 @@ export async function createScheduleBlockAction(fd: FormData) {
   const sourceId = sourceType !== "PLAYLIST" && sourceType !== "RANDOM_ALL" && sourceType !== "LIVE_SLOT"
     ? (rawSourceId || null)
     : null;
+
+  if (sourceType === "PLAYLIST" && !playlistId) throw new Error("Choose a playlist for this program");
+  if (
+    (sourceType === "PODCAST_EPISODE" || sourceType === "RECORDING" || sourceType === "TRACK") &&
+    !sourceId
+  ) {
+    throw new Error("Choose audio for this program");
+  }
 
   await db.scheduleBlock.create({
     data: {
@@ -104,6 +118,12 @@ export async function updateScheduleBlockAction(fd: FormData) {
   const notes = fd.has("notes") ? (val(fd, "notes") || null) : existing.notes;
   const isActive = fd.has("isActive") ? val(fd, "isActive") === "true" : existing.isActive;
 
+  if (dayOfWeek < -1 || dayOfWeek > 6) throw new Error("Invalid day selected");
+  if (startHour < 0 || startHour > 23 || endHour < 0 || endHour > 24) throw new Error("Invalid hour selected");
+  if (![0, 15, 30, 45].includes(startMin) || ![0, 15, 30, 45].includes(endMin)) {
+    throw new Error("Invalid minutes selected");
+  }
+  if (endHour === 24 && endMin !== 0) throw new Error("End time after 24:00 is not supported");
   if (startHour * 60 + startMin >= endHour * 60 + endMin) {
     throw new Error("Start time must be before end time");
   }
@@ -112,6 +132,14 @@ export async function updateScheduleBlockAction(fd: FormData) {
   const sourceId = sourceType !== "PLAYLIST" && sourceType !== "RANDOM_ALL" && sourceType !== "LIVE_SLOT"
     ? rawSourceId
     : null;
+
+  if (sourceType === "PLAYLIST" && !playlistId) throw new Error("Choose a playlist for this program");
+  if (
+    (sourceType === "PODCAST_EPISODE" || sourceType === "RECORDING" || sourceType === "TRACK") &&
+    !sourceId
+  ) {
+    throw new Error("Choose audio for this program");
+  }
 
   await db.scheduleBlock.update({
     where: { id: blockId },

@@ -75,7 +75,6 @@ type Props = {
 // ─── Library types ────────────────────────────────────────────────────────────
 
 type LibraryTab = "all" | "playlists" | "podcasts" | "recordings" | "tracks" | "special";
-type LibraryView = "grid" | "list";
 
 type LibraryItem = {
   id: string;
@@ -195,14 +194,16 @@ type BlockForm = {
   isActive: boolean;
 };
 
-function defaultForm(dayOfWeek = 1, startHour = 8): BlockForm {
+function defaultForm(dayOfWeek = 1, startHour = 8, startMin = 0): BlockForm {
+  const startTotal = Math.max(0, Math.min(23 * 60 + 45, startHour * 60 + startMin));
+  const endTotal = Math.min(24 * 60, startTotal + 2 * 60);
   return {
     name: "",
     dayOfWeek,
-    startHour,
-    startMin: 0,
-    endHour: (startHour + 2) % 24,
-    endMin: 0,
+    startHour: Math.floor(startTotal / 60),
+    startMin: startTotal % 60,
+    endHour: Math.floor(endTotal / 60),
+    endMin: endTotal % 60,
     sourceType: "RANDOM_ALL",
     sourceId: "",
     color: "",
@@ -795,7 +796,6 @@ function ContentLibrary({
   onSchedule: (item: LibraryItem) => void;
 }) {
   const [tab, setTab] = useState<LibraryTab>("all");
-  const [view, setView] = useState<LibraryView>("list");
   const [search, setSearch] = useState("");
 
   const items = useMemo<LibraryItem[]>(() => {
@@ -902,38 +902,6 @@ function ContentLibrary({
             Click + Schedule to add to calendar
           </p>
         </div>
-        {/* View toggle */}
-        <div
-          style={{
-            display: "flex",
-            border: "1.5px solid var(--border)",
-            borderRadius: "var(--radius-sm)",
-            overflow: "hidden",
-          }}
-        >
-          {(["list", "grid"] as LibraryView[]).map((v) => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              title={v === "grid" ? "Grid view" : "List view"}
-              style={{
-                width: 28,
-                height: 28,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: view === v ? "var(--brand-light)" : "transparent",
-                border: "none",
-                cursor: "pointer",
-                color: view === v ? "var(--brand-dark)" : "var(--text-muted)",
-                fontSize: "0.85rem",
-                transition: "background 120ms",
-              }}
-            >
-              {v === "grid" ? "⊞" : "≡"}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Tabs */}
@@ -978,12 +946,6 @@ function ContentLibrary({
             {search ? "No content matches your search." : "No content in this category yet."}
           </p>
         </div>
-      ) : view === "grid" ? (
-        <div className="lib-grid">
-          {items.map((item) => (
-            <LibraryCard key={item.id} item={item} onSchedule={onSchedule} />
-          ))}
-        </div>
       ) : (
         <div className="lib-list">
           {items.map((item) => (
@@ -997,75 +959,104 @@ function ContentLibrary({
 
 // ─── Week grid ────────────────────────────────────────────────────────────────
 
-const GRID_HOUR_HEIGHT = 48;
-const HEADER_HEIGHT = 36;
-const TIME_COL_WIDTH = 48;
+const GRID_HOUR_HEIGHT = 56;
+const HEADER_HEIGHT = 44;
+const TIME_COL_WIDTH = 64;
 
 function BlockChip({
   block,
   onClick,
+  lane = 0,
+  laneCount = 1,
 }: {
   block: ScheduleBlock;
   onClick: () => void;
+  lane?: number;
+  laneCount?: number;
 }) {
-  const topPx = (block.startHour + block.startMin / 60) * GRID_HOUR_HEIGHT;
-  const heightPx =
-    (block.endHour + block.endMin / 60 - (block.startHour + block.startMin / 60)) * GRID_HOUR_HEIGHT;
+  const start = block.startHour + block.startMin / 60;
+  const end = block.endHour + block.endMin / 60;
+  const topPx = start * GRID_HOUR_HEIGHT;
+  const heightPx = Math.max((end - start) * GRID_HOUR_HEIGHT, 24);
   const color = blockColor(block);
-  const opacity = block.isActive ? 1 : 0.45;
+  const opacity = block.isActive ? 1 : 0.48;
+  const width = `calc(${100 / laneCount}% - 6px)`;
+  const left = `calc(${(lane * 100) / laneCount}% + 3px)`;
 
   return (
-    <div
-      onClick={onClick}
+    <button
+      type="button"
+      className="calendar-event"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
       title={`${block.name}\n${timeLabel(block.startHour, block.startMin)} – ${timeLabel(block.endHour, block.endMin)}\n${sourceLabel(block)}`}
       style={{
-        position: "absolute",
-        top: topPx + 1,
-        left: 2,
-        right: 2,
-        height: Math.max(heightPx - 2, 18),
+        top: topPx + 2,
+        left,
+        width,
+        minHeight: Math.max(heightPx - 4, 24),
         background: color,
         opacity,
-        borderRadius: 5,
-        padding: "2px 5px",
-        overflow: "hidden",
-        cursor: "pointer",
-        color: "#fff",
-        fontSize: "0.72rem",
-        fontWeight: 600,
-        lineHeight: 1.3,
-        userSelect: "none",
-        zIndex: 2,
-        boxShadow: "0 1px 3px rgba(0,0,0,0.18)",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "flex-start",
       }}
     >
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {block.name}
-      </span>
-      {heightPx > 36 && (
-        <span
-          style={{
-            opacity: 0.85,
-            fontSize: "0.68rem",
-            fontWeight: 400,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {sourceLabel(block)}
-        </span>
-      )}
-      {heightPx > 54 && (
-        <span style={{ opacity: 0.8, fontSize: "0.65rem", fontWeight: 400 }}>
+      <span className="calendar-event-title">{block.name}</span>
+      {heightPx > 34 && <span className="calendar-event-source">{sourceLabel(block)}</span>}
+      {heightPx > 58 && (
+        <span className="calendar-event-time">
           {timeLabel(block.startHour, block.startMin)}–{timeLabel(block.endHour, block.endMin)}
         </span>
       )}
-    </div>
+    </button>
   );
+}
+
+type PositionedBlock = ScheduleBlock & { lane: number; laneCount: number };
+
+function blockStartMinutes(block: ScheduleBlock) {
+  return block.startHour * 60 + block.startMin;
+}
+
+function blockEndMinutes(block: ScheduleBlock) {
+  return block.endHour * 60 + block.endMin;
+}
+
+function layoutDayBlocks(blocks: ScheduleBlock[]): PositionedBlock[] {
+  const sorted = [...blocks].sort((a, b) => blockStartMinutes(a) - blockStartMinutes(b) || blockEndMinutes(a) - blockEndMinutes(b));
+  const positioned: PositionedBlock[] = [];
+  const clusters: PositionedBlock[][] = [];
+  let current: PositionedBlock[] = [];
+  let clusterEnd = -1;
+
+  for (const block of sorted) {
+    const start = blockStartMinutes(block);
+    const end = blockEndMinutes(block);
+    if (current.length === 0 || start < clusterEnd) {
+      const used = new Set(
+        current
+          .filter((b) => blockEndMinutes(b) > start)
+          .map((b) => b.lane)
+      );
+      let lane = 0;
+      while (used.has(lane)) lane += 1;
+      const positionedBlock = { ...block, lane, laneCount: 1 };
+      current.push(positionedBlock);
+      clusterEnd = Math.max(clusterEnd, end);
+    } else {
+      clusters.push(current);
+      current = [{ ...block, lane: 0, laneCount: 1 }];
+      clusterEnd = end;
+    }
+  }
+  if (current.length) clusters.push(current);
+
+  for (const cluster of clusters) {
+    const laneCount = Math.max(1, ...cluster.map((b) => b.lane + 1));
+    for (const block of cluster) positioned.push({ ...block, laneCount });
+  }
+
+  return positioned;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -1081,10 +1072,12 @@ export function SchedulerGrid({
   const [modal, setModal] = useState<BlockForm | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const activeSchedules = schedules.filter((s) => s.isActive).length;
   const everyDayBlocks = schedules.filter((s) => s.dayOfWeek === -1);
 
-  function openNew(dayOfWeek: number, startHour: number) {
-    setModal(defaultForm(dayOfWeek, startHour));
+  function openNew(dayOfWeek: number, startHour: number, startMin = 0) {
+    const safeHour = Math.max(0, Math.min(23, startHour));
+    setModal(defaultForm(dayOfWeek, safeHour, startMin));
   }
 
   function openEdit(block: ScheduleBlock) {
@@ -1092,6 +1085,7 @@ export function SchedulerGrid({
   }
 
   function openFromLibrary(item: LibraryItem) {
+    if (item.unavailable) return;
     const isSpecial = item.sourceType === "RANDOM_ALL" || item.sourceType === "LIVE_SLOT";
     setModal({
       ...defaultForm(),
@@ -1114,275 +1108,199 @@ export function SchedulerGrid({
 
   return (
     <>
-      {/* Two-panel layout: Content Library (left) + Calendar (right) */}
-      <div className="scheduler-panel-layout">
-        {/* ── Content Library ─────────────────────────────────────── */}
-        <div className="scheduler-library-panel">
-          <ContentLibrary
-            playlists={playlists}
-            tracks={tracks}
-            recordings={recordings}
-            episodes={episodes}
-            onSchedule={openFromLibrary}
-          />
-        </div>
-
-        {/* ── Calendar + Table ─────────────────────────────────────── */}
-        <div>
-          {/* Controls row */}
-          <div
-            style={{
-              display: "flex",
-              gap: "0.75rem",
-              alignItems: "center",
-              marginBottom: "1rem",
-              flexWrap: "wrap",
-            }}
-          >
+      <div className="scheduler-shell">
+        <section className="scheduler-hero card">
+          <div>
+            <p className="scheduler-kicker">Weekly station calendar</p>
+            <h2>Program blocks control what goes live.</h2>
+            <p>
+              Add a playlist, track, podcast, recording, or live slot to a time window. When the window ends,
+              Liquidsoap automatically returns the station to Auto DJ.
+            </p>
+          </div>
+          <div className="scheduler-stats">
+            <div>
+              <strong>{schedules.length}</strong>
+              <span>Total blocks</span>
+            </div>
+            <div>
+              <strong>{activeSchedules}</strong>
+              <span>Active</span>
+            </div>
             <button className="btn btn-primary btn-sm" onClick={() => setModal(defaultForm())}>
-              + Add block
+              + Add program
             </button>
-            <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
-              Click a time slot or pick from the library to add a block.
-            </span>
           </div>
+        </section>
 
-          {/* Legend */}
-          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginBottom: "1rem" }}>
-            {(Object.entries(SOURCE_LABELS) as [SourceType, string][]).map(([type, label]) => (
-              <span
-                key={type}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.3rem",
-                  fontSize: "0.75rem",
-                  color: "var(--text-muted)",
-                }}
-              >
-                <span
-                  style={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: 3,
-                    background: DEFAULT_COLORS[type],
-                    display: "inline-block",
-                  }}
-                />
-                {label}
-              </span>
-            ))}
-          </div>
+        <div className="scheduler-panel-layout">
+          <aside className="scheduler-library-panel">
+            <ContentLibrary
+              playlists={playlists}
+              tracks={tracks}
+              recordings={recordings}
+              episodes={episodes}
+              onSchedule={openFromLibrary}
+            />
+          </aside>
 
-          {/* Week grid */}
-          <div className="card" style={{ overflow: "auto", padding: 0 }}>
-            {/* Header row */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: `${TIME_COL_WIDTH}px repeat(7, minmax(80px, 1fr))`,
-                borderBottom: "1px solid var(--border)",
-                position: "sticky",
-                top: 0,
-                background: "var(--bg)",
-                zIndex: 10,
-              }}
-            >
-              <div style={{ height: HEADER_HEIGHT }} />
-              {DAYS.map((d) => (
-                <div
-                  key={d.dayOfWeek}
-                  style={{
-                    height: HEADER_HEIGHT,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "0.8rem",
-                    fontWeight: 700,
-                    color: "var(--text-muted)",
-                    borderLeft: "1px solid var(--border)",
-                    cursor: "pointer",
-                  }}
-                  onClick={() => openNew(d.dayOfWeek, 8)}
-                  title={`Add block for ${d.label}`}
-                >
-                  {d.label}
-                </div>
-              ))}
+          <section className="scheduler-calendar-panel">
+            <div className="scheduler-calendar-toolbar">
+              <div>
+                <h3>Calendar</h3>
+                <p>Click any 15-minute slot to create a timed program.</p>
+              </div>
+              <div className="scheduler-legend">
+                {(Object.entries(SOURCE_LABELS) as [SourceType, string][]).map(([type, label]) => (
+                  <span key={type}>
+                    <i style={{ background: DEFAULT_COLORS[type] }} />
+                    {label}
+                  </span>
+                ))}
+              </div>
             </div>
 
-            {/* Body: hour rows + day columns */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: `${TIME_COL_WIDTH}px repeat(7, minmax(80px, 1fr))`,
-                position: "relative",
-              }}
-            >
-              {/* Time gutter */}
-              <div style={{ position: "relative", height: gridHeight }}>
-                {HOURS.map((h) => (
-                  <div
-                    key={h}
-                    style={{
-                      position: "absolute",
-                      top: h * GRID_HOUR_HEIGHT,
-                      right: 6,
-                      fontSize: "0.65rem",
-                      color: "var(--text-light)",
-                      lineHeight: "1",
-                      userSelect: "none",
-                    }}
+            <div className="calendar-wrap">
+              <div
+                className="calendar-grid calendar-header"
+                style={{ gridTemplateColumns: `${TIME_COL_WIDTH}px repeat(7, minmax(132px, 1fr))` }}
+              >
+                <div className="calendar-corner">UTC</div>
+                {DAYS.map((d) => (
+                  <button
+                    type="button"
+                    key={d.dayOfWeek}
+                    className="calendar-day-header"
+                    onClick={() => openNew(d.dayOfWeek, 8)}
+                    title={`Add block for ${d.label}`}
                   >
-                    {pad(h)}:00
-                  </div>
+                    {d.label}
+                    <span>
+                      {d.dayOfWeek === 0
+                        ? "Sunday"
+                        : d.label === "Mon"
+                          ? "Monday"
+                          : d.label === "Tue"
+                            ? "Tuesday"
+                            : d.label === "Wed"
+                              ? "Wednesday"
+                              : d.label === "Thu"
+                                ? "Thursday"
+                                : d.label === "Fri"
+                                  ? "Friday"
+                                  : "Saturday"}
+                    </span>
+                  </button>
                 ))}
               </div>
 
-              {/* Day columns */}
-              {DAYS.map((d) => {
-                const dayBlocks = schedules.filter((s) => s.dayOfWeek === d.dayOfWeek);
-                const allForDay = [...everyDayBlocks, ...dayBlocks];
-
-                return (
-                  <div
-                    key={d.dayOfWeek}
-                    style={{
-                      position: "relative",
-                      height: gridHeight,
-                      borderLeft: "1px solid var(--border)",
-                      cursor: "crosshair",
-                    }}
-                    onClick={(e) => {
-                      if (e.currentTarget === e.target) {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const y = e.clientY - rect.top;
-                        const clickedHour = Math.floor(y / GRID_HOUR_HEIGHT);
-                        openNew(d.dayOfWeek, clickedHour);
-                      }
-                    }}
-                  >
-                    {HOURS.map((h) => (
-                      <div
-                        key={h}
-                        style={{
-                          position: "absolute",
-                          top: h * GRID_HOUR_HEIGHT,
-                          left: 0,
-                          right: 0,
-                          borderTop: `1px solid ${h === 0 ? "transparent" : "var(--border)"}`,
-                          height: GRID_HOUR_HEIGHT,
-                          pointerEvents: "none",
-                        }}
-                      />
-                    ))}
-                    {allForDay.map((block) => (
-                      <BlockChip key={block.id} block={block} onClick={() => openEdit(block)} />
-                    ))}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Empty fallback notice */}
-          {schedules.length === 0 && (
-            <div className="alert alert-info" style={{ marginTop: "1rem" }}>
-              No schedule blocks yet. AutoDJ will play all station tracks randomly 24/7. Pick content from
-              the library or click a time slot to schedule your first block.
-            </div>
-          )}
-
-          {/* Schedule list (compact table below grid) */}
-          {schedules.length > 0 && (
-            <div className="card" style={{ marginTop: "1.5rem", overflow: "hidden" }}>
               <div
-                style={{
-                  padding: "1rem 1.25rem",
-                  borderBottom: "1px solid var(--border)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
+                className="calendar-grid calendar-body"
+                style={{ gridTemplateColumns: `${TIME_COL_WIDTH}px repeat(7, minmax(132px, 1fr))` }}
               >
-                <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700 }}>
-                  All Schedule Blocks ({schedules.length})
-                </h3>
-              </div>
-              <div className="table-scroll">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th style={{ width: 12 }} />
-                      <th>Block name</th>
-                      <th>Day</th>
-                      <th>Time</th>
-                      <th>Source</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {schedules.map((s) => (
-                      <tr key={s.id} style={{ opacity: s.isActive ? 1 : 0.55 }}>
-                        <td>
-                          <span
-                            style={{
-                              display: "inline-block",
-                              width: 10,
-                              height: 10,
-                              borderRadius: 3,
-                              background: blockColor(s),
-                            }}
-                          />
-                        </td>
-                        <td style={{ fontWeight: 600 }}>{s.name}</td>
-                        <td>
-                          {s.dayOfWeek === -1
-                            ? "Every day"
-                            : DAYS.find((d) => d.dayOfWeek === s.dayOfWeek)?.label ?? String(s.dayOfWeek)}
-                        </td>
-                        <td style={{ fontFamily: "monospace", fontSize: "0.85rem" }}>
-                          {timeLabel(s.startHour, s.startMin)} – {timeLabel(s.endHour, s.endMin)}
-                        </td>
-                        <td style={{ color: "var(--text-muted)" }}>{sourceLabel(s)}</td>
-                        <td>
-                          <span className={`badge ${s.isActive ? "badge-green" : "badge-gray"}`}>
-                            {s.isActive ? "Active" : "Paused"}
-                          </span>
-                        </td>
-                        <td>
-                          <div style={{ display: "flex", gap: "0.5rem" }}>
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => openEdit(s)}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => handleToggle(s)}
-                              disabled={isPending}
-                            >
-                              {s.isActive ? "Pause" : "Enable"}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="calendar-time-gutter" style={{ height: gridHeight }}>
+                  {HOURS.map((h) => (
+                    <div key={h} className="calendar-time-label" style={{ top: h * GRID_HOUR_HEIGHT }}>
+                      {pad(h)}:00
+                    </div>
+                  ))}
+                </div>
+
+                {DAYS.map((d) => {
+                  const dayBlocks = schedules.filter((s) => s.dayOfWeek === d.dayOfWeek);
+                  const allForDay = layoutDayBlocks([...everyDayBlocks, ...dayBlocks]);
+
+                  return (
+                    <div
+                      key={d.dayOfWeek}
+                      className="calendar-day-column"
+                      style={{ height: gridHeight }}
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const y = Math.max(0, Math.min(gridHeight - 1, e.clientY - rect.top));
+                        const totalMinutes = Math.floor(y / (GRID_HOUR_HEIGHT / 4)) * 15;
+                        openNew(d.dayOfWeek, Math.floor(totalMinutes / 60), totalMinutes % 60);
+                      }}
+                    >
+                      {HOURS.map((h) => (
+                        <div key={h} className="calendar-hour-line" style={{ top: h * GRID_HOUR_HEIGHT }}>
+                          <span />
+                        </div>
+                      ))}
+                      {HOURS.flatMap((h) => [15, 30, 45].map((m) => (
+                        <div key={`${h}-${m}`} className="calendar-quarter-line" style={{ top: (h + m / 60) * GRID_HOUR_HEIGHT }} />
+                      )))}
+                      {allForDay.map((block) => (
+                        <BlockChip
+                          key={`${block.id}-${d.dayOfWeek}`}
+                          block={block}
+                          lane={block.lane}
+                          laneCount={block.laneCount}
+                          onClick={() => openEdit(block)}
+                        />
+                      ))}
+                    </div>
+                  );
+                })}
               </div>
             </div>
-          )}
 
-          {/* AutoDJ Fallback notice */}
-          <div className="alert alert-info" style={{ marginTop: "1rem", fontSize: "0.875rem" }}>
-            <strong>AutoDJ Fallback:</strong> When no schedule block is active, AutoDJ plays all station
-            tracks in random rotation. The Liquidsoap config is regenerated automatically whenever you add,
-            edit, or delete a block.
-          </div>
+            {schedules.length === 0 && (
+              <div className="alert alert-info" style={{ marginTop: "1rem" }}>
+                No schedule blocks yet. AutoDJ plays the default rotation 24/7 until you add a timed program.
+              </div>
+            )}
+
+            <div className="alert alert-info" style={{ marginTop: "1rem", fontSize: "0.875rem" }}>
+              <strong>AutoDJ fallback is automatic:</strong> scheduled sources are only active inside their exact
+              time windows. Outside those windows, the generated Liquidsoap config falls back to Auto DJ.
+            </div>
+          </section>
         </div>
+
+        {schedules.length > 0 && (
+          <section className="card" style={{ overflow: "hidden" }}>
+            <div className="scheduler-table-header">
+              <h3>All Schedule Blocks ({schedules.length})</h3>
+              <span>Use this list for quick edits and pause/enable.</span>
+            </div>
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 12 }} />
+                    <th>Program</th>
+                    <th>Day</th>
+                    <th>Time</th>
+                    <th>Source</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {schedules.map((s) => (
+                    <tr key={s.id} style={{ opacity: s.isActive ? 1 : 0.55 }}>
+                      <td>
+                        <span className="schedule-dot" style={{ background: blockColor(s) }} />
+                      </td>
+                      <td style={{ fontWeight: 600 }}>{s.name}</td>
+                      <td>{s.dayOfWeek === -1 ? "Every day" : DAYS.find((d) => d.dayOfWeek === s.dayOfWeek)?.label ?? String(s.dayOfWeek)}</td>
+                      <td style={{ fontFamily: "monospace", fontSize: "0.85rem" }}>{timeLabel(s.startHour, s.startMin)} – {timeLabel(s.endHour, s.endMin)}</td>
+                      <td style={{ color: "var(--text-muted)" }}>{sourceLabel(s)}</td>
+                      <td><span className={`badge ${s.isActive ? "badge-green" : "badge-gray"}`}>{s.isActive ? "Active" : "Paused"}</span></td>
+                      <td>
+                        <div className="schedule-actions">
+                          <button className="btn btn-secondary btn-sm" onClick={() => openEdit(s)}>Edit</button>
+                          <button className="btn btn-secondary btn-sm" onClick={() => handleToggle(s)} disabled={isPending}>{s.isActive ? "Pause" : "Enable"}</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
       </div>
 
       {/* Modal */}

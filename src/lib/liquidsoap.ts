@@ -98,6 +98,16 @@ export function generateLiqScript(cfg: LiqConfig): string {
   lines.push(`end`);
   lines.push(``);
 
+  // Live source input — allows external encoders to connect.
+  // Defined before schedule switching because LIVE_SLOT schedule entries may reference it.
+  lines.push(`# Live source input — encoder connects here to go live`);
+  lines.push(`live_input = input.harbor(`);
+  lines.push(`  "/live/${cfg.stationId}",`);
+  lines.push(`  port=9000,`);
+  lines.push(`  user="source",`);
+  lines.push(`  password="${liqEscape(cfg.sourcePassword)}")`);
+  lines.push(``);
+
   // Default playlist - reads from m3u file (supports HTTP URLs for remote tracks)
   // Falls back to scanning upload directory if m3u is empty
   lines.push(`# Default playlist - m3u file with all station tracks`);
@@ -127,10 +137,22 @@ export function generateLiqScript(cfg: LiqConfig): string {
   // RANDOM_ALL → combined_autodj
   // LIVE_SLOT  → live_input
 
+  const playableSchedules = cfg.schedules.filter((entry) => {
+    if (entry.sourceType === "PLAYLIST") return !!entry.playlistId;
+    if (
+      entry.sourceType === "PODCAST_EPISODE" ||
+      entry.sourceType === "RECORDING" ||
+      entry.sourceType === "TRACK"
+    ) {
+      return !!entry.sourceId;
+    }
+    return true;
+  });
+
   const playlistSources = new Map<string, string>(); // playlistId → varName
   const singleSources = new Map<string, string>();   // sourceId   → varName
 
-  for (const entry of cfg.schedules) {
+  for (const entry of playableSchedules) {
     if (entry.sourceType === "PLAYLIST" && entry.playlistId) {
       const id = entry.playlistId;
       if (!playlistSources.has(id)) {
@@ -192,12 +214,12 @@ export function generateLiqScript(cfg: LiqConfig): string {
   }
 
   // Build schedule-aware source
-  if (cfg.schedules.length > 0) {
+  if (playableSchedules.length > 0) {
     lines.push(`# Schedule-based source`);
     lines.push(`radio = switch(`);
     lines.push(`  track_sensitive=false,`);
     lines.push(`  [`);
-    for (const entry of cfg.schedules) {
+    for (const entry of playableSchedules) {
       const cond = buildTimeCondition(entry);
       const src = entrySource(entry);
       lines.push(`    (${cond}, ${src}),  # ${entry.name} [${entry.sourceType}]`);
@@ -218,15 +240,7 @@ export function generateLiqScript(cfg: LiqConfig): string {
   lines.push(`radio = source.on_track(radio, on_track_handler)`);
   lines.push(``);
 
-  // Live source input — allows external encoders to connect
-  // When live encoder connects, it takes over; when it disconnects, AutoDJ resumes
-  lines.push(`# Live source input — encoder connects here to go live`);
-  lines.push(`live_input = input.harbor(`);
-  lines.push(`  "/live/${cfg.stationId}",`);
-  lines.push(`  port=9000,`);
-  lines.push(`  user="source",`);
-  lines.push(`  password="${liqEscape(cfg.sourcePassword)}")`);
-  lines.push(``);
+  // When live encoder connects, it can still take over immediately; when it disconnects, AutoDJ resumes.
   lines.push(`# Final radio: live source takes priority over AutoDJ`);
   lines.push(`radio = fallback(track_sensitive=false, [live_input, radio, blank()])`);
   lines.push(``);
