@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { metricSourceLabel, resolveStationMetric } from "@/lib/analytics";
 import { db } from "@/lib/db";
-import { getPublicStreamUrl, getSourceEndpoint } from "@/lib/stream";
+import { getPublicHlsStreamUrl, getPublicMp3StreamUrl, getPublicStreamUrl, getSourceEndpoint } from "@/lib/stream";
 import { formatDuration } from "@/lib/utils";
 
 import {
@@ -81,8 +81,10 @@ export default async function StationDetailPage({ params, searchParams }: Props)
 
   const source = getSourceEndpoint(station.mountPath);
   const streamUrl = getPublicStreamUrl(station.mountPath);
-  const m3uUrl = `${streamUrl}.m3u`;
-  const plsUrl = `${streamUrl}.pls`;
+  const mp3StreamUrl = getPublicMp3StreamUrl(station.mountPath);
+  const hlsStreamUrl = getPublicHlsStreamUrl(station.mountPath);
+  const m3uUrl = `${mp3StreamUrl}.m3u`;
+  const plsUrl = `${mp3StreamUrl}.pls`;
 
   // Compute AutoDJ % from last 7 days of PlayLog
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000);
@@ -274,7 +276,8 @@ export default async function StationDetailPage({ params, searchParams }: Props)
             <h3 style={{ fontSize: "0.85rem", fontWeight: 700, margin: "0 0 0.75rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Stream URLs</h3>
             <div style={{ display: "grid", gap: "0.6rem", marginBottom: "1.5rem" }}>
               {[
-                { label: "MAIN", value: streamUrl },
+                ...(hlsStreamUrl ? [{ label: "HLS", value: hlsStreamUrl }] : []),
+                { label: "MP3", value: mp3StreamUrl },
                 { label: "M3U", value: m3uUrl },
                 { label: "PLS", value: plsUrl },
               ].map(({ label, value }) => (
@@ -684,7 +687,8 @@ export default async function StationDetailPage({ params, searchParams }: Props)
             </p>
             <div style={{ display: "grid", gap: "0.6rem" }}>
               {[
-                { label: "MAIN", value: streamUrl },
+                ...(hlsStreamUrl ? [{ label: "HLS", value: hlsStreamUrl }] : []),
+                { label: "MP3", value: mp3StreamUrl },
                 { label: "M3U", value: m3uUrl },
                 { label: "PLS", value: plsUrl },
               ].map(({ label, value }) => (
