@@ -5,6 +5,7 @@
   "description": "Open-source self-hosted internet radio platform",
   "scripts": {
     "dev": "next dev",
+    "prebuild": "prisma generate",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
