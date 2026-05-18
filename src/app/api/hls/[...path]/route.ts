@@ -14,8 +14,7 @@ function toUpstreamHlsBase() {
   const trimmed = trimTrailingSlash(configured);
 
   if (trimmed.endsWith("/api/hls")) {
-    const appBase = trimTrailingSlash(env.APP_BASE_URL);
-    return `${appBase}/hls`;
+    return "http://nginx:8080/hls";
   }
 
   return trimmed;
