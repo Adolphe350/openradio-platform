@@ -3269,3 +3269,54 @@ code,
     max-height: 70vh;
   }
 }
+
+/* Collapse the global dashboard menu while managing a specific radio station.
+   The station sidebar stays expanded, so radio controls are no longer hidden by a double-wide menu. */
+.dashboard-shell-collapsed,
+.dashboard-shell:has(.station-detail-layout) {
+  grid-template-columns: 72px 1fr;
+}
+
+.dashboard-shell-collapsed .dashboard-sidebar-desktop,
+.dashboard-shell:has(.station-detail-layout) .dashboard-sidebar-desktop {
+  padding-inline: 0.5rem;
+  align-items: center;
+}
+
+.dashboard-shell-collapsed .sidebar-logo,
+.dashboard-shell:has(.station-detail-layout) .sidebar-logo,
+.dashboard-shell-collapsed .sidebar-link,
+.dashboard-shell:has(.station-detail-layout) .sidebar-link {
+  justify-content: center;
+  gap: 0;
+  padding-inline: 0.55rem;
+  font-size: 0;
+}
+
+.dashboard-shell-collapsed .sidebar-logo-text,
+.dashboard-shell:has(.station-detail-layout) .sidebar-logo-text,
+.dashboard-shell-collapsed .sidebar-section-label,
+.dashboard-shell:has(.station-detail-layout) .sidebar-section-label,
+.dashboard-shell-collapsed .sidebar-user > div:not(.sidebar-avatar),
+.dashboard-shell:has(.station-detail-layout) .sidebar-user > div:not(.sidebar-avatar) {
+  display: none;
+}
+
+.dashboard-shell-collapsed .sidebar-link span,
+.dashboard-shell:has(.station-detail-layout) .sidebar-link span {
+  font-size: 0.95rem !important;
+  width: auto !important;
+}
+
+.dashboard-shell-collapsed .sidebar-user,
+.dashboard-shell:has(.station-detail-layout) .sidebar-user {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+@media (max-width: 900px) {
+  .dashboard-shell-collapsed,
+  .dashboard-shell:has(.station-detail-layout) {
+    grid-template-columns: 1fr;
+  }
+}

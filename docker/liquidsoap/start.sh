@@ -87,9 +87,14 @@ EOF_LIQ
 }
 
 # Watch loop: start one liquidsoap process per .liq config file.
-# When a new config is written, pick it up on the next restart cycle.
+# When configs change, restart child Liquidsoap processes so schedule edits apply.
+snapshot_configs() {
+  find "${CONFIG_DIR}" -type f \( -name '*.liq' -o -name '*.m3u' \) -exec cksum {} \; 2>/dev/null | sort
+}
+
 run_station_configs() {
   pids=""
+  initial_snapshot="$(snapshot_configs)"
 
   for liq_file in "${CONFIG_DIR}"/*.liq; do
     [ -f "$liq_file" ] || continue
@@ -105,11 +110,28 @@ run_station_configs() {
     write_demo_script
   fi
 
-  # Keep container alive; if any child exits, restart everything
-  wait $pids
-  echo "[openradio] A station process exited — restarting in 5s..."
-  sleep 5
-  exec sh "$0"
+  while :; do
+    for pid in $pids; do
+      if ! kill -0 "$pid" 2>/dev/null; then
+        echo "[openradio] A station process exited — restarting in 5s..."
+        sleep 5
+        exec sh "$0"
+      fi
+    done
+
+    current_snapshot="$(snapshot_configs)"
+    if [ "$current_snapshot" != "$initial_snapshot" ]; then
+      echo "[openradio] Config changed — restarting Liquidsoap station processes..."
+      for pid in $pids; do
+        kill "$pid" 2>/dev/null || true
+      done
+      wait $pids 2>/dev/null || true
+      sleep 1
+      exec sh "$0"
+    fi
+
+    sleep 3
+  done
 }
 
 run_station_configs

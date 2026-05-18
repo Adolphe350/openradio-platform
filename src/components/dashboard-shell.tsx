@@ -2,7 +2,7 @@ import Link from "next/link";
 import { signOutAction } from "@/app/(auth)/auth-actions";
 import { DashboardMobileShell } from "@/components/dashboard-mobile-shell";
 
-type Props = { userName: string; isSuperAdmin?: boolean; children: React.ReactNode };
+type Props = { userName: string; isSuperAdmin?: boolean; collapseMainMenu?: boolean; children: React.ReactNode };
 
 const navSections = [
   {
@@ -37,7 +37,7 @@ const navSections = [
   },
 ];
 
-export function DashboardShell({ userName, isSuperAdmin = false, children }: Props) {
+export function DashboardShell({ userName, isSuperAdmin = false, collapseMainMenu = false, children }: Props) {
   const initials = userName
     .split(" ")
     .map((w) => w[0])
@@ -100,7 +100,7 @@ export function DashboardShell({ userName, isSuperAdmin = false, children }: Pro
   );
 
   return (
-    <div className="dashboard-shell">
+    <div className={collapseMainMenu ? "dashboard-shell dashboard-shell-collapsed" : "dashboard-shell"}>
       <DashboardMobileShell title={isSuperAdmin ? "Admin Menu" : "Studio Menu"}>
         <aside className="dashboard-sidebar dashboard-sidebar-drawer">{sidebar}</aside>
       </DashboardMobileShell>
