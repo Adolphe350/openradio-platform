@@ -212,7 +212,7 @@ export function generateLiqScript(cfg: LiqConfig): string {
   lines.push(``);  
   lines.push(`# Remove tiny silent gaps from source files, then use a short transition`);
   lines.push(`radio = blank.skip(max_blank=0.35, threshold=-48.0, track_sensitive=false, radio)`);
-  lines.push(`radio = crossfade(duration=0.5, fade_in=0.15, fade_out=0.15, radio)`);
+  lines.push(`radio = crossfade(duration=0.12, fade_in=0.04, fade_out=0.04, radio)`);
   lines.push(``);
   lines.push(`# Attach on_track handler`);
   lines.push(`radio = source.on_track(radio, on_track_handler)`);
@@ -231,7 +231,7 @@ export function generateLiqScript(cfg: LiqConfig): string {
   lines.push(`radio = fallback(track_sensitive=false, [live_input, radio, blank()])`);
   lines.push(``);
   lines.push(`# Add a source buffer to avoid audible dropouts during decoding/network jitter`);
-  lines.push(`radio = mksafe(buffer(buffer=5.0, max=20.0, fallible=false, radio))`);
+  lines.push(`radio = mksafe(buffer(buffer=8.0, max=30.0, fallible=false, radio))`);
   lines.push(``);
 
   // Output
