@@ -12,51 +12,43 @@ export function normalizeMountPath(mountPath: string) {
   return mountPath.startsWith("/") ? mountPath : `/${mountPath}`;
 }
 
-function getEffectivePublicHlsBase() {
-  if (!env.STREAM_HLS_BASE_URL) return null;
-  const base = trimTrailingSlash(env.STREAM_HLS_BASE_URL);
-  return base.endsWith("/api/hls") ? null : base;
+function getAppBaseUrl() {
+  return trimTrailingSlash(env.APP_BASE_URL);
+}
+
+function getPublicHlsBase() {
+  const configured = env.STREAM_HLS_BASE_URL ? trimTrailingSlash(env.STREAM_HLS_BASE_URL) : null;
+
+  // When a real HLS asset/CDN origin is configured, use it directly. If the
+  // value points to this app's proxy route (or is unset), display the branded
+  // OpenRadio domain instead of Coolify's generated service domains.
+  if (configured && !configured.endsWith("/api/hls")) {
+    return configured;
+  }
+
+  return `${getAppBaseUrl()}/api/hls`;
+}
+
+function getPublicMp3Base() {
+  // For listener-facing dashboard URLs, prefer the branded app domain and its
+  // `/stream` proxy. SERVICE_URL_ICECAST is a generated Coolify service URL and
+  // should not be shown as the public station broadcast URL.
+  return `${getAppBaseUrl()}/stream`;
 }
 
 export function getPublicStreamUrl(mountPath: string) {
-  const normalizedMountPath = normalizeMountPath(mountPath);
-
-  // Prefer HLS for public playback when configured with a real asset origin.
-  // If env points back to `/api/hls`, that is only the proxy route, not the
-  // upstream asset host, so keep public playback on MP3 until HLS is truly live.
-  const publicHlsBase = getEffectivePublicHlsBase();
-  if (publicHlsBase) {
-    const slug = normalizedMountPath.replace(/^\//, "").replace(/\.mp3$/i, "");
-    return `${publicHlsBase}/${slug}/index.m3u8`;
-  }
-
-  const publicIcecastBase = env.SERVICE_URL_ICECAST || env.STREAM_PUBLIC_BASE_URL;
-
-  // Prefer the public Icecast reverse proxy for non-HLS browser playback.
-  if (publicIcecastBase && publicIcecastBase !== env.APP_BASE_URL) {
-    return `${publicIcecastBase.replace(/\/$/, "")}${normalizedMountPath}`;
-  }
-
-  return `/stream${normalizedMountPath}`;
+  return getPublicHlsStreamUrl(mountPath);
 }
 
 export function getPublicMp3StreamUrl(mountPath: string) {
   const normalizedMountPath = normalizeMountPath(mountPath);
-  const publicIcecastBase = env.SERVICE_URL_ICECAST || env.STREAM_PUBLIC_BASE_URL;
-
-  if (publicIcecastBase && publicIcecastBase !== env.APP_BASE_URL) {
-    return `${publicIcecastBase.replace(/\/$/, "")}${normalizedMountPath}`;
-  }
-
-  return `/stream${normalizedMountPath}`;
+  return `${getPublicMp3Base()}${normalizedMountPath}`;
 }
 
 export function getPublicHlsStreamUrl(mountPath: string) {
-  const base = getEffectivePublicHlsBase();
-  if (!base) return null;
   const normalizedMountPath = normalizeMountPath(mountPath);
   const slug = normalizedMountPath.replace(/^\//, "").replace(/\.mp3$/i, "");
-  return `${base}/${slug}/index.m3u8`;
+  return `${getPublicHlsBase()}/${slug}/index.m3u8`;
 }
 
 export function getSourceEndpoint(mountPath: string) {
