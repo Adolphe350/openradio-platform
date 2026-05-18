@@ -213,13 +213,28 @@ export function generateLiqScript(cfg: LiqConfig): string {
     return "combined_autodj";
   }
 
-  // Build schedule-aware source
-  if (playableSchedules.length > 0) {
+  // Build schedule-aware source. Concrete programmes must be evaluated before
+  // RANDOM_ALL/AutoDJ slots so an overlapping AutoDJ block cannot mask a show.
+  const schedulePriority = (entry: ScheduleEntry) => {
+    if (entry.sourceType === "PODCAST_EPISODE" || entry.sourceType === "RECORDING" || entry.sourceType === "TRACK") return 0;
+    if (entry.sourceType === "PLAYLIST") return 1;
+    if (entry.sourceType === "LIVE_SLOT") return 2;
+    return 9; // RANDOM_ALL / AutoDJ-like blocks are lowest priority.
+  };
+  const orderedSchedules = [...playableSchedules].sort((a, b) =>
+    schedulePriority(a) - schedulePriority(b) ||
+    a.dayOfWeek - b.dayOfWeek ||
+    a.startHour - b.startHour ||
+    a.startMin - b.startMin
+  );
+
+  if (orderedSchedules.length > 0) {
     lines.push(`# Schedule-based source`);
+    lines.push(`# Priority: scheduled programmes first, AutoDJ/RANDOM_ALL last, then fallback`);
     lines.push(`radio = switch(`);
     lines.push(`  track_sensitive=false,`);
     lines.push(`  [`);
-    for (const entry of playableSchedules) {
+    for (const entry of orderedSchedules) {
       const cond = buildTimeCondition(entry);
       const src = entrySource(entry);
       lines.push(`    (${cond}, ${src}),  # ${entry.name} [${entry.sourceType}]`);

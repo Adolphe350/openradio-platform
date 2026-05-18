@@ -45,7 +45,7 @@ function localParts(date: Date, timeZone: string) {
 function findUtcForLocalTime(timeZone: string, weekday: number, hour: number, minute: number, after?: Date): Date {
   const searchStart = after ? after.getTime() + 60_000 : Date.now() - 7 * 24 * 60 * 60_000;
   const searchEnd = searchStart + 15 * 24 * 60 * 60_000;
-  const stepMs = 15 * 60_000;
+  const stepMs = 60_000;
   const alignedStart = Math.floor(searchStart / stepMs) * stepMs;
 
   for (let ts = alignedStart; ts <= searchEnd; ts += stepMs) {
@@ -111,7 +111,7 @@ export async function generateStationConfig(stationId: string): Promise<void> {
     include: {
       schedules: {
         where: { isActive: true },
-        orderBy: [{ dayOfWeek: "asc" }, { startHour: "asc" }],
+        orderBy: [{ dayOfWeek: "asc" }, { startHour: "asc" }, { startMin: "asc" }],
       },
       playlists: {
         include: {

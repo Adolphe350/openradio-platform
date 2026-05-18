@@ -127,6 +127,7 @@ const BADGE_LABELS: Record<SourceType, string> = {
 };
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
+const MINUTES = Array.from({ length: 60 }, (_, i) => i);
 
 // ─── Utility functions ────────────────────────────────────────────────────────
 
@@ -470,7 +471,7 @@ function BlockModal({
                 value={state.startMin}
                 onChange={(e) => setState((s) => ({ ...s, startMin: parseInt(e.target.value, 10) }))}
               >
-                {[0, 15, 30, 45].map((m) => (
+                {MINUTES.map((m) => (
                   <option key={m} value={m}>
                     {pad(m)}
                   </option>
@@ -496,7 +497,7 @@ function BlockModal({
                 value={state.endMin}
                 onChange={(e) => setState((s) => ({ ...s, endMin: parseInt(e.target.value, 10) }))}
               >
-                {[0, 15, 30, 45].map((m) => (
+                {MINUTES.map((m) => (
                   <option key={m} value={m}>
                     {pad(m)}
                   </option>
@@ -1148,7 +1149,7 @@ export function SchedulerGrid({
             <div className="scheduler-calendar-toolbar">
               <div>
                 <h3>Calendar</h3>
-                <p>Click any 15-minute slot to create a timed program.</p>
+                <p>Click a slot to create a timed program, then set the exact minute in the editor.</p>
               </div>
               <div className="scheduler-legend">
                 {(Object.entries(SOURCE_LABELS) as [SourceType, string][]).map(([type, label]) => (
@@ -1218,7 +1219,7 @@ export function SchedulerGrid({
                       onClick={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
                         const y = Math.max(0, Math.min(gridHeight - 1, e.clientY - rect.top));
-                        const totalMinutes = Math.floor(y / (GRID_HOUR_HEIGHT / 4)) * 15;
+                        const totalMinutes = Math.max(0, Math.min(23 * 60 + 59, Math.round((y / GRID_HOUR_HEIGHT) * 60)));
                         openNew(d.dayOfWeek, Math.floor(totalMinutes / 60), totalMinutes % 60);
                       }}
                     >

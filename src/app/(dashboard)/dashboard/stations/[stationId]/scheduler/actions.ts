@@ -52,8 +52,8 @@ export async function createScheduleBlockAction(fd: FormData) {
   if (!name) throw new Error("Block name is required");
   if (dayOfWeek < -1 || dayOfWeek > 6) throw new Error("Invalid day selected");
   if (startHour < 0 || startHour > 23 || endHour < 0 || endHour > 24) throw new Error("Invalid hour selected");
-  if (![0, 15, 30, 45].includes(startMin) || ![0, 15, 30, 45].includes(endMin)) {
-    throw new Error("Invalid minutes selected");
+  if (startMin < 0 || startMin > 59 || endMin < 0 || endMin > 59) {
+    throw new Error("Minutes must be between 00 and 59");
   }
   if (endHour === 24 && endMin !== 0) throw new Error("End time after 24:00 is not supported");
   if (startHour * 60 + startMin >= endHour * 60 + endMin) {
@@ -92,7 +92,7 @@ export async function createScheduleBlockAction(fd: FormData) {
     },
   });
 
-  await generateStationConfig(stationId).catch(() => {});
+  await generateStationConfig(stationId);
   revalidatePath(`/dashboard/stations/${stationId}/scheduler`);
 }
 
@@ -120,8 +120,8 @@ export async function updateScheduleBlockAction(fd: FormData) {
 
   if (dayOfWeek < -1 || dayOfWeek > 6) throw new Error("Invalid day selected");
   if (startHour < 0 || startHour > 23 || endHour < 0 || endHour > 24) throw new Error("Invalid hour selected");
-  if (![0, 15, 30, 45].includes(startMin) || ![0, 15, 30, 45].includes(endMin)) {
-    throw new Error("Invalid minutes selected");
+  if (startMin < 0 || startMin > 59 || endMin < 0 || endMin > 59) {
+    throw new Error("Minutes must be between 00 and 59");
   }
   if (endHour === 24 && endMin !== 0) throw new Error("End time after 24:00 is not supported");
   if (startHour * 60 + startMin >= endHour * 60 + endMin) {
@@ -159,7 +159,7 @@ export async function updateScheduleBlockAction(fd: FormData) {
     },
   });
 
-  await generateStationConfig(stationId).catch(() => {});
+  await generateStationConfig(stationId);
   revalidatePath(`/dashboard/stations/${stationId}/scheduler`);
 }
 
@@ -170,7 +170,7 @@ export async function deleteScheduleBlockAction(fd: FormData) {
   await owned(stationId, user.id);
 
   await db.scheduleBlock.deleteMany({ where: { id: blockId, stationId } });
-  await generateStationConfig(stationId).catch(() => {});
+  await generateStationConfig(stationId);
   revalidatePath(`/dashboard/stations/${stationId}/scheduler`);
 }
 
@@ -186,6 +186,6 @@ export async function toggleScheduleBlockAction(fd: FormData) {
     data: { isActive: !isActive },
   });
 
-  await generateStationConfig(stationId).catch(() => {});
+  await generateStationConfig(stationId);
   revalidatePath(`/dashboard/stations/${stationId}/scheduler`);
 }
