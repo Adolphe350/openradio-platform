@@ -7,16 +7,31 @@ function trimTrailingSlash(value: string) {
   return value.replace(/\/+$/, "");
 }
 
+function toUpstreamHlsBase() {
+  const configured = env.STREAM_HLS_BASE_URL;
+  if (!configured) return null;
+
+  const trimmed = trimTrailingSlash(configured);
+
+  if (trimmed.endsWith("/api/hls")) {
+    const appBase = trimTrailingSlash(env.APP_BASE_URL);
+    return `${appBase}/hls`;
+  }
+
+  return trimmed;
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
-  if (!env.STREAM_HLS_BASE_URL) {
+  const upstreamBase = toUpstreamHlsBase();
+  if (!upstreamBase) {
     return new Response("HLS is not configured", { status: 503, headers: { "Content-Type": "text/plain" } });
   }
 
   const { path: segments } = await params;
-  const target = `${trimTrailingSlash(env.STREAM_HLS_BASE_URL)}/${segments.map(encodeURIComponent).join("/")}`;
+  const target = `${upstreamBase}/${segments.map(encodeURIComponent).join("/")}`;
 
   try {
     const upstream = await fetch(target, {
