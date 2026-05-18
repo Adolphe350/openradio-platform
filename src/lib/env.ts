@@ -12,6 +12,7 @@ const envSchema = z.object({
   // Coolify injects SERVICE_URL_ICECAST for the public Icecast reverse proxy.
   // Use it for browser playback so audio does not pass through the Next.js app server.
   SERVICE_URL_ICECAST: z.string().url().optional(),
+  STREAM_HLS_BASE_URL: z.string().url().optional(),
   STREAM_SOURCE_HOST: z.string().default("icecast"),
   ICECAST_SOURCE_PORT: z.coerce.number().int().positive().default(8000),
   ICECAST_SOURCE_PASSWORD: z.string().transform((v) => v.trim() || "sourcepass").default("sourcepass"),

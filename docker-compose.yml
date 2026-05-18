@@ -37,6 +37,7 @@ services:
       SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
       STREAM_PUBLIC_BASE_URL: ${STREAM_PUBLIC_BASE_URL:-http://localhost:8080}
+      STREAM_HLS_BASE_URL: ${STREAM_HLS_BASE_URL:-}
       STREAM_SOURCE_HOST: icecast
       ICECAST_SOURCE_PORT: 8000
       REDIS_URL: redis://redis:6379
@@ -146,6 +147,27 @@ services:
       timeout: 5s
       retries: 3
 
+  # ── HLS packager/transcoder for mobile-friendly playback ────────
+  hls:
+    image: jrottenberg/ffmpeg:6.1-alpine
+    restart: unless-stopped
+    depends_on:
+      - icecast
+    command: >
+      sh -c '
+        mkdir -p /hls/urban-radio-rwanda &&
+        while true; do
+          ffmpeg -hide_banner -loglevel warning -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 \
+            -i http://icecast:8000/urban-radio-rwanda.mp3 \
+            -vn -c:a aac -b:a 128k -ac 2 -ar 44100 \
+            -f hls -hls_time 4 -hls_list_size 6 -hls_flags delete_segments+append_list+independent_segments \
+            -hls_segment_filename /hls/urban-radio-rwanda/segment_%06d.ts \
+            /hls/urban-radio-rwanda/index.m3u8 || true;
+          sleep 2;
+        done'
+    volumes:
+      - hls_data:/hls
+
   # ── Liquidsoap AutoDJ ────────────────────────────────────────────
   liquidsoap:
     build:
@@ -171,3 +193,4 @@ volumes:
   liquidsoap_configs:
   nginx_geo:
   icecast_acl:
+  hls_data:
