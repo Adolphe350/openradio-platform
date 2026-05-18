@@ -8,6 +8,11 @@ function trimTrailingSlash(value: string) {
 }
 
 function toUpstreamHlsBase() {
+  const internalBase = process.env.HLS_INTERNAL_BASE_URL;
+  if (internalBase) {
+    return trimTrailingSlash(internalBase);
+  }
+
   const configured = env.STREAM_HLS_BASE_URL;
   if (!configured) return null;
 

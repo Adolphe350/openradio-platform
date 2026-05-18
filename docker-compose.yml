@@ -38,6 +38,7 @@ services:
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
       STREAM_PUBLIC_BASE_URL: ${STREAM_PUBLIC_BASE_URL:-http://localhost:8080}
       STREAM_HLS_BASE_URL: ${STREAM_HLS_BASE_URL:-}
+      HLS_INTERNAL_BASE_URL: ${HLS_INTERNAL_BASE_URL:-http://nginx:8080/hls}
       STREAM_SOURCE_HOST: icecast
       ICECAST_SOURCE_PORT: 8000
       REDIS_URL: redis://redis:6379
