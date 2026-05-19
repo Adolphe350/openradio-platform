@@ -2,12 +2,12 @@
  * Generates a per-station Liquidsoap script.
  *
  * Each station gets its own .liq file that:
- *  - reads its uploaded tracks from /uploads/<stationId>/
- *  - reads any playlist .m3u files from /configs/<stationId>/
- *  - applies a time-based schedule if schedule blocks exist
+ *  - uses request.dynamic to fetch the next track from the app's API
+ *  - the API implements schedule priority (scheduled content > AutoDJ)
  *  - falls back to blank() to keep the mount alive
  *  - calls the play-log API on every track change (on_track hook)
  *  - outputs to Icecast on the station's mount path
+ *  - live encoder input overrides everything when connected
  */
 
 export type ScheduleSourceType =
@@ -51,28 +51,9 @@ function liqEscape(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
-// Liquidsoap day-of-week: 0=Sunday ... 6=Saturday (matches JS)
-// Liquidsoap 2.x time predicate: {NNhNNm-NNhNNm} or {Nw NNhNNm-NNhNNm}
-// Day N: 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat, 7=Sun
-function buildTimeCondition(e: ScheduleEntry): string {
-  const fmtTime = (h: number, m: number) =>
-    m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, "0")}m`;
-
-  const startFmt = fmtTime(e.startHour, e.startMin);
-  const endFmt   = fmtTime(e.endHour,   e.endMin);
-
-  if (e.dayOfWeek === -1) {
-    return `{${startFmt}-${endFmt}}`;
-  }
-  // Convert JS day (0=Sun...6=Sat) to Liquidsoap day (1=Mon...7=Sun)
-  const liqDay = e.dayOfWeek === 0 ? 7 : e.dayOfWeek;
-  return `{${liqDay}w ${startFmt}-${endFmt}}`;
-}
-
 export function generateLiqScript(cfg: LiqConfig): string {
   const mount = cfg.mountPath.startsWith("/") ? cfg.mountPath : `/${cfg.mountPath}`;
   const bitrate = cfg.bitrate ?? 128;
-  const uploadDir = `/uploads/${cfg.stationId}`;
   const configDir = `/configs/${cfg.stationId}`;
 
   const lines: string[] = [];
@@ -98,8 +79,7 @@ export function generateLiqScript(cfg: LiqConfig): string {
   lines.push(`end`);
   lines.push(``);
 
-  // Live source input — allows external encoders to connect.
-  // Defined before schedule switching because LIVE_SLOT schedule entries may reference it.
+  // Live source input — allows external encoders to connect
   lines.push(`# Live source input — encoder connects here to go live`);
   lines.push(`live_input = input.harbor(`);
   lines.push(`  "/live/${cfg.stationId}",`);
@@ -108,146 +88,43 @@ export function generateLiqScript(cfg: LiqConfig): string {
   lines.push(`  password="${liqEscape(cfg.sourcePassword)}")`);
   lines.push(``);
 
-  // Default playlist - reads from m3u file (supports HTTP URLs for remote tracks)
-  // Falls back to scanning upload directory if m3u is empty
-  lines.push(`# Default playlist - m3u file with all station tracks`);
-  lines.push(`default_playlist = playlist(`);
-  lines.push(`  id="station_${cfg.stationId}_default",`);
+  // Request-based dynamic source — asks the app for the next track
+  // The app's /api/internal/next-track endpoint handles schedule priority
+  lines.push(`# Dynamic request source — app decides what plays next (schedule > AutoDJ)`);
+  lines.push(`# The app checks active schedule blocks and returns the appropriate track`);
+  lines.push(`next_track_url = "${liqEscape(cfg.appBaseUrl)}/api/internal/next-track/${cfg.stationId}?secret=${liqEscape(cfg.pollSecret)}"`);
+  lines.push(``);
+  lines.push(`def get_next_track() =`);
+  lines.push(`  result = process.read.lines("curl -sf '" ^ next_track_url ^ "'")`);
+  lines.push(`  uri = list.hd(default="", result)`);
+  lines.push(`  if uri == "" then`);
+  lines.push(`    log("[scheduler] No track returned from API, falling back")`);
+  lines.push(`    []`);
+  lines.push(`  else`);
+  lines.push(`    log("[scheduler] Next track: #{uri}")`);
+  lines.push(`    [request.create(uri)]`);
+  lines.push(`  end`);
+  lines.push(`end`);
+  lines.push(``);
+  lines.push(`radio = request.dynamic.list(id="scheduler_${cfg.stationId}", get_next_track)`);
+  lines.push(``);
+
+  // Also keep a static fallback playlist in case the API is unreachable
+  lines.push(`# Static fallback — used only if the next-track API is unreachable`);
+  lines.push(`fallback_playlist = playlist(`);
+  lines.push(`  id="station_${cfg.stationId}_fallback",`);
   lines.push(`  mode="random",`);
   lines.push(`  reload_mode="watch",`);
-  lines.push(`  reload=10,`);
+  lines.push(`  reload=30,`);
   lines.push(`  prefetch=2,`);
   lines.push(`  "${configDir}/all_tracks.m3u")`);
   lines.push(``);
-  lines.push(`# Fallback: scan local upload directory if available`);
-  lines.push(`upload_playlist = playlist(`);
-  lines.push(`  id="station_${cfg.stationId}_uploads",`);
-  lines.push(`  mode="random",`);
-  lines.push(`  reload_mode="watch",`);
-  lines.push(`  prefetch=2,`);
-  lines.push(`  "${uploadDir}")`);
-  lines.push(``);
-  lines.push(`# Combine: prefer m3u tracks, fall back to uploads, then silence`);
-  lines.push(`combined_autodj = fallback(track_sensitive=false, [default_playlist, upload_playlist, blank()])`);
+  lines.push(`# Combine: prefer dynamic (schedule-aware), fall back to static playlist, then silence`);
+  lines.push(`radio = fallback(track_sensitive=true, [radio, fallback_playlist, blank()])`);
   lines.push(``);
 
-  // Collect unique sources referenced in schedule entries
-  // PLAYLIST → playlist_<id>.m3u
-  // PODCAST_EPISODE / RECORDING / TRACK → source_<id>.m3u (single-file, written by generateStationConfig)
-  // RANDOM_ALL → combined_autodj
-  // LIVE_SLOT  → live_input
-
-  const playableSchedules = cfg.schedules.filter((entry) => {
-    if (entry.sourceType === "PLAYLIST") return !!entry.playlistId;
-    if (
-      entry.sourceType === "PODCAST_EPISODE" ||
-      entry.sourceType === "RECORDING" ||
-      entry.sourceType === "TRACK"
-    ) {
-      return !!entry.sourceId;
-    }
-    return true;
-  });
-
-  const playlistSources = new Map<string, string>(); // playlistId → varName
-  const singleSources = new Map<string, string>();   // sourceId   → varName
-
-  for (const entry of playableSchedules) {
-    if (entry.sourceType === "PLAYLIST" && entry.playlistId) {
-      const id = entry.playlistId;
-      if (!playlistSources.has(id)) {
-        playlistSources.set(id, `playlist_${id.replace(/-/g, "_")}`);
-      }
-    } else if (
-      (entry.sourceType === "PODCAST_EPISODE" ||
-       entry.sourceType === "RECORDING" ||
-       entry.sourceType === "TRACK") &&
-      entry.sourceId
-    ) {
-      const id = entry.sourceId;
-      if (!singleSources.has(id)) {
-        singleSources.set(id, `source_${id.replace(/-/g, "_")}`);
-      }
-    }
-  }
-
-  for (const [plId, varName] of playlistSources) {
-    lines.push(`# Playlist: ${plId}`);
-    lines.push(`${varName} = playlist(`);
-    lines.push(`  id="${varName}",`);
-    lines.push(`  mode="random",`);
-    lines.push(`  reload_mode="watch",`);
-    lines.push(`  prefetch=2,`);
-    lines.push(`  "${configDir}/${plId}.m3u")`);
-    lines.push(``);
-  }
-
-  for (const [srcId, varName] of singleSources) {
-    lines.push(`# Single-file source: ${srcId}`);
-    lines.push(`${varName} = playlist(`);
-    lines.push(`  id="${varName}",`);
-    lines.push(`  mode="normal",`);
-    lines.push(`  reload_mode="watch",`);
-    lines.push(`  prefetch=1,`);
-    lines.push(`  "${configDir}/source_${srcId}.m3u")`);
-    lines.push(``);
-  }
-
-  // Helper: map a schedule entry to its Liquidsoap source variable name
-  function entrySource(entry: ScheduleEntry): string {
-    if (entry.sourceType === "PLAYLIST" && entry.playlistId) {
-      return playlistSources.get(entry.playlistId) ?? "combined_autodj";
-    }
-    if (
-      (entry.sourceType === "PODCAST_EPISODE" ||
-       entry.sourceType === "RECORDING" ||
-       entry.sourceType === "TRACK") &&
-      entry.sourceId
-    ) {
-      return singleSources.get(entry.sourceId) ?? "combined_autodj";
-    }
-    if (entry.sourceType === "LIVE_SLOT") {
-      return "live_input";
-    }
-    // RANDOM_ALL or anything else → default AutoDJ
-    return "combined_autodj";
-  }
-
-  // Build schedule-aware source. Concrete programmes must be evaluated before
-  // RANDOM_ALL/AutoDJ slots so an overlapping AutoDJ block cannot mask a show.
-  const schedulePriority = (entry: ScheduleEntry) => {
-    if (entry.sourceType === "PODCAST_EPISODE" || entry.sourceType === "RECORDING" || entry.sourceType === "TRACK") return 0;
-    if (entry.sourceType === "PLAYLIST") return 1;
-    if (entry.sourceType === "LIVE_SLOT") return 2;
-    return 9; // RANDOM_ALL / AutoDJ-like blocks are lowest priority.
-  };
-  const orderedSchedules = [...playableSchedules].sort((a, b) =>
-    schedulePriority(a) - schedulePriority(b) ||
-    a.dayOfWeek - b.dayOfWeek ||
-    a.startHour - b.startHour ||
-    a.startMin - b.startMin
-  );
-
-  if (orderedSchedules.length > 0) {
-    lines.push(`# Schedule-based source`);
-    lines.push(`# Priority: scheduled programmes first, AutoDJ/RANDOM_ALL last, then fallback`);
-    lines.push(`radio = switch(`);
-    lines.push(`  track_sensitive=false,`);
-    lines.push(`  [`);
-    for (const entry of orderedSchedules) {
-      const cond = buildTimeCondition(entry);
-      const src = entrySource(entry);
-      lines.push(`    (${cond}, ${src}),  # ${entry.name} [${entry.sourceType}]`);
-    }
-    lines.push(`    ({true}, combined_autodj)  # AutoDJ fallback`);
-    lines.push(`  ]`);
-    lines.push(`)`);
-  } else {
-    lines.push(`radio = combined_autodj`);
-  }
-
-  lines.push(``);  
-  lines.push(`# Remove tiny silent gaps from source files, then use a short transition`);
+  // Transitions
+  lines.push(`# Remove tiny silent gaps from source files, then use a short crossfade`);
   lines.push(`radio = blank.skip(max_blank=0.35, threshold=-48.0, track_sensitive=false, radio)`);
   lines.push(`radio = crossfade(duration=0.12, fade_in=0.04, fade_out=0.04, radio)`);
   lines.push(``);
@@ -255,11 +132,11 @@ export function generateLiqScript(cfg: LiqConfig): string {
   lines.push(`radio = source.on_track(radio, on_track_handler)`);
   lines.push(``);
 
-  // When live encoder connects, it can still take over immediately; when it disconnects, AutoDJ resumes.
-  lines.push(`# Final radio: live source takes priority over AutoDJ`);
+  // Live source takes priority over everything
+  lines.push(`# Final radio: live source takes priority when connected`);
   lines.push(`radio = fallback(track_sensitive=false, [live_input, radio, blank()])`);
   lines.push(``);
-  lines.push(`# Add a source buffer to avoid audible dropouts during decoding/network jitter`);
+  lines.push(`# Add a source buffer to avoid audible dropouts`);
   lines.push(`radio = mksafe(buffer(buffer=8.0, max=30.0, fallible=false, radio))`);
   lines.push(``);
 

@@ -1,6 +1,7 @@
 FROM savonet/liquidsoap:v2.3.3
 
 USER root
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 RUN mkdir -p /opt/openradio /media
 COPY docker/liquidsoap/start.sh /opt/openradio/start.sh
 RUN chmod +x /opt/openradio/start.sh
