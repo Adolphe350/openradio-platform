@@ -58,17 +58,28 @@ function liqEscape(s: string): string {
 
 /**
  * Build the Liquidsoap time condition for a schedule entry.
- * Liquidsoap: weekday() returns 1=Mon…7=Sun; time() returns seconds since midnight.
+ *
+ * Liquidsoap 2.3.x API:
+ *   time.local() returns a value with methods:
+ *     .hour (int), .min (int), .week_day (int: 0=Sun…6=Sat)
+ *
+ * Returns a string for a def function body (not a single expression),
+ * because `let` bindings in switch condition lambdas need to be in a def.
+ * See buildTimeConditionFn() which wraps this in a def for use in the switch.
  */
-function buildTimeCondition(e: ScheduleEntry): string {
-  const startSec = e.startHour * 3600 + e.startMin * 60;
-  const endSec = e.endHour * 3600 + e.endMin * 60;
+function buildTimeConditionBody(e: ScheduleEntry): string {
+  const startMin = e.startHour * 60 + e.startMin;
+  const endMin = e.endHour * 60 + e.endMin;
+  const lines: string[] = [];
+  lines.push(`  t = time.local()`);
+  lines.push(`  now_min = t.hour * 60 + t.min`);
   if (e.dayOfWeek === -1) {
-    return `(time() >= ${startSec} and time() < ${endSec})`;
+    lines.push(`  now_min >= ${startMin} and now_min < ${endMin}`);
+  } else {
+    // JS 0=Sun…6=Sat == Liquidsoap week_day 0=Sun…6=Sat
+    lines.push(`  t.week_day == ${e.dayOfWeek} and now_min >= ${startMin} and now_min < ${endMin}`);
   }
-  // JS: 0=Sun…6=Sat → Liquidsoap: 1=Mon…7=Sun
-  const liqDay = e.dayOfWeek === 0 ? 7 : e.dayOfWeek;
-  return `(weekday() == ${liqDay} and time() >= ${startSec} and time() < ${endSec})`;
+  return lines.join("\n");
 }
 
 export function generateLiqScript(cfg: LiqConfig): string {
@@ -161,6 +172,16 @@ export function generateLiqScript(cfg: LiqConfig): string {
 
   // ── Hard-cut time-based switch ────────────────────────────────────────────
   if (cfg.schedules.length > 0) {
+    lines.push(`# Time-condition functions for each schedule block`);
+    lines.push(`# Using def functions so time.local() can be called cleanly.`);
+    for (let i = 0; i < cfg.schedules.length; i++) {
+      const entry = cfg.schedules[i];
+      lines.push(`def sched_time_${i}() =`);
+      lines.push(buildTimeConditionBody(entry));
+      lines.push(`end`);
+      lines.push(``);
+    }
+
     lines.push(`# Hard-cut scheduler: switch(track_sensitive=false) fires at exact window time.`);
     lines.push(`# AutoDJ is cut immediately when a scheduled window opens.`);
     lines.push(`# When the scheduled source is exhausted (empty from API), the switch falls`);
@@ -170,7 +191,6 @@ export function generateLiqScript(cfg: LiqConfig): string {
     lines.push(`  [`);
     for (let i = 0; i < cfg.schedules.length; i++) {
       const entry = cfg.schedules[i];
-      const cond = buildTimeCondition(entry);
       let src: string;
       if (entry.sourceType === "RANDOM_ALL") {
         src = "autodj";
@@ -179,7 +199,7 @@ export function generateLiqScript(cfg: LiqConfig): string {
       } else {
         src = `sched_${i}_${cfg.stationId.replace(/-/g, "_")}`;
       }
-      lines.push(`    (${cond}, ${src}),  # ${entry.name}`);
+      lines.push(`    (sched_time_${i}, ${src}),  # ${entry.name}`);
     }
     lines.push(`    ({true}, autodj)`);
     lines.push(`  ]`);
