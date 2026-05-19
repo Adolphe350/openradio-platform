@@ -3,9 +3,9 @@
  * (status update, schedule change, playlist change, track add/remove).
  * Writes the .liq file + .m3u playlist files to the shared volume.
  *
- * The Liquidsoap script now uses request.dynamic to fetch the next track
- * from the app's API, which handles schedule priority at request time.
- * The .m3u files are kept as a static fallback if the API is unreachable.
+ * The Liquidsoap script uses a hard-cut time-based switch for scheduled blocks
+ * and the static all_tracks.m3u for AutoDJ. Schedule resolution at runtime is
+ * handled by /api/internal/sched-track/[stationId]/[blockId] per block.
  */
 
 import { writeFile, mkdir } from "fs/promises";
@@ -42,9 +42,9 @@ export async function generateStationConfig(stationId: string): Promise<void> {
 
   if (!station) return;
 
-  // Schedule entries are passed to the script generator for reference/comments
-  // but actual schedule resolution happens at runtime via the next-track API
+  // Build schedule entries — blockId is required by the new hard-cut .liq generator
   const schedules = station.schedules.map((s) => ({
+    blockId: s.id,
     name: s.name,
     dayOfWeek: s.dayOfWeek,
     startHour: s.startHour,
