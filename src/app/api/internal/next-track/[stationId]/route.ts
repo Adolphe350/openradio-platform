@@ -70,6 +70,16 @@ function markServedInWindow(stationId: string, block: BlockRef): void {
   _schedServedAt.set(windowKey(stationId, block), Date.now());
 }
 
+/**
+ * How many minutes past the window end we will still serve a single-source
+ * block that was never played during its window (catch-up for missed content).
+ *
+ * Scenario: ads scheduled for 10:50–10:52, but a song is playing and only
+ * ends at 10:53. Without catch-up the ads window has closed and the content
+ * is skipped entirely. With catch-up it plays at 10:53 as the next track.
+ */
+const CATCHUP_MINUTES = 10;
+
 // ---------------------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------------------
@@ -135,28 +145,67 @@ const SOURCE_PRIORITY: Record<string, number> = {
   RANDOM_ALL: 9,
 };
 
+/** Returns true for source types that play a single file (not a rotating list). */
+function isSingleSourceType(sourceType: string): boolean {
+  return sourceType === "TRACK" || sourceType === "PODCAST_EPISODE" || sourceType === "RECORDING";
+}
+
+/**
+ * Find the best schedule block for the given local time.
+ *
+ * Includes a catch-up window: if a single-source block's time window just
+ * closed (within CATCHUP_MINUTES) AND the block was never served during that
+ * window, it is still returned so the content plays at the next track
+ * boundary instead of being silently skipped.
+ *
+ * Example: ads at 10:50, song playing, song ends 10:53 → ads play at 10:53.
+ */
 function getActiveBlock(
   blocks: ScheduleBlockWithPlaylist[],
   { dow, nowMin }: LocalTime,
+  stationId: string,
 ): ScheduleBlockWithPlaylist | null {
-  const matching = blocks.filter((b) => {
+  type Candidate = { block: ScheduleBlockWithPlaylist; isCatchup: boolean; windowStartMs: number };
+  const candidates: Candidate[] = [];
+
+  for (const b of blocks) {
     const matchesDay = b.dayOfWeek === -1 || b.dayOfWeek === dow;
+    if (!matchesDay) continue;
+
     const startMin = b.startHour * 60 + b.startMin;
     const endMin = b.endHour * 60 + b.endMin;
-    return matchesDay && nowMin >= startMin && nowMin < endMin;
-  });
+    const minutesIntoWindow = nowMin - startMin;
+    const windowStartMs = Date.now() - Math.max(0, minutesIntoWindow) * 60 * 1000;
 
-  if (matching.length === 0) return null;
+    if (nowMin >= startMin && nowMin < endMin) {
+      // Block is actively in its time window
+      candidates.push({ block: b, isCatchup: false, windowStartMs });
+    } else if (
+      isSingleSourceType(b.sourceType) &&
+      nowMin >= endMin &&
+      nowMin < endMin + CATCHUP_MINUTES
+    ) {
+      // Block's window just closed but it's within the catch-up grace period.
+      // Only catch up if the content was never served in this window.
+      const approxWindowStartMs = Date.now() - (nowMin - startMin) * 60 * 1000;
+      if (!isAlreadyServedInWindow(stationId, b, approxWindowStartMs)) {
+        candidates.push({ block: b, isCatchup: true, windowStartMs: approxWindowStartMs });
+      }
+    }
+  }
 
-  // Sort: specific-day > every-day, then by source type priority
-  matching.sort((a, b) => {
-    const dayPriority = (x: typeof a) => (x.dayOfWeek === -1 ? 1 : 0);
+  if (candidates.length === 0) return null;
+
+  // Sort: active window > catchup, then specific-day > every-day, then source type priority
+  candidates.sort((a, b) => {
+    if (a.isCatchup !== b.isCatchup) return a.isCatchup ? 1 : -1;
+    const dayPriority = (x: Candidate) => (x.block.dayOfWeek === -1 ? 1 : 0);
     const dp = dayPriority(a) - dayPriority(b);
     if (dp !== 0) return dp;
-    return (SOURCE_PRIORITY[a.sourceType] ?? 9) - (SOURCE_PRIORITY[b.sourceType] ?? 9);
+    return (SOURCE_PRIORITY[a.block.sourceType] ?? 9) - (SOURCE_PRIORITY[b.block.sourceType] ?? 9);
   });
 
-  return matching[0];
+  return candidates[0].block;
 }
 
 // ---------------------------------------------------------------------------
@@ -271,18 +320,15 @@ export async function GET(req: NextRequest, { params }: Ctx) {
 
   // Fetch all active schedule blocks and find the best match for now
   const blocks = await fetchScheduleBlocks(stationId);
-  const activeBlock = getActiveBlock(blocks, localTime);
+  const activeBlock = getActiveBlock(blocks, localTime, stationId);
 
   let trackPath: string | null = null;
   let source = "autodj";
 
   if (activeBlock && activeBlock.sourceType !== "RANDOM_ALL" && activeBlock.sourceType !== "LIVE_SLOT") {
-    const isSingleSource =
-      activeBlock.sourceType === "TRACK" ||
-      activeBlock.sourceType === "PODCAST_EPISODE" ||
-      activeBlock.sourceType === "RECORDING";
+    const isSingle = isSingleSourceType(activeBlock.sourceType);
 
-    if (isSingleSource) {
+    if (isSingle) {
       // ── Single-source schedule block ──────────────────────────────────
       // Play exactly ONCE per window activation, then hand off to AutoDJ.
       // This prevents a short documentary/jingle from looping endlessly
