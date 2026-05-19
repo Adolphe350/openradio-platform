@@ -20,6 +20,8 @@ const envSchema = z.object({
   UPLOAD_DIR: z.string().default("/tmp/openradio-uploads"),
   MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(52428800),
   LIQ_CONFIG_DIR: z.string().default("/app/liquidsoap-configs"),
+  // Internal URL for Liquidsoap to reach the app (Docker network)
+  LIQ_INTERNAL_APP_URL: z.string().url().default("http://app:3000"),
   NGINX_GEO_DIR: z.string().default("/app/nginx-geo"),
   ICECAST_ACL_DIR: z.string().default("/app/icecast-acl"),
   // Email — all optional; if unset, reset links are logged to stdout

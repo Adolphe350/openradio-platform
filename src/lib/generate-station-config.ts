@@ -66,7 +66,7 @@ export async function generateStationConfig(stationId: string): Promise<void> {
     icecastPort: env.ICECAST_SOURCE_PORT,
     genre: station.genre ?? "Mixed",
     description: station.description ?? station.name,
-    appBaseUrl: env.APP_BASE_URL,
+    appBaseUrl: env.LIQ_INTERNAL_APP_URL,
     pollSecret: env.METRICS_POLL_SECRET,
     schedules,
     bitrate: 128,
