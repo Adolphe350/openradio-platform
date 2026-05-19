@@ -95,10 +95,11 @@ export function generateLiqScript(cfg: LiqConfig): string {
   lines.push(`next_track_url = "${liqEscape(cfg.appBaseUrl)}/api/internal/next-track/${cfg.stationId}?secret=${liqEscape(cfg.pollSecret)}"`);
   lines.push(``);
   lines.push(`def get_next_track() =`);
-  lines.push(`  result = process.read.lines("curl -sf '" ^ next_track_url ^ "'")`);
-  lines.push(`  uri = list.hd(default="", result)`);
+  lines.push(`  cmd = "curl --silent --show-error --fail --max-time 8 --retry 3 --retry-delay 1 --retry-all-errors '" ^ next_track_url ^ "'"`);
+  lines.push(`  result = process.read.lines(cmd)`);
+  lines.push(`  uri = string.trim(list.hd(default="", result))`);
   lines.push(`  if uri == "" then`);
-  lines.push(`    log("[scheduler] No track returned from API, falling back")`);
+  lines.push(`    log("[scheduler] No track returned from API after retries, falling back")`);
   lines.push(`    []`);
   lines.push(`  else`);
   lines.push(`    log("[scheduler] Next track: #{uri}")`);
