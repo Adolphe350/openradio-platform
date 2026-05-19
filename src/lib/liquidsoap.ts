@@ -71,7 +71,7 @@ export function generateLiqScript(cfg: LiqConfig): string {
   lines.push(`  artist  = m["artist"]`);
   lines.push(`  if title != "" then`);
   lines.push(`    body = '{"title":"' ^ string.escape(title) ^ '","artist":"' ^ string.escape(artist) ^ '"}'`);
-  lines.push(`    url  = "${liqEscape(cfg.appBaseUrl)}/api/stations/${cfg.stationId}/play-log"`);
+  lines.push(`    url  = "${liqEscape(cfg.appBaseUrl)}/api/internal/play-log/${cfg.stationId}"`);
   lines.push(`    ignore(http.post(url,`);
   lines.push(`      headers=[("Content-Type","application/json"),("x-poll-secret","${liqEscape(cfg.pollSecret)}")],`);
   lines.push(`      data=body))`);
