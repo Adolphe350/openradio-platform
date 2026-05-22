@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ScheduleSourceType } from "@prisma/client";
 import { getApiUser } from "@/lib/api-auth";
 import { db } from "@/lib/db";
+import { generateStationConfig } from "@/lib/generate-station-config";
 
 type Ctx = { params: Promise<{ stationId: string; scheduleId: string }> };
 
@@ -66,6 +67,11 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     include: { playlist: { select: { id: true, name: true } } },
   });
 
+  // Regenerate .liq config so start.sh restarts Liquidsoap within ~3s.
+  generateStationConfig(stationId).catch((err) =>
+    console.error("[schedule PUT] regen-config failed:", err)
+  );
+
   return NextResponse.json(updated);
 }
 
@@ -79,5 +85,10 @@ export async function DELETE(_req: NextRequest, { params }: Ctx) {
   }
 
   await db.scheduleBlock.deleteMany({ where: { id: scheduleId, stationId } });
+  // Regenerate .liq config so Liquidsoap drops the deleted block.
+  generateStationConfig(stationId).catch((err) =>
+    console.error("[schedule DELETE] regen-config failed:", err)
+  );
+
   return NextResponse.json({ ok: true });
 }

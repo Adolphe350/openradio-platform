@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ScheduleSourceType } from "@prisma/client";
 import { getApiUser } from "@/lib/api-auth";
 import { db } from "@/lib/db";
+import { generateStationConfig } from "@/lib/generate-station-config";
 
 type Ctx = { params: Promise<{ stationId: string }> };
 
@@ -67,5 +68,11 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     },
     include: { playlist: { select: { id: true, name: true } } },
   });
+  // Regenerate Liquidsoap config so the new block is picked up without redeploy.
+  // start.sh watches for .liq file changes and restarts Liquidsoap within ~3s.
+  generateStationConfig(stationId).catch((err) =>
+    console.error("[schedule POST] regen-config failed:", err)
+  );
+
   return NextResponse.json(schedule, { status: 201 });
 }
