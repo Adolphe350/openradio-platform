@@ -49,6 +49,7 @@ export type LiqConfig = {
   appBaseUrl: string;
   pollSecret: string;
   schedules: ScheduleEntry[];
+  timezone: string;
   bitrate?: number;
 };
 
@@ -57,28 +58,120 @@ function liqEscape(s: string): string {
 }
 
 /**
+ * Convert a station-local time (day + hour:min) to UTC equivalents.
+ * A single local window can span two UTC days (e.g. 23:00 local → 03:00 UTC next day).
+ * Returns one or two UTC ranges to cover that case.
+ */
+function localWindowToUtc(
+  dayOfWeek: number,
+  startHour: number,
+  startMin: number,
+  endHour: number,
+  endMin: number,
+  timezone: string,
+): { dayOfWeek: number; startMin: number; endMin: number }[] {
+  const offsetMin = getTimezoneOffsetMinutes(timezone);
+  let utcStart = startHour * 60 + startMin - offsetMin;
+  let utcEnd = endHour * 60 + endMin - offsetMin;
+
+  const results: { dayOfWeek: number; startMin: number; endMin: number }[] = [];
+
+  if (utcStart < 0) {
+    // Window start rolls back to previous day
+    const prevDay = dayOfWeek === -1 ? -1 : (dayOfWeek + 6) % 7;
+    if (utcEnd <= 0) {
+      // Entire window is on the previous day
+      results.push({ dayOfWeek: prevDay, startMin: utcStart + 1440, endMin: utcEnd + 1440 });
+    } else {
+      // Split: previous day tail + current day head
+      results.push({ dayOfWeek: prevDay, startMin: utcStart + 1440, endMin: 1440 });
+      const curDay = dayOfWeek;
+      results.push({ dayOfWeek: curDay, startMin: 0, endMin: utcEnd });
+    }
+  } else if (utcEnd > 1440) {
+    // Window end rolls into next day
+    const nextDay = dayOfWeek === -1 ? -1 : (dayOfWeek + 1) % 7;
+    if (utcStart >= 1440) {
+      // Entire window is on the next day
+      results.push({ dayOfWeek: nextDay, startMin: utcStart - 1440, endMin: utcEnd - 1440 });
+    } else {
+      // Split: current day tail + next day head
+      results.push({ dayOfWeek: dayOfWeek, startMin: utcStart, endMin: 1440 });
+      results.push({ dayOfWeek: nextDay, startMin: 0, endMin: utcEnd - 1440 });
+    }
+  } else {
+    results.push({ dayOfWeek, startMin: utcStart, endMin: utcEnd });
+  }
+
+  return results;
+}
+
+/**
+ * Get the UTC offset in minutes for a timezone (positive = ahead of UTC).
+ * Uses a reference date to get the current offset.
+ */
+function getTimezoneOffsetMinutes(timezone: string): number {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "shortOffset",
+  }).formatToParts(now);
+  const tzName = parts.find((p) => p.type === "timeZoneName")?.value ?? "GMT";
+  // Parse "GMT-5", "GMT+5:30", "GMT+0", "GMT"
+  const m = tzName.match(/GMT([+-]?)(\d+)(?::(\d+))?/);
+  if (!m) return 0;
+  const sign = m[1] === "-" ? -1 : 1;
+  const hours = parseInt(m[2], 10);
+  const mins = parseInt(m[3] || "0", 10);
+  return sign * (hours * 60 + mins);
+}
+
+/**
  * Build the Liquidsoap time condition for a schedule entry.
  *
- * Liquidsoap 2.3.x API:
- *   time.local() returns a value with methods:
- *     .hour (int), .min (int), .week_day (int: 0=Sun…6=Sat)
+ * All time conditions use time.utc() since the Liquidsoap container runs in UTC.
+ * Station-local times are converted to UTC at config generation time.
  *
- * Returns a string for a def function body (not a single expression),
- * because `let` bindings in switch condition lambdas need to be in a def.
- * See buildTimeConditionFn() which wraps this in a def for use in the switch.
+ * For API-backed blocks the sched-track API also validates timing with full
+ * timezone/DST awareness, so even slight drift from DST changes is safe.
  */
-function buildTimeConditionBody(e: ScheduleEntry): string {
-  const startMin = e.startHour * 60 + e.startMin;
-  const endMin = e.endHour * 60 + e.endMin;
-  const lines: string[] = [];
-  lines.push(`  t = time.local()`);
-  lines.push(`  now_min = t.hour * 60 + t.min`);
-  if (e.dayOfWeek === -1) {
-    lines.push(`  now_min >= ${startMin} and now_min < ${endMin}`);
-  } else {
-    // JS 0=Sun…6=Sat == Liquidsoap week_day 0=Sun…6=Sat
-    lines.push(`  t.week_day == ${e.dayOfWeek} and now_min >= ${startMin} and now_min < ${endMin}`);
+function buildTimeConditionBody(e: ScheduleEntry, timezone: string): string {
+  const utcRanges = localWindowToUtc(
+    e.dayOfWeek,
+    e.startHour,
+    e.startMin,
+    e.endHour,
+    e.endMin,
+    timezone,
+  );
+
+  if (utcRanges.length === 1) {
+    const r = utcRanges[0];
+    const lines: string[] = [];
+    lines.push(`  t = time.utc()`);
+    lines.push(`  now_min = t.hour * 60 + t.min`);
+    if (r.dayOfWeek === -1) {
+      lines.push(`  now_min >= ${r.startMin} and now_min < ${r.endMin}`);
+    } else {
+      lines.push(`  t.week_day == ${r.dayOfWeek} and now_min >= ${r.startMin} and now_min < ${r.endMin}`);
+    }
+    return lines.join("\n");
   }
+
+  // Two ranges (day boundary split)
+  const lines: string[] = [];
+  lines.push(`  t = time.utc()`);
+  lines.push(`  now_min = t.hour * 60 + t.min`);
+  const conds = utcRanges.map((r) => {
+    if (r.dayOfWeek === -1) {
+      return `(now_min >= ${r.startMin} and now_min < ${r.endMin})`;
+    }
+    return `(t.week_day == ${r.dayOfWeek} and now_min >= ${r.startMin} and now_min < ${r.endMin})`;
+  });
+  lines.push(`  ${conds.join(" or ")}`);
   return lines.join("\n");
 }
 
@@ -173,11 +266,11 @@ export function generateLiqScript(cfg: LiqConfig): string {
   // ── Hard-cut time-based switch ────────────────────────────────────────────
   if (cfg.schedules.length > 0) {
     lines.push(`# Time-condition functions for each schedule block`);
-    lines.push(`# Using def functions so time.local() can be called cleanly.`);
+    lines.push(`# All times are UTC (converted from station timezone at config generation).`);
     for (let i = 0; i < cfg.schedules.length; i++) {
       const entry = cfg.schedules[i];
       lines.push(`def sched_time_${i}() =`);
-      lines.push(buildTimeConditionBody(entry));
+      lines.push(buildTimeConditionBody(entry, cfg.timezone));
       lines.push(`end`);
       lines.push(``);
     }

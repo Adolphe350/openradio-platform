@@ -69,6 +69,7 @@ export async function generateStationConfig(stationId: string): Promise<void> {
     appBaseUrl: env.LIQ_INTERNAL_APP_URL,
     pollSecret: env.METRICS_POLL_SECRET,
     schedules,
+    timezone: station.timezone ?? "UTC",
     bitrate: 128,
   };
 
