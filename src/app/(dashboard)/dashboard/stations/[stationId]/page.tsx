@@ -262,20 +262,7 @@ export default async function StationDetailPage({ params, searchParams }: Props)
             <Link
               key={item.href}
               href={item.href}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.3rem",
-                padding: "0.3rem 0.6rem",
-                borderRadius: "6px",
-                fontSize: "0.78rem",
-                color: "var(--text-muted)",
-                textDecoration: "none",
-                whiteSpace: "nowrap",
-                transition: "background 0.15s, color 0.15s",
-              }}
-              onMouseOver={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = "var(--bg-hover)"; (e.currentTarget as HTMLAnchorElement).style.color = "var(--text)"; }}
-              onMouseOut={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; (e.currentTarget as HTMLAnchorElement).style.color = "var(--text-muted)"; }}
+              className="station-topbar-link"
             >
               <span style={{ fontSize: "0.85rem" }}>{item.icon}</span>
               {item.label}
