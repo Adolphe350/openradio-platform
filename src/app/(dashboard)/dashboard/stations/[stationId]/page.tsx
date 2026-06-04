@@ -222,14 +222,66 @@ export default async function StationDetailPage({ params, searchParams }: Props)
       {/* ── Main Content ─────────────────────────────────────────── */}
       <main className="station-main">
 
-      {/* Breadcrumb nav back to dashboard */}
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.5rem", fontSize: "0.82rem", color: "var(--text-muted)" }}>
-        <Link href="/dashboard" style={{ color: "var(--text-muted)", textDecoration: "none", display: "flex", alignItems: "center", gap: "0.3rem" }}>
-          <span>←</span>
-          <span>All Stations</span>
-        </Link>
-        <span style={{ color: "var(--text-dim)" }}>/</span>
-        <span style={{ color: "var(--text)", fontWeight: 600 }}>{station.name}</span>
+      {/* Top header: breadcrumb + global nav links */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "0",
+        marginBottom: "1.75rem",
+        background: "var(--bg-surface)",
+        border: "1px solid var(--border)",
+        borderRadius: "10px",
+        padding: "0 1rem",
+        height: "44px",
+        overflow: "hidden",
+      }}>
+        {/* Breadcrumb */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.82rem", flexShrink: 0 }}>
+          <Link href="/dashboard" style={{ color: "var(--text-muted)", textDecoration: "none", display: "flex", alignItems: "center", gap: "0.25rem" }}>
+            <span>←</span>
+            <span>All Stations</span>
+          </Link>
+          <span style={{ color: "var(--text-dim)" }}>/</span>
+          <span style={{ color: "var(--text)", fontWeight: 600 }}>{station.name}</span>
+        </div>
+
+        {/* Divider */}
+        <div style={{ width: "1px", height: "20px", background: "var(--border)", margin: "0 1rem", flexShrink: 0 }} />
+
+        {/* Global nav links */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.15rem", overflowX: "auto", flex: 1 }}>
+          {[
+            { href: "/dashboard",              icon: "🏠", label: "Home" },
+            { href: "/dashboard/stations/new", icon: "➕", label: "Create Station" },
+            { href: "/dashboard/music",        icon: "🎵", label: "Upload Music" },
+            { href: "/dashboard/podcasts",     icon: "🎙️", label: "Podcasts" },
+            { href: "/dashboard/analytics",    icon: "📈", label: "Analytics" },
+            { href: "/dashboard/settings",     icon: "⚙️", label: "Settings" },
+            { href: "/dashboard/settings/billing", icon: "💳", label: "Billing" },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.3rem",
+                padding: "0.3rem 0.6rem",
+                borderRadius: "6px",
+                fontSize: "0.78rem",
+                color: "var(--text-muted)",
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+                transition: "background 0.15s, color 0.15s",
+              }}
+              onMouseOver={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = "var(--bg-hover)"; (e.currentTarget as HTMLAnchorElement).style.color = "var(--text)"; }}
+              onMouseOut={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; (e.currentTarget as HTMLAnchorElement).style.color = "var(--text-muted)"; }}
+            >
+              <span style={{ fontSize: "0.85rem" }}>{item.icon}</span>
+              {item.label}
+            </Link>
+          ))}
+        </div>
       </div>
 
       {error && <div className="alert alert-error" style={{ margin: "0 0 1rem" }}>{decodeURIComponent(error)}</div>}
