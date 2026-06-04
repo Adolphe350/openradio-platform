@@ -10,6 +10,7 @@ const navSections = [
     links: [
       { href: "/dashboard", icon: "🏠", label: "Home" },
       { href: "/dashboard/stations/new", icon: "➕", label: "Create Station" },
+      { href: "/dashboard", icon: "📻", label: "Manage Stations" },
     ],
   },
   {
