@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth";
 import { metricSourceLabel, resolveStationMetric } from "@/lib/analytics";
 import { db } from "@/lib/db";
 import { getPublicHlsStreamUrl, getPublicMp3StreamUrl, getPublicStreamUrl, getSourceEndpoint } from "@/lib/stream";
+import { STATION_TIMEZONES, stationTimezoneLabel } from "@/lib/timezones";
 import { formatDuration } from "@/lib/utils";
 
 import {
@@ -832,6 +833,13 @@ export default async function StationDetailPage({ params, searchParams }: Props)
               <div className="field">
                 <label>Country</label>
                 <input name="country" defaultValue={station.country ?? ""} placeholder="e.g. United States" />
+              </div>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label>Station timezone</label>
+                <select name="timezone" defaultValue={station.timezone || "UTC"}>
+                  {STATION_TIMEZONES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+                <span className="hint">Scheduler times are station-local. Current station time basis: {stationTimezoneLabel(station.timezone)}.</span>
               </div>
               <div className="field" style={{ gridColumn: "1 / -1" }}>
                 <label>Description</label>

@@ -11,6 +11,7 @@ import { db } from "@/lib/db";
 import { normalizeMountPath } from "@/lib/stream";
 import { slugify } from "@/lib/slug";
 import { generateStationConfig } from "@/lib/generate-station-config";
+import { normalizeStationTimeZone } from "@/lib/timezones";
 
 function valueAsString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -86,7 +87,11 @@ export async function createStationAction(formData: FormData) {
   const description = valueAsString(formData, "description") || null;
   const genre = valueAsString(formData, "genre") || null;
   const language = valueAsString(formData, "language") || "English";
-  const timezone = valueAsString(formData, "timezone") || "UTC";
+  const timezoneInput = valueAsString(formData, "timezone");
+  if (!timezoneInput) {
+    redirect("/dashboard/stations/new?error=Station%20timezone%20is%20required");
+  }
+  const timezone = normalizeStationTimeZone(timezoneInput);
   const country = valueAsString(formData, "country") || null;
   const mountPathRaw = valueAsString(formData, "mountPath");
 
@@ -135,6 +140,9 @@ export async function updateStationMetadataAction(formData: FormData) {
   const language = valueAsString(formData, "language") || "English";
   const country = valueAsString(formData, "country") || null;
   const streamDescription = valueAsString(formData, "streamDescription") || null;
+  const timezone = formData.has("timezone")
+    ? normalizeStationTimeZone(valueAsString(formData, "timezone"))
+    : undefined;
   const logoUrl = valueAsString(formData, "logoUrl") || null;
   const websiteUrl = valueAsString(formData, "websiteUrl") || null;
   const facebookUrl = valueAsString(formData, "facebookUrl") || null;
@@ -149,6 +157,7 @@ export async function updateStationMetadataAction(formData: FormData) {
       genre,
       language,
       country,
+      timezone,
       streamDescription,
       logoUrl,
       websiteUrl,

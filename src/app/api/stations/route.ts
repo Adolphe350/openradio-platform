@@ -6,6 +6,7 @@ import { requireApiUser } from "@/lib/api-auth";
 import { db } from "@/lib/db";
 import { normalizeMountPath } from "@/lib/stream";
 import { slugify } from "@/lib/slug";
+import { normalizeStationTimeZone } from "@/lib/timezones";
 
 async function resolveUniqueSlug(name: string) {
   const base = slugify(name) || "station";
@@ -85,7 +86,7 @@ export async function POST(request: Request) {
       description: typeof body.description === "string" ? body.description.trim() || null : null,
       genre: typeof body.genre === "string" ? body.genre.trim() || null : null,
       language: typeof body.language === "string" ? body.language.trim() || "English" : "English",
-      timezone: typeof body.timezone === "string" ? body.timezone.trim() || "UTC" : "UTC",
+      timezone: normalizeStationTimeZone(typeof body.timezone === "string" ? body.timezone : undefined, "Africa/Kigali"),
       country: typeof body.country === "string" ? body.country.trim() || null : null,
       mountPath:
         typeof body.mountPath === "string" && body.mountPath.trim().length > 0

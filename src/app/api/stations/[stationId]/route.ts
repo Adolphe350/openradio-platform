@@ -3,7 +3,9 @@ import { StationStatus } from "@prisma/client";
 
 import { requireApiUser } from "@/lib/api-auth";
 import { db } from "@/lib/db";
+import { generateStationConfig } from "@/lib/generate-station-config";
 import { normalizeMountPath } from "@/lib/stream";
+import { normalizeStationTimeZone } from "@/lib/timezones";
 
 export async function GET(
   _request: Request,
@@ -67,7 +69,7 @@ export async function PATCH(
       description: typeof body.description === "string" ? body.description.trim() || null : undefined,
       genre: typeof body.genre === "string" ? body.genre.trim() || null : undefined,
       language: typeof body.language === "string" ? body.language.trim() || undefined : undefined,
-      timezone: typeof body.timezone === "string" ? body.timezone.trim() || undefined : undefined,
+      timezone: typeof body.timezone === "string" ? normalizeStationTimeZone(body.timezone, existing.timezone) : undefined,
       country: typeof body.country === "string" ? body.country.trim() || null : undefined,
       streamDescription:
         typeof body.streamDescription === "string" ? body.streamDescription.trim() || null : undefined,
@@ -78,6 +80,10 @@ export async function PATCH(
       status
     }
   });
+
+  if (typeof body.timezone === "string" || typeof body.mountPath === "string" || status) {
+    await generateStationConfig(stationId).catch(() => {});
+  }
 
   return NextResponse.json({ station });
 }

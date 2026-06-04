@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { stationTimezoneLabel } from "@/lib/timezones";
 import { SchedulerGrid } from "./scheduler-grid";
 
 type Props = {
@@ -138,6 +139,9 @@ export default async function SchedulerPage({ params }: Props) {
           <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", margin: "0.3rem 0 0" }}>
             Plan your weekly programming. When no block is active, AutoDJ plays all tracks randomly.
           </p>
+          <div className="alert alert-info" style={{ marginTop: "0.85rem", fontSize: "0.875rem" }}>
+            Schedule times use this station’s timezone: <strong>{stationTimezoneLabel(station.timezone)}</strong>. A program set for 18:22 plays at 18:22 for that station’s audience, no matter where the server or admin is located.
+          </div>
         </div>
 
         <SchedulerGrid

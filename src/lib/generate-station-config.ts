@@ -13,6 +13,7 @@ import path from "path";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { generateLiqScript, type LiqConfig } from "@/lib/liquidsoap";
+import { normalizeStationTimeZone } from "@/lib/timezones";
 
 const LIQ_CONFIG_DIR = env.LIQ_CONFIG_DIR;
 
@@ -69,7 +70,7 @@ export async function generateStationConfig(stationId: string): Promise<void> {
     appBaseUrl: env.LIQ_INTERNAL_APP_URL,
     pollSecret: env.METRICS_POLL_SECRET,
     schedules,
-    timezone: station.timezone ?? "UTC",
+    timezone: normalizeStationTimeZone(station.timezone),
     bitrate: 128,
   };
 

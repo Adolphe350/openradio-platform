@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { STATION_TIMEZONES } from "@/lib/timezones";
 import { createStationAction } from "../../actions";
 
 type Props = { searchParams: Promise<{ error?: string }> };
@@ -7,7 +8,6 @@ export const metadata = { title: "Create Station – OpenRadio" };
 
 const GENRES = ["Music","News","Talk","Sports","Religious","Hip-Hop","Pop","Rock","Electronic","Jazz","Classical","R&B","Country","Reggae","Latin","Comedy","Education","Kids"];
 const LANGUAGES = ["English","Spanish","Portuguese","French","Arabic","Hindi","German","Italian","Russian","Japanese","Korean","Dutch","Polish","Turkish","Swedish"];
-const TIMEZONES = ["UTC","Africa/Kigali","Africa/Nairobi","Africa/Johannesburg","Africa/Lagos","America/New_York","America/Chicago","America/Denver","America/Los_Angeles","America/Sao_Paulo","Europe/London","Europe/Paris","Europe/Berlin","Asia/Dubai","Asia/Kolkata","Asia/Tokyo","Australia/Sydney"];
 
 export default async function NewStationPage({ searchParams }: Props) {
   const { error } = await searchParams;
@@ -52,10 +52,12 @@ export default async function NewStationPage({ searchParams }: Props) {
               <input id="country" name="country" placeholder="e.g. United States" maxLength={80} />
             </div>
             <div className="field">
-              <label htmlFor="timezone">Timezone *</label>
-              <select id="timezone" name="timezone" defaultValue="UTC">
-                {TIMEZONES.map((t) => <option key={t} value={t}>{t}</option>)}
+              <label htmlFor="timezone">Station timezone *</label>
+              <select id="timezone" name="timezone" defaultValue="" required>
+                <option value="" disabled>Select the station’s timezone…</option>
+                {STATION_TIMEZONES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
+              <span className="hint">All programs run in this station timezone, regardless of where the manager or server is located.</span>
             </div>
           </div>
           <div className="field">
