@@ -141,7 +141,6 @@ export default async function StationDetailPage({ params, searchParams }: Props)
     { id: "tracks",    icon: "🎶", label: "Track Library" },
     { id: "widget",    icon: "🔗", label: "Share & Embed" },
     { id: "ctl",       icon: "🌐", label: "Advanced" },
-    { id: "settings",  icon: "⚙️", label: "Settings" },
   ];
 
   const gradH1 = (station.id.charCodeAt(0) * 47 + station.id.charCodeAt(1) * 31) % 360;
@@ -179,9 +178,9 @@ export default async function StationDetailPage({ params, searchParams }: Props)
             {item.label}
           </Link>
         ))}
-      </nav>
 
-      <div className="station-sidebar-footer">
+        <div style={{ height: "1px", background: "var(--border)", margin: "0.5rem 0.25rem" }} />
+
         <Link href={`/dashboard/stations/${stationId}/scheduler`} className="station-sidebar-link">
           <span className="station-sidebar-icon">📅</span>
           Show Scheduler
@@ -194,7 +193,19 @@ export default async function StationDetailPage({ params, searchParams }: Props)
           <span className="station-sidebar-icon">📊</span>
           Royalties Report
         </Link>
-      </div>
+
+        <div style={{ height: "1px", background: "var(--border)", margin: "0.5rem 0.25rem" }} />
+
+        <Link
+          href={`/dashboard/stations/${stationId}?tab=settings`}
+          className={`station-sidebar-link${tab === "settings" ? " active" : ""}`}
+        >
+          <span className="station-sidebar-icon">⚙️</span>
+          Settings
+        </Link>
+      </nav>
+
+      <div className="station-sidebar-footer" />
     </>
   );
 
@@ -210,6 +221,16 @@ export default async function StationDetailPage({ params, searchParams }: Props)
 
       {/* ── Main Content ─────────────────────────────────────────── */}
       <main className="station-main">
+
+      {/* Breadcrumb nav back to dashboard */}
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.5rem", fontSize: "0.82rem", color: "var(--text-muted)" }}>
+        <Link href="/dashboard" style={{ color: "var(--text-muted)", textDecoration: "none", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+          <span>←</span>
+          <span>All Stations</span>
+        </Link>
+        <span style={{ color: "var(--text-dim)" }}>/</span>
+        <span style={{ color: "var(--text)", fontWeight: 600 }}>{station.name}</span>
+      </div>
 
       {error && <div className="alert alert-error" style={{ margin: "0 0 1rem" }}>{decodeURIComponent(error)}</div>}
 
