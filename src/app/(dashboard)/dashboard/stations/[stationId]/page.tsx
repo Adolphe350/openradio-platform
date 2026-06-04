@@ -136,12 +136,12 @@ export default async function StationDetailPage({ params, searchParams }: Props)
   const activeRecording = station.recordings.find((r) => r.status === "recording");
 
   const navItems = [
-    { id: "overview",  icon: "○", label: station.name },
-    { id: "autodj",    icon: "▶", label: "Auto DJ" },
-    { id: "tracks",    icon: "♪", label: "Tracks" },
-    { id: "widget",    icon: "◈", label: "Widget" },
-    { id: "ctl",       icon: "◎", label: "Control" },
-    { id: "settings",  icon: "⚙", label: "Settings" },
+    { id: "overview",  icon: "🎙️", label: "On Air" },
+    { id: "autodj",    icon: "🎵", label: "Music & Playlists" },
+    { id: "tracks",    icon: "🎶", label: "Track Library" },
+    { id: "widget",    icon: "🔗", label: "Share & Embed" },
+    { id: "ctl",       icon: "🌐", label: "Advanced" },
+    { id: "settings",  icon: "⚙️", label: "Settings" },
   ];
 
   const gradH1 = (station.id.charCodeAt(0) * 47 + station.id.charCodeAt(1) * 31) % 360;
@@ -150,6 +150,11 @@ export default async function StationDetailPage({ params, searchParams }: Props)
 
   const stationSidebar = (
     <>
+      <Link href="/dashboard" className="station-sidebar-brand">
+        <div className="station-sidebar-brand-icon">OR</div>
+        <span className="station-sidebar-brand-text">openradio</span>
+      </Link>
+
       <div className="station-sidebar-header">
         <div style={{ width: 36, height: 36, borderRadius: 8, background: station.logoUrl ? undefined : grad, overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem" }}>
           {station.logoUrl
@@ -179,19 +184,15 @@ export default async function StationDetailPage({ params, searchParams }: Props)
       <div className="station-sidebar-footer">
         <Link href={`/dashboard/stations/${stationId}/scheduler`} className="station-sidebar-link">
           <span className="station-sidebar-icon">📅</span>
-          Scheduler
-        </Link>
-        <Link href="/dashboard" className="station-sidebar-link">
-          <span className="station-sidebar-icon">←</span>
-          Back to Dashboard
+          Show Scheduler
         </Link>
         <Link href={`/stations/${station.slug}`} className="station-sidebar-link">
           <span className="station-sidebar-icon">🌐</span>
-          Public Page
+          View Public Page
         </Link>
         <Link href={`/dashboard/stations/${stationId}/royalties`} className="station-sidebar-link">
           <span className="station-sidebar-icon">📊</span>
-          Royalties
+          Royalties Report
         </Link>
       </div>
     </>

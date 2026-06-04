@@ -178,17 +178,19 @@ export default async function DashboardPage() {
 
   return (
     <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
-      <div style={{ marginBottom: "40px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+      <div style={{ marginBottom: "40px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px", flexWrap: "wrap" }}>
         <div>
           <h1 style={{ fontSize: "32px", fontWeight: "700", color: "var(--text)", marginBottom: "8px", letterSpacing: "-0.02em" }}>
-            Welcome back, {user.name.split(" ")[0]}
+            Hey {user.name.split(" ")[0]} 👋
           </h1>
           <p style={{ color: "var(--text-muted)", fontSize: "16px" }}>
-            Your stations overview with your stations today
+            {stations.length === 0
+              ? "Ready to launch your radio station? It only takes a minute."
+              : `You have ${totalStations} station${totalStations !== 1 ? "s" : ""} · ${currentListeners} listener${currentListeners !== 1 ? "s" : ""} right now`}
           </p>
         </div>
-        <Link href="/dashboard/stations/new" className="btn btn-primary">
-          New Station
+        <Link href="/dashboard/stations/new" className="btn btn-primary" style={{ whiteSpace: "nowrap" }}>
+          + Create Station
         </Link>
       </div>
 
@@ -237,13 +239,20 @@ export default async function DashboardPage() {
       </div>
 
       <div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-          <h2 style={{ fontSize: "24px", fontWeight: "700", color: "var(--text)", letterSpacing: "-0.01em" }}>
-            Your Stations
-          </h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "20px" }}>
+          <div>
+            <h2 style={{ fontSize: "24px", fontWeight: "700", color: "var(--text)", letterSpacing: "-0.01em", marginBottom: "4px" }}>
+              Your Stations
+            </h2>
+            {stations.length > 0 && (
+              <p style={{ fontSize: "14px", color: "var(--text-muted)" }}>
+                Click a station to manage it, upload music, schedule shows, or go live.
+              </p>
+            )}
+          </div>
           {stations.length > 0 && (
-            <Link href="/dashboard/stations" style={{ color: "var(--brand)", fontSize: "14px", fontWeight: "600", textDecoration: "none" }}>
-              View All
+            <Link href="/dashboard/stations/new" style={{ color: "var(--brand)", fontSize: "14px", fontWeight: "600", textDecoration: "none", whiteSpace: "nowrap" }}>
+              + Add another
             </Link>
           )}
         </div>
@@ -257,35 +266,32 @@ export default async function DashboardPage() {
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              gap: "16px",
+              gap: "24px",
             }}
           >
-            <div
-              style={{
-                width: "80px",
-                height: "80px",
-                borderRadius: "50%",
-                background: "var(--bg-elevated)",
-                border: "2px dashed var(--border)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "32px",
-                color: "var(--text-dim)",
-              }}
-            >
-              ○
-            </div>
+            <div style={{ fontSize: "64px" }}>📻</div>
             <div>
-              <h3 style={{ fontSize: "20px", fontWeight: "600", color: "var(--text)", marginBottom: "8px" }}>
-                No stations yet
+              <h3 style={{ fontSize: "22px", fontWeight: "700", color: "var(--text)", marginBottom: "10px" }}>
+                Create your first radio station
               </h3>
-              <p style={{ color: "var(--text-muted)", fontSize: "15px", marginBottom: "24px", maxWidth: "400px" }}>
-                Create your first radio station to start broadcasting. It only takes a minute to get started.
+              <p style={{ color: "var(--text-muted)", fontSize: "15px", marginBottom: "28px", maxWidth: "420px", lineHeight: "1.6" }}>
+                Set up a station in minutes. Upload your music, schedule shows, and go live — all in one place.
               </p>
-              <Link href="/dashboard/stations/new" className="btn btn-primary">
+              <Link href="/dashboard/stations/new" className="btn btn-primary" style={{ fontSize: "16px", padding: "12px 28px" }}>
                 Create Your First Station
               </Link>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px", maxWidth: "500px", width: "100%", marginTop: "8px" }}>
+              {[
+                { icon: "🎵", text: "Upload music & create playlists" },
+                { icon: "📅", text: "Schedule shows by day & time" },
+                { icon: "🎙️", text: "Go live from any encoder" },
+              ].map((step) => (
+                <div key={step.text} style={{ padding: "16px 12px", background: "var(--bg-elevated)", borderRadius: "10px", fontSize: "13px", color: "var(--text-muted)", lineHeight: "1.5" }}>
+                  <div style={{ fontSize: "22px", marginBottom: "8px" }}>{step.icon}</div>
+                  {step.text}
+                </div>
+              ))}
             </div>
           </div>
         ) : (
@@ -359,21 +365,37 @@ export default async function DashboardPage() {
                       </div>
                     </div>
 
-                    <div style={{ display: "flex", gap: "8px", marginTop: "auto", paddingTop: "8px" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "auto", paddingTop: "8px" }}>
                       <Link
                         href={`/dashboard/stations/${station.id}`}
-                        className="btn btn-secondary"
-                        style={{ flex: 1 }}
+                        className="btn btn-primary"
+                        style={{ textAlign: "center" }}
                       >
-                        Manage
+                        Manage Station
                       </Link>
-                      <Link
-                        href={`/stations/${station.slug}`}
-                        className="btn btn-secondary"
-                        style={{ flex: 1 }}
-                      >
-                        Public Page
-                      </Link>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "6px" }}>
+                        <Link
+                          href={`/dashboard/stations/${station.id}?tab=autodj`}
+                          className="btn btn-secondary"
+                          style={{ fontSize: "12px", padding: "6px 8px", textAlign: "center" }}
+                        >
+                          🎵 Music
+                        </Link>
+                        <Link
+                          href={`/dashboard/stations/${station.id}/scheduler`}
+                          className="btn btn-secondary"
+                          style={{ fontSize: "12px", padding: "6px 8px", textAlign: "center" }}
+                        >
+                          📅 Schedule
+                        </Link>
+                        <Link
+                          href={`/dashboard/stations/${station.id}?tab=overview`}
+                          className="btn btn-secondary"
+                          style={{ fontSize: "12px", padding: "6px 8px", textAlign: "center" }}
+                        >
+                          🎙️ Go Live
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -3270,53 +3270,48 @@ code,
   }
 }
 
-/* Collapse the global dashboard menu while managing a specific radio station.
-   The station sidebar stays expanded, so radio controls are no longer hidden by a double-wide menu. */
-.dashboard-shell-collapsed,
-.dashboard-shell:has(.station-detail-layout) {
-  grid-template-columns: 72px 1fr;
-}
-
+/* On station detail pages, hide the global sidebar entirely.
+   The station sidebar becomes the sole navigation for that context. */
 .dashboard-shell-collapsed .dashboard-sidebar-desktop,
 .dashboard-shell:has(.station-detail-layout) .dashboard-sidebar-desktop {
-  padding-inline: 0.5rem;
-  align-items: center;
-}
-
-.dashboard-shell-collapsed .sidebar-logo,
-.dashboard-shell:has(.station-detail-layout) .sidebar-logo,
-.dashboard-shell-collapsed .sidebar-link,
-.dashboard-shell:has(.station-detail-layout) .sidebar-link {
-  justify-content: center;
-  gap: 0;
-  padding-inline: 0.55rem;
-  font-size: 0;
-}
-
-.dashboard-shell-collapsed .sidebar-logo-text,
-.dashboard-shell:has(.station-detail-layout) .sidebar-logo-text,
-.dashboard-shell-collapsed .sidebar-section-label,
-.dashboard-shell:has(.station-detail-layout) .sidebar-section-label,
-.dashboard-shell-collapsed .sidebar-user > div:not(.sidebar-avatar),
-.dashboard-shell:has(.station-detail-layout) .sidebar-user > div:not(.sidebar-avatar) {
   display: none;
 }
 
-.dashboard-shell-collapsed .sidebar-link span,
-.dashboard-shell:has(.station-detail-layout) .sidebar-link span {
-  font-size: 0.95rem !important;
-  width: auto !important;
+.dashboard-shell-collapsed,
+.dashboard-shell:has(.station-detail-layout) {
+  grid-template-columns: 1fr;
 }
 
-.dashboard-shell-collapsed .sidebar-user,
-.dashboard-shell:has(.station-detail-layout) .sidebar-user {
+/* Station sidebar brand header — anchors user to the app */
+.station-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.25rem 1rem;
+  margin-bottom: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+.station-sidebar-brand-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: var(--brand);
+  color: #000;
+  font-size: 0.75rem;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
   justify-content: center;
-  padding-inline: 0;
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
 }
 
-@media (max-width: 900px) {
-  .dashboard-shell-collapsed,
-  .dashboard-shell:has(.station-detail-layout) {
-    grid-template-columns: 1fr;
-  }
+.station-sidebar-brand-text {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
 }

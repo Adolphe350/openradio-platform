@@ -6,33 +6,25 @@ type Props = { userName: string; isSuperAdmin?: boolean; collapseMainMenu?: bool
 
 const navSections = [
   {
-    label: "Main",
+    label: "My Radio",
     links: [
-      { href: "/dashboard", icon: "○", label: "Overview" },
-      { href: "/dashboard/stations/new", icon: "+", label: "New Station" },
-      { href: "/dashboard/music", icon: "♪", label: "Music Library" },
-      { href: "/dashboard/analytics", icon: "┃", label: "Analytics" },
+      { href: "/dashboard", icon: "🏠", label: "Home" },
+      { href: "/dashboard/stations/new", icon: "➕", label: "Create Station" },
     ],
   },
   {
     label: "Content",
     links: [
-      { href: "/dashboard/podcasts", icon: "◉", label: "Podcasts" },
-      { href: "/dashboard/studio", icon: "∿", label: "Studio" },
+      { href: "/dashboard/music", icon: "🎵", label: "Upload Music" },
+      { href: "/dashboard/podcasts", icon: "🎙️", label: "Podcasts" },
+      { href: "/dashboard/analytics", icon: "📈", label: "Analytics" },
     ],
   },
   {
-    label: "Browse",
+    label: "Account",
     links: [
-      { href: "/explore", icon: "◎", label: "Explore" },
-      { href: "/pricing", icon: "☆", label: "Pricing" },
-    ],
-  },
-  {
-    label: "Settings",
-    links: [
-      { href: "/dashboard/settings", icon: "⚙", label: "Settings" },
-      { href: "/dashboard/settings/billing", icon: "▣", label: "Billing" },
+      { href: "/dashboard/settings", icon: "⚙️", label: "Settings" },
+      { href: "/dashboard/settings/billing", icon: "💳", label: "Billing" },
     ],
   },
 ];
