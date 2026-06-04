@@ -32,10 +32,12 @@ export async function GET(req: NextRequest, { params }: Ctx) {
       include: { playlist: { select: { id: true, name: true } } },
     }),
     now,
+    station.timezone || "UTC",
   );
 
   return NextResponse.json({
     resolvedAt: now.toISOString(),
+    timezone: station.timezone || "UTC",
     active,
     fallback: active.length === 0,
   });
@@ -62,9 +64,9 @@ function resolveActiveBlocks(
     playlist: { id: string; name: string } | null;
   }>,
   now: Date,
+  timezone: string,
 ) {
-  const dow = now.getDay(); // 0=Sun ... 6=Sat
-  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const { dow, nowMin } = getLocalTime(now, timezone);
 
   return blocks.filter((b) => {
     const matchesDay = b.dayOfWeek === -1 || b.dayOfWeek === dow;
@@ -73,4 +75,21 @@ function resolveActiveBlocks(
     const inWindow = nowMin >= startMin && nowMin < endMin;
     return matchesDay && inWindow;
   });
+}
+
+/** Resolve local day/time in the station's timezone. */
+function getLocalTime(now: Date, timezone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    weekday: "short",
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(now);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  const dow = ({ Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 } as Record<string, number>)[get("weekday")] ?? 0;
+  let hour = Number(get("hour"));
+  if (hour === 24) hour = 0;
+  const minute = Number(get("minute"));
+  return { dow, nowMin: hour * 60 + minute };
 }

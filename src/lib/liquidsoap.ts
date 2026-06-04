@@ -108,7 +108,8 @@ function localWindowToUtc(
 
 /**
  * Get the UTC offset in minutes for a timezone (positive = ahead of UTC).
- * Uses a reference date to get the current offset.
+ * Uses the current offset. API-backed scheduled sources also validate the
+ * station-local window on every request, so DST changes are corrected there.
  */
 function getTimezoneOffsetMinutes(timezone: string): number {
   const now = new Date();

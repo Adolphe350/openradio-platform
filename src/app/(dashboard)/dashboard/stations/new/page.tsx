@@ -7,7 +7,7 @@ export const metadata = { title: "Create Station – OpenRadio" };
 
 const GENRES = ["Music","News","Talk","Sports","Religious","Hip-Hop","Pop","Rock","Electronic","Jazz","Classical","R&B","Country","Reggae","Latin","Comedy","Education","Kids"];
 const LANGUAGES = ["English","Spanish","Portuguese","French","Arabic","Hindi","German","Italian","Russian","Japanese","Korean","Dutch","Polish","Turkish","Swedish"];
-const TIMEZONES = ["UTC","America/New_York","America/Chicago","America/Denver","America/Los_Angeles","America/Sao_Paulo","Europe/London","Europe/Paris","Europe/Berlin","Africa/Nairobi","Asia/Dubai","Asia/Kolkata","Asia/Tokyo","Australia/Sydney"];
+const TIMEZONES = ["UTC","Africa/Kigali","Africa/Nairobi","Africa/Johannesburg","Africa/Lagos","America/New_York","America/Chicago","America/Denver","America/Los_Angeles","America/Sao_Paulo","Europe/London","Europe/Paris","Europe/Berlin","Asia/Dubai","Asia/Kolkata","Asia/Tokyo","Australia/Sydney"];
 
 export default async function NewStationPage({ searchParams }: Props) {
   const { error } = await searchParams;

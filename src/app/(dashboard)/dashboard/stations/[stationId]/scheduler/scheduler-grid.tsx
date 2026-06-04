@@ -65,6 +65,7 @@ type Episode = {
 
 type Props = {
   stationId: string;
+  stationTimezone: string;
   schedules: ScheduleBlock[];
   playlists: Playlist[];
   tracks: Track[];
@@ -1064,6 +1065,7 @@ function layoutDayBlocks(blocks: ScheduleBlock[]): PositionedBlock[] {
 
 export function SchedulerGrid({
   stationId,
+  stationTimezone,
   schedules,
   playlists,
   tracks,
@@ -1149,7 +1151,10 @@ export function SchedulerGrid({
             <div className="scheduler-calendar-toolbar">
               <div>
                 <h3>Calendar</h3>
-                <p>Click a slot to create a timed program, then set the exact minute in the editor.</p>
+                <p>
+                  Click a slot to create a timed program in the station timezone
+                  ({stationTimezone}), then set the exact minute in the editor.
+                </p>
               </div>
               <div className="scheduler-legend">
                 {(Object.entries(SOURCE_LABELS) as [SourceType, string][]).map(([type, label]) => (
@@ -1166,7 +1171,9 @@ export function SchedulerGrid({
                 className="calendar-grid calendar-header"
                 style={{ gridTemplateColumns: `${TIME_COL_WIDTH}px repeat(7, minmax(132px, 1fr))` }}
               >
-                <div className="calendar-corner">UTC</div>
+                <div className="calendar-corner" title={`Station timezone: ${stationTimezone}`}>
+                  {stationTimezone}
+                </div>
                 {DAYS.map((d) => (
                   <button
                     type="button"

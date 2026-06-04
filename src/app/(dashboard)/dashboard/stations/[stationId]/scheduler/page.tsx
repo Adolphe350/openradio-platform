@@ -142,6 +142,7 @@ export default async function SchedulerPage({ params }: Props) {
 
         <SchedulerGrid
           stationId={stationId}
+          stationTimezone={station.timezone || "UTC"}
           schedules={station.schedules.map((s) => ({
             id: s.id,
             name: s.name,
