@@ -31,13 +31,13 @@ export const metadata: Metadata = {
     template: "%s | OpenRadio Cloud"
   },
   description:
-    "Internet radio hosting: upload your music, schedule shows, go live from any Icecast encoder and embed your player anywhere.",
+    "Internet radio hosting for stations worldwide: upload your music, schedule shows in your time zone, go live from any Icecast encoder and reach listeners anywhere.",
   metadataBase: new URL(process.env.APP_BASE_URL || "https://openradio.iraady.com"),
   openGraph: {
     type: "website",
     siteName: "OpenRadio Cloud",
-    title: "OpenRadio Cloud",
-    description: "Upload, schedule and broadcast your own internet radio station.",
+    title: "OpenRadio Cloud: internet radio hosting, heard anywhere",
+    description: "Upload, schedule and broadcast your own internet radio station to listeners worldwide.",
   },
   twitter: {
     card: "summary_large_image",

@@ -41,6 +41,21 @@ const faqs = [
     q: "Can I see who is listening?",
     a: "You see current and peak listener counts per station, listening hours and a weekly trend. Counts come from the Icecast server.",
   },
+  {
+    q: "Who runs OpenRadio Cloud?",
+    a: "Iraady Ltd, a UK company based in London with an operating office in Kigali. For a demo or a custom setup, email info@iraady.com.",
+  },
+  {
+    q: "Does it work for stations in East Africa?",
+    a: "Yes. Kigali and Nairobi time zones are built in, and Rwandan stations already use it to reach listeners at home and in the diaspora.",
+  },
+];
+
+const worldwide: { icon: IconName; title: string; text: string }[] = [
+  { icon: "schedule", title: "Your time zone", text: "Pick the station's time zone from 40+ zones. The schedule runs in station time, wherever you or the server are." },
+  { icon: "listeners", title: "Listen from anywhere", text: "Listeners tune in from any country on your station page, your website, or apps that play MP3, M3U or PLS links." },
+  { icon: "live", title: "Through firewalls", text: "Encoders can connect over HTTPS port 443 when port 8000 is blocked by an office or hotel network." },
+  { icon: "globe", title: "Geo-blocking & relays", text: "Limit your stream to the countries you hold rights for, and push it to relay servers in other regions." },
 ];
 
 export default async function HomePage() {
@@ -58,14 +73,14 @@ export default async function HomePage() {
           <div className="pub-wrap l-hero-grid">
             <div className="l-hero-copy">
               <p className="l-kicker mono">
-                <span className="mini-lamp lamp-on" aria-hidden="true" /> Internet radio hosting
+                <span className="mini-lamp lamp-on" aria-hidden="true" /> Internet radio hosting · listeners worldwide
               </p>
               <h1>
-                Run your own radio station. <span>On air tonight.</span>
+                Your radio station, heard anywhere. <span>On air tonight.</span>
               </h1>
               <p className="l-lede">
                 Upload your music, plan the week on a schedule grid, and go live from any Icecast encoder.
-                When you step away from the mic, AutoDJ keeps the station playing.
+                When you step away from the mic, AutoDJ keeps the station playing for listeners in every time zone.
               </p>
               <div className="l-cta">
                 <Link href="/sign-up" className="btn btn-primary btn-lg">
@@ -134,7 +149,7 @@ export default async function HomePage() {
                 <p>Add MP3s to your station library, edit titles and artists, and group tracks into playlists.</p>
                 <div className="flow-demo flow-demo-lib" aria-hidden="true">
                   <span><b>Umutima</b><i className="mono">03:58</i></span>
-                  <span><b>Kigali Nights</b><i className="mono">04:12</i></span>
+                  <span><b>Lisbon Lights</b><i className="mono">04:12</i></span>
                   <span className="up"><b>Morning Mix.mp3</b><i className="mono">72%</i></span>
                 </div>
               </li>
@@ -219,6 +234,26 @@ export default async function HomePage() {
           </div>
         </section>
 
+        {/* ── Works worldwide ─────────────────────────────────────────── */}
+        <section className="l-bay" aria-labelledby="world-title">
+          <div className="pub-wrap">
+            <p className="l-eyebrow mono">Works worldwide</p>
+            <h2 id="world-title" className="l-h2">Broadcast from one city. Be heard in all of them.</h2>
+            <ul className="patchbay">
+              {worldwide.map((c, i) => (
+                <li key={c.title}>
+                  <span className="patch-jack mono" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
+                  <Icon name={c.icon} size={20} />
+                  <div>
+                    <h3>{c.title}</h3>
+                    <p>{c.text}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
         {/* ── On the dial (real stations) ─────────────────────────────── */}
         {liveStations.length > 0 ? (
           <section className="l-dial" aria-labelledby="dial-title">
@@ -283,7 +318,7 @@ export default async function HomePage() {
             </div>
             <div className="l-cta">
               <Link href="/sign-up" className="btn btn-primary btn-lg">Get started</Link>
-              <Link href="/pricing" className="btn btn-secondary btn-lg">See plans</Link>
+              <a href="mailto:info@iraady.com?subject=OpenRadio%20Cloud%20demo" className="btn btn-secondary btn-lg">Book a demo</a>
             </div>
           </div>
         </section>

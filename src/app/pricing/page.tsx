@@ -205,6 +205,9 @@ export default function PricingPage() {
           <Link href="/sign-up" className="btn btn-primary btn-lg">
             Start Your Free Trial
           </Link>
+          <a href="mailto:info@iraady.com?subject=OpenRadio%20Cloud%20demo" style={{ color: "rgba(255,255,255,0.8)", fontSize: "0.9rem" }}>
+            Running a network? Book a demo with Iraady Ltd (London &amp; Kigali)
+          </a>
         </div>
       </section>
 

@@ -44,7 +44,7 @@ export function SiteFooter() {
 
       <div className="pub-wrap pub-footer-bottom">
         <p>© {new Date().getFullYear()} OpenRadio Cloud</p>
-        <p>Built by Iraady Ltd · <a href="https://iraady.com">iraady.com</a></p>
+        <p>Built by Iraady Ltd · London &amp; Kigali · <a href="mailto:info@iraady.com">info@iraady.com</a> · <a href="https://iraady.com">iraady.com</a></p>
       </div>
     </footer>
   );
