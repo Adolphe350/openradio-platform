@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Icon } from "@/components/icons";
 
 type FallbackTrack = {
   title: string;
@@ -114,81 +115,66 @@ export function StationPlayer({
 
   const subtitle =
     errorMsg ||
-    (playing ? "Live broadcast is playing" : "Tap play to start the live stream");
+    currentTrack ||
+    (playing ? "Live broadcast is playing" : "Press play to start the live stream");
 
   const label = loading
-    ? "Connecting..."
-    : playing
-      ? "Live stream"
-      : "Ready";
+    ? "Connecting"
+    : error
+      ? "Stream unavailable"
+      : playing
+        ? "Playing live"
+        : "Ready";
 
   return (
-    <div style={{ display: "grid", gap: "0.85rem" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+    <div className="station-player">
+      <div className="station-player-row">
         <button
+          type="button"
           onClick={togglePlay}
-          style={{
-            width: 54,
-            height: 54,
-            borderRadius: "50%",
-            background: error ? "#ef4444" : "var(--brand)",
-            border: "none",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#fff",
-            fontSize: "1.25rem",
-            flexShrink: 0,
-          }}
-          aria-label={playing ? "Pause" : "Play"}
+          className={`play-btn${error ? " is-error" : ""}`}
+          aria-label={playing ? `Pause ${stationName}` : `Play ${stationName}`}
+          aria-pressed={playing}
         >
-          {loading ? "⟳" : error ? "⚠" : playing ? "⏸" : "▶"}
+          {loading ? (
+            <Icon name="spinner" size={24} className="spin" />
+          ) : error ? (
+            <Icon name="alert" size={22} />
+          ) : playing ? (
+            <Icon name="pause" size={22} />
+          ) : (
+            <Icon name="play" size={24} />
+          )}
         </button>
 
         <div style={{ minWidth: 0, flex: 1 }}>
-          <p
-            style={{
-              margin: 0,
-              fontSize: "0.74rem",
-              fontWeight: 700,
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-              color: "rgba(255,255,255,0.55)",
-            }}
-          >
+          <p className="player-state" aria-live="polite">
+            <span className={`mini-lamp lamp-${playing ? "on" : "off"}`} aria-hidden="true" />
             {label}
           </p>
-          <p
-            style={{
-              margin: "0.2rem 0 0",
-              fontSize: "0.95rem",
-              fontWeight: 600,
-              color: "#fff",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {subtitle}
-          </p>
+          <p className="player-title">{subtitle}</p>
         </div>
+
+        {playing ? (
+          <div className="eq" data-live="true" aria-hidden="true" style={{ width: 56, height: 28 }}>
+            {Array.from({ length: 10 }, (_, i) => <span key={i} style={{ animationDelay: `${(i % 5) * 0.12}s` }} />)}
+          </div>
+        ) : null}
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "0.7rem",
-          padding: "0.45rem 0.65rem",
-          borderRadius: 8,
-          background: "rgba(255,255,255,0.08)",
-          border: "1px solid rgba(255,255,255,0.12)",
-        }}
-      >
-        <span style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.65)" }}>
-          {volume === 0 ? "🔇" : volume < 0.5 ? "🔈" : "🔊"}
-        </span>
+      <div className="volume-row">
+        <button
+          type="button"
+          className="icon-toggle"
+          onClick={() => {
+            const next = volume === 0 ? 0.8 : 0;
+            setVolume(next);
+            window.dispatchEvent(new CustomEvent("openradio:set-volume", { detail: next }));
+          }}
+          aria-label={volume === 0 ? "Unmute" : "Mute"}
+        >
+          <Icon name={volume === 0 ? "mute" : "volume"} size={18} />
+        </button>
         <input
           type="range"
           min={0}
@@ -196,12 +182,9 @@ export function StationPlayer({
           step={0.05}
           value={volume}
           onChange={handleVolume}
-          style={{ width: "100%", accentColor: "var(--brand)" }}
           aria-label="Player volume"
         />
-        <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.55)", minWidth: 32, textAlign: "right" }}>
-          {Math.round(volume * 100)}%
-        </span>
+        <span className="mono">{Math.round(volume * 100)}%</span>
       </div>
     </div>
   );

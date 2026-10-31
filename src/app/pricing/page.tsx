@@ -22,7 +22,7 @@ const plans = [
       "128 kbps streaming quality",
       "AutoDJ playlist automation",
       "Show recording",
-      "Ad insertion ready",
+      "Podcasts with RSS feeds",
       "Standard support",
     ],
   },
@@ -38,7 +38,7 @@ const plans = [
       "Up to 50 podcasts / shows",
       "192 kbps streaming quality",
       "50 GB AutoDJ storage",
-      "Up to 3 call-to-listen lines per station",
+      "Live show recording",
       "Geo-blocking & relay streams",
       "Royalty reports",
       "Advanced support",
@@ -56,7 +56,7 @@ const plans = [
       "Up to 250 podcasts / shows",
       "320 kbps streaming quality",
       "100 GB AutoDJ storage",
-      "Up to 5 call-to-listen lines per station",
+      "Team member access",
       "Live personal setup",
       "Priority enterprise support",
       "Custom relay & failover",
@@ -65,12 +65,12 @@ const plans = [
 ];
 
 const extras = [
-  { icon: "📡", title: "No Studio Required", desc: "Stream from any device using any Icecast-compatible encoder." },
-  { icon: "🤖", title: "Go Live Instantly", desc: "Get encoder credentials immediately after creating your station." },
-  { icon: "🎙️", title: "AutoDJ Always-On", desc: "Playlist automation keeps your station live 24/7 between shows." },
-  { icon: "📊", title: "Deep Analytics", desc: "Track listeners, peak times, and geographic reach over time." },
-  { icon: "💰", title: "Monetization", desc: "Built-in audio ad insertion to turn your audience into revenue." },
-  { icon: "📞", title: "Call-to-Listen", desc: "Dedicated phone lines so listeners can tune in by calling." },
+  { icon: "", title: "No Studio Required", desc: "Stream from any device using any Icecast-compatible encoder." },
+  { icon: "", title: "Go Live Instantly", desc: "Get encoder credentials immediately after creating your station." },
+  { icon: "", title: "AutoDJ Always-On", desc: "Playlist automation keeps your station live 24/7 between shows." },
+  { icon: "", title: "Listener Stats", desc: "Current and peak listeners and listening hours, polled from Icecast." },
+  { icon: "", title: "Embeddable Player", desc: "One line of HTML puts your station player on any website." },
+  { icon: "", title: "Royalty Reports", desc: "Plays per artist and title from your station play log." },
 ];
 
 export default function PricingPage() {
@@ -182,7 +182,7 @@ export default function PricingPage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: "1rem" }}>
             {extras.map((f) => (
               <div key={f.title} className="card" style={{ padding: "1.25rem", display: "flex", gap: "0.9rem" }}>
-                <div className="feature-icon">{f.icon}</div>
+                <div className="feature-icon" aria-hidden="true" />
                 <div>
                   <p style={{ margin: "0 0 0.25rem", fontWeight: 700, fontSize: "0.9rem" }}>{f.title}</p>
                   <p style={{ margin: 0, fontSize: "0.845rem", color: "var(--text-muted)", lineHeight: 1.55 }}>{f.desc}</p>

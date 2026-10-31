@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { resetPasswordAction } from "./actions";
 import { db } from "@/lib/db";
 import crypto from "crypto";
+import { AuthFrame } from "@/components/auth-frame";
 
 type Props = { searchParams: Promise<{ token?: string; error?: string }> };
 
@@ -22,77 +23,48 @@ export default async function ResetPasswordPage({ searchParams }: Props) {
 
   const isValid = record && !record.usedAt && record.expiresAt > new Date();
 
+  if (!isValid) {
+    return (
+      <AuthFrame
+        title="Link expired or invalid"
+        lede="This reset link has expired or was already used. Request a new one."
+        sideTitle="Reset links last one hour."
+        sideText="For your security each link works once."
+      >
+        <Link href="/forgot-password" className="btn btn-primary btn-full btn-lg">
+          Request a new link
+        </Link>
+      </AuthFrame>
+    );
+  }
+
   return (
-    <div className="auth-page">
-      <div className="auth-image-panel">
-        <div style={{ display: "grid", gap: "1.5rem", textAlign: "center", position: "relative", zIndex: 1 }}>
-          <Link href="/" style={{ display: "flex", alignItems: "center", gap: "0.6rem", justifyContent: "center", textDecoration: "none" }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--brand)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#fff", fontSize: "1.1rem" }}>O</div>
-            <span style={{ fontSize: "1.3rem", fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>openradio</span>
-          </Link>
-          <div style={{ width: 160, height: 160, borderRadius: "50%", background: "rgba(0,200,160,0.12)", border: "2px solid rgba(0,200,160,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "4rem", margin: "0 auto" }}>
-            {isValid ? "🔓" : "⛔"}
-          </div>
-          <div>
-            <h2 style={{ color: "#fff", fontSize: "1.4rem", margin: "0 0 0.4rem" }}>
-              {isValid ? "Choose a new password" : "Link expired"}
-            </h2>
-          </div>
+    <AuthFrame
+      title="Choose a new password"
+      lede="Pick a strong password. This link expires in 1 hour."
+      sideTitle="Almost back in the studio."
+      sideText="After saving, sign in with your new password."
+    >
+      <form action={resetPasswordAction} className="auth-fields">
+        <input type="hidden" name="token" value={token} />
+
+        <div className="field">
+          <label htmlFor="password">New password</label>
+          <input id="password" name="password" type="password" required minLength={8} autoComplete="new-password" aria-describedby="pw-hint" />
+          <span id="pw-hint" className="hint">At least 8 characters, one uppercase letter, one number.</span>
         </div>
-      </div>
 
-      <div className="auth-form-panel">
-        <div className="auth-form-inner">
-          {!isValid ? (
-            <>
-              <h1 style={{ fontSize: "1.75rem", margin: "0 0 0.75rem" }}>Link expired or invalid</h1>
-              <p style={{ color: "var(--text-muted)", margin: "0 0 1.5rem", fontSize: "0.9rem" }}>
-                This reset link has expired or already been used. Request a new one.
-              </p>
-              <Link href="/forgot-password" className="btn btn-primary btn-full">
-                Request New Link
-              </Link>
-            </>
-          ) : (
-            <>
-              <h1 style={{ fontSize: "1.75rem", margin: "0 0 0.4rem" }}>Set New Password</h1>
-              <p style={{ color: "var(--text-muted)", margin: "0 0 2rem", fontSize: "0.9rem" }}>
-                Choose a strong password. This link expires in 1 hour.
-              </p>
-
-              <form action={resetPasswordAction} style={{ display: "grid", gap: "1rem" }}>
-                <input type="hidden" name="token" value={token} />
-
-                <div className="field">
-                  <label htmlFor="password">New password</label>
-                  <input
-                    id="password" name="password" type="password"
-                    required minLength={8}
-                    autoComplete="new-password"
-                    placeholder="At least 8 characters"
-                  />
-                  <span className="hint">Min. 8 characters, one uppercase, one number.</span>
-                </div>
-
-                <div className="field">
-                  <label htmlFor="confirm">Confirm password</label>
-                  <input
-                    id="confirm" name="confirm" type="password"
-                    required minLength={8}
-                    autoComplete="new-password"
-                  />
-                </div>
-
-                {error && <div className="alert alert-error">{decodeURIComponent(error)}</div>}
-
-                <button className="btn btn-primary btn-full" type="submit">
-                  Reset Password
-                </button>
-              </form>
-            </>
-          )}
+        <div className="field">
+          <label htmlFor="confirm">Confirm password</label>
+          <input id="confirm" name="confirm" type="password" required minLength={8} autoComplete="new-password" />
         </div>
-      </div>
-    </div>
+
+        {error ? <div className="auth-alert" role="alert">{decodeURIComponent(error)}</div> : null}
+
+        <button className="btn btn-primary btn-full btn-lg" type="submit">
+          Save new password
+        </button>
+      </form>
+    </AuthFrame>
   );
 }

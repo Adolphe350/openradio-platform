@@ -51,7 +51,7 @@ export default async function StudioPage({ searchParams }: Props) {
         </div>
 
         <div className="card empty-state">
-          <span className="empty-icon">🎙</span>
+          <span className="empty-icon" aria-hidden="true" />
           <h3 style={{ margin: 0 }}>Create a station first</h3>
           <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.9rem", maxWidth: "40ch" }}>
             Studio sessions are station-scoped so your recordings and music beds map cleanly to each stream.

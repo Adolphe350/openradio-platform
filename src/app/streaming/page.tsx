@@ -74,7 +74,7 @@ export default function StreamingPage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: "1rem" }}>
             {encoders.map((e) => (
               <div key={e.name} className="card" style={{ padding: "1.25rem", display: "flex", gap: "0.85rem" }}>
-                <div className="feature-icon">🎙️</div>
+                <div className="feature-icon" aria-hidden="true" />
                 <div>
                   <p style={{ margin: "0 0 0.15rem", fontWeight: 700, fontSize: "0.95rem" }}>{e.name}</p>
                   <p style={{ margin: "0 0 0.25rem", fontSize: "0.75rem", color: "var(--brand)", fontWeight: 600 }}>{e.type}</p>

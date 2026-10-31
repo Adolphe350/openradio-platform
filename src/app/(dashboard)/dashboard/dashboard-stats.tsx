@@ -68,7 +68,7 @@ export function DashboardStats({
           <LineChart
             series={[
               { name: "Last week", color: "#5a5a6e", data: lastWeek },
-              { name: "This week", color: "#00c8a0", data: thisWeek },
+              { name: "This week", color: "#E63946", data: thisWeek },
             ]}
             height={260}
             yLabel="Listeners"

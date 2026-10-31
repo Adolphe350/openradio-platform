@@ -8,7 +8,7 @@ export default function NotFound() {
       <SiteHeader />
       <div style={{ minHeight: "70vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "4rem 1rem" }}>
         <div style={{ textAlign: "center", display: "grid", gap: "1rem", justifyItems: "center" }}>
-          <div style={{ fontSize: "5rem", lineHeight: 1 }}>📻</div>
+          <div className="onair-pill onair-off" style={{ justifySelf: "center" }}><span className="onair-lamp" aria-hidden="true" /><span className="onair-text">OFF AIR · 404</span></div>
           <h1 style={{ fontSize: "clamp(2rem,6vw,3.5rem)", margin: 0 }}>404</h1>
           <p style={{ fontSize: "1.05rem", color: "var(--text-muted)", margin: 0, maxWidth: "40ch" }}>
             This page doesn&apos;t exist. It may have been moved, deleted, or you typed the wrong URL.

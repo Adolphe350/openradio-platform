@@ -123,7 +123,7 @@ export function UploadTrackForm({ stationId }: Props) {
       {status === "uploading" && (
         <div style={{ gridColumn: "1 / -1" }}>
           <div style={{ height: 4, background: "var(--border)", borderRadius: 999, overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${progress}%`, background: "var(--brand)", transition: "width 0.2s", borderRadius: 999 }} />
+            <div style={{ height: "100%", width: `${progress}%`, background: "var(--brand-fill)", transition: "width 0.2s", borderRadius: 999 }} />
           </div>
         </div>
       )}
