@@ -9,18 +9,30 @@ const nextConfig: NextConfig = {
     },
   },
   async headers() {
+    const shared = [
+      { key: "X-Content-Type-Options", value: "nosniff" },
+      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+      { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
+      { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+      { key: "X-DNS-Prefetch-Control", value: "off" },
+      { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
+    ];
     return [
       {
-        source: "/(.*)",
+        // Everything except the embeddable player stays same-origin only.
+        source: "/((?!embed/).*)",
         headers: [
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
-          { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
           { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-          { key: "X-DNS-Prefetch-Control", value: "off" },
-          { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
+          ...shared,
+        ],
+      },
+      {
+        // /embed/<slug> is meant to be iframed on station owners' websites.
+        source: "/embed/:slug*",
+        headers: [
+          { key: "Content-Security-Policy", value: "frame-ancestors *" },
+          ...shared,
         ],
       },
     ];
