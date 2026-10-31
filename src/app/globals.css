@@ -1,52 +1,129 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 /* ========================================
-   DESIGN TOKENS & CSS VARIABLES
+   OPENRADIO CLOUD — DESIGN TOKENS
+   Identity: "on-air studio". Sora headings, JetBrains Mono for stream
+   stats and times. Studio black + on-air red + warm white, VU green and
+   amber for meters. Hardware-panel radii (4–10px), hairline borders,
+   inset meter strips. Dark is the default studio theme; light is
+   "daylight studio" (warm white).
    ======================================== */
 
-:root {
-  /* Colors - Dark/Premium Theme */
-  --bg: #0a0a0f;
-  --bg-surface: #141419;
-  --bg-elevated: #1c1c24;
-  --bg-hover: #252530;
+:root,
+[data-theme="dark"],
+.theme-dark {
+  color-scheme: dark;
 
-  --text: #f0f0f5;
-  --text-muted: #8b8b9e;
-  --text-dim: #5a5a6e;
+  /* Raw palette */
+  --studio: #0F1115;
+  --studio-2: #15181E;
+  --onair: #E63946;
+  --onair-deep: #B8222F;
+  --warm: #F4F1EA;
+  --vu: #22C55E;
+  --amber: #F59E0B;
 
-  --border: #2a2a36;
-  --border-light: #363642;
+  /* Surfaces */
+  --bg: #0F1115;
+  --bg-page: #0F1115;
+  --bg-dark: #0B0D10;
+  --bg-surface: #161920;
+  --bg-elevated: #1D2129;
+  --bg-hover: #252A33;
+  --bg-inset: #0B0D10;
 
-  --brand: #00c8a0;
-  --brand-hover: #00e6b8;
-  --brand-glow: rgba(0, 200, 160, 0.15);
-  --brand-dim: rgba(0, 200, 160, 0.08);
+  /* Text (AA on --bg and --bg-surface) */
+  --text: #F4F1EA;
+  --text-light: #F4F1EA;
+  --text-muted: #ABA69C;
+  --text-dim: #8E8A81;
 
-  --red: #ff4757;
-  --red-hover: #ff6b7a;
-  --green: #00c8a0;
-  --blue: #4f9eff;
-  --purple: #a855f7;
-  --yellow: #ffd93d;
+  --border: #2A2F39;
+  --border-light: #39404C;
 
-  /* Border Radius */
-  --radius-xl: 16px;
-  --radius-lg: 12px;
-  --radius-md: 8px;
-  --radius-sm: 6px;
+  /* Accent. --brand is the readable red for text/links on this theme;
+     --onair is the lamp/button fill (white text on it passes AA). */
+  --brand: #FF6B74;
+  --brand-hover: #FF8C93;
+  --brand-ink: #FFFFFF;
+  --brand-fill: #E63946;
+  --brand-fill-hover: #CC2C39;
+  --brand-glow: rgba(230, 57, 70, 0.22);
+  --brand-dim: rgba(230, 57, 70, 0.10);
+  --brand-light: rgba(230, 57, 70, 0.12);
+  --brand-dark: #B8222F;
 
-  /* Shadows */
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
-  --shadow-glow: 0 0 24px var(--brand-glow);
-  --shadow-brand: 0 4px 20px rgba(0, 200, 160, 0.25);
+  --red: #FF6B74;
+  --red-hover: #FF8C93;
+  --green: #3DDC7A;
+  --vu-text: #3DDC7A;
+  --amber-text: #FBBF4D;
+  --blue: #7FB2FF;
+  --purple: #C4A7FF;
+  --yellow: #FBBF4D;
 
-  /* Transitions */
-  --transition: all 0.2s ease;
+  /* Radius: hardware panel */
+  --radius-xl: 10px;
+  --radius-lg: 8px;
+  --radius-md: 6px;
+  --radius-sm: 4px;
+  --radius-full: 999px;
+
+  /* Shadows: low, rack-mounted */
+  --shadow-sm: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 6px 18px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.55);
+  --shadow-glow: 0 0 0 4px var(--brand-glow);
+  --shadow-brand: 0 6px 18px rgba(230, 57, 70, 0.28);
+
+  --focus: #FFB4B9;
+
+  --font-head: var(--font-sora), "Sora", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-body: var(--font-sora), "Sora", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: var(--font-mono), "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+[data-theme="light"],
+.theme-light {
+  color-scheme: light;
+
+  --bg: #F4F1EA;
+  --bg-page: #F4F1EA;
+  --bg-dark: #E9E4D9;
+  --bg-surface: #FFFDF8;
+  --bg-elevated: #EDE8DE;
+  --bg-hover: #E4DED2;
+  --bg-inset: #F7F3EC;
+
+  --text: #16181D;
+  --text-light: #16181D;
+  --text-muted: #4D5058;
+  --text-dim: #62656D;
+
+  --border: #D9D2C4;
+  --border-light: #C9C1B1;
+
+  --brand: #B8222F;
+  --brand-hover: #961A26;
+  --brand-fill: #D42F3D;
+  --brand-fill-hover: #B8222F;
+  --brand-glow: rgba(212, 47, 61, 0.18);
+  --brand-dim: rgba(212, 47, 61, 0.08);
+  --brand-light: rgba(212, 47, 61, 0.10);
+
+  --red: #B8222F;
+  --red-hover: #961A26;
+  --green: #15803D;
+  --vu-text: #15803D;
+  --amber-text: #A15C07;
+  --blue: #1D5FC2;
+  --purple: #6D3FC4;
+  --yellow: #A15C07;
+
+  --shadow-sm: 0 1px 2px rgba(22, 24, 29, 0.06);
+  --shadow-md: 0 6px 18px rgba(22, 24, 29, 0.08);
+  --shadow-lg: 0 18px 48px rgba(22, 24, 29, 0.14);
+  --focus: #B8222F;
 }
 
 /* ========================================
@@ -170,7 +247,7 @@ img {
 }
 
 .btn-primary {
-  background: var(--brand);
+  background: var(--brand-fill);
   color: white;
   box-shadow: var(--shadow-brand);
 }
@@ -178,7 +255,7 @@ img {
 .btn-primary:hover:not(:disabled) {
   background: var(--brand-hover);
   transform: translateY(-1px);
-  box-shadow: 0 6px 24px rgba(0, 200, 160, 0.35);
+  box-shadow: 0 6px 24px rgba(230, 57, 70, 0.35);
 }
 
 .btn-primary:active {
@@ -315,7 +392,7 @@ textarea {
 }
 
 .badge-live {
-  background: rgba(0, 200, 160, 0.1);
+  background: rgba(230, 57, 70, 0.1);
   color: var(--green);
   border-color: transparent;
 }
@@ -362,7 +439,7 @@ textarea {
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle at 30% 40%, rgba(0, 200, 160, 0.08) 0%, transparent 50%),
+  background: radial-gradient(circle at 30% 40%, rgba(230, 57, 70, 0.08) 0%, transparent 50%),
               radial-gradient(circle at 70% 60%, rgba(79, 158, 255, 0.06) 0%, transparent 50%);
   animation: hero-glow 20s ease-in-out infinite;
 }
@@ -499,7 +576,7 @@ textarea {
 .nav-logo-icon {
   width: 36px;
   height: 36px;
-  background: var(--brand);
+  background: var(--brand-fill);
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
@@ -852,7 +929,7 @@ textarea {
   left: -20%;
   width: 140%;
   height: 140%;
-  background: radial-gradient(circle at 50% 50%, rgba(0, 200, 160, 0.1) 0%, transparent 60%);
+  background: radial-gradient(circle at 50% 50%, rgba(230, 57, 70, 0.1) 0%, transparent 60%);
   animation: auth-glow 15s ease-in-out infinite;
 }
 
@@ -882,7 +959,7 @@ textarea {
 .auth-logo-icon {
   width: 48px;
   height: 48px;
-  background: var(--brand);
+  background: var(--brand-fill);
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
@@ -895,7 +972,7 @@ textarea {
 .auth-illustration {
   width: 100%;
   height: 300px;
-  background: linear-gradient(135deg, rgba(0, 200, 160, 0.1) 0%, rgba(79, 158, 255, 0.08) 100%);
+  background: linear-gradient(135deg, rgba(230, 57, 70, 0.1) 0%, rgba(79, 158, 255, 0.08) 100%);
   border-radius: var(--radius-xl);
   border: 1px solid var(--border);
   display: flex;
@@ -1048,7 +1125,7 @@ textarea {
 .footer-logo-icon {
   width: 36px;
   height: 36px;
-  background: var(--brand);
+  background: var(--brand-fill);
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
@@ -1287,7 +1364,7 @@ textarea {
   width: 30px;
   height: 30px;
   border-radius: 8px;
-  background: var(--brand);
+  background: var(--brand-fill);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1361,7 +1438,7 @@ textarea {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: var(--brand);
+  background: var(--brand-fill);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1513,7 +1590,7 @@ textarea {
   width: 28px;
   height: 28px;
   border-radius: 7px;
-  background: var(--brand);
+  background: var(--brand-fill);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1555,7 +1632,7 @@ textarea {
 .nav-link-strong   { font-weight: 600; color: var(--text); }
 
 .nav-link-create {
-  background: var(--brand);
+  background: var(--brand-fill);
   color: #fff !important;
   border-radius: var(--radius-full);
   padding: 0.45rem 1rem;
@@ -1837,7 +1914,7 @@ textarea {
 
 .pricing-card.recommended {
   border-color: var(--brand);
-  box-shadow: 0 0 0 4px rgba(0,200,160,0.1);
+  box-shadow: 0 0 0 4px rgba(230, 57, 70, 0.1);
 }
 
 .pricing-recommended-badge {
@@ -1845,7 +1922,7 @@ textarea {
   top: -13px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--brand);
+  background: var(--brand-fill);
   color: #fff;
   font-size: 0.72rem;
   font-weight: 700;
@@ -1881,7 +1958,7 @@ textarea {
 }
 
 .checklist-circle.done {
-  background: var(--brand);
+  background: var(--brand-fill);
   border-color: var(--brand);
   color: #fff;
 }
@@ -2035,10 +2112,7 @@ textarea {
 }
 
 /* ─── Extended Brand Tokens ──────────────────────────────────────── */
-:root {
-  --brand-light: rgba(0,200,160,0.12);
-  --brand-dark:  #00a882;
-}
+/* (brand-light / brand-dark now live in the theme tokens) */
 
 /* ─── Station Topbar Nav Link ────────────────────────────────────── */
 .station-topbar-link {
@@ -2205,7 +2279,7 @@ textarea {
 .field select:focus,
 .field textarea:focus {
   border-color: var(--brand);
-  box-shadow: 0 0 0 3px rgba(0,200,160,0.12);
+  box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.12);
 }
 
 /* ─── Data table ─────────────────────────────────────────────────── */
@@ -2311,7 +2385,7 @@ textarea {
 }
 
 .checklist-circle.done {
-  background: var(--brand);
+  background: var(--brand-fill);
   border-color: var(--brand);
   color: #fff;
 }
@@ -2888,7 +2962,7 @@ code,
   align-items: center;
   padding: 1.15rem 1.25rem;
   background:
-    radial-gradient(circle at 10% 0%, rgba(0,200,160,0.16), transparent 30%),
+    radial-gradient(circle at 10% 0%, rgba(230, 57, 70, 0.16), transparent 30%),
     var(--bg-surface);
 }
 
@@ -3101,7 +3175,7 @@ code,
 }
 
 .calendar-day-column:hover {
-  background-color: rgba(0,200,160,0.035);
+  background-color: rgba(230, 57, 70, 0.035);
 }
 
 .calendar-hour-line,
@@ -3317,7 +3391,7 @@ code,
   width: 26px;
   height: 26px;
   border-radius: 6px;
-  background: var(--brand);
+  background: var(--brand-fill);
   color: #000;
   font-size: 0.75rem;
   font-weight: 900;
