@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getPublicStreamUrl } from "@/lib/stream";
 import { fetchIcecastStatus, findIcecastSource, normalizeIcecastSources } from "@/lib/icecast";
-import { DashboardStats } from "./dashboard-stats";
+import { Icon } from "@/components/icons";
+import { StudioClock } from "@/components/studio-clock";
 
 export const metadata = {
   title: "Dashboard - OpenRadio",
@@ -38,18 +38,17 @@ function emptyWeekBuckets(start: Date) {
   });
 }
 
-function getStationColor(id: string): string {
-  const colors = [
-    "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
-    "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
-    "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
-    "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
-    "linear-gradient(135deg, #30cfd0 0%, #330867 100%)",
-  ];
-  const hash = id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return colors[hash % colors.length];
+function timeAgo(date: Date) {
+  const mins = Math.round((Date.now() - date.getTime()) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs} h ago`;
+  return `${Math.round(hrs / 24)} d ago`;
 }
+
+const lampOf = (status: string) => (status === "ACTIVE" ? "on" : status === "PAUSED" ? "paused" : "off");
+const labelOf = (status: string) => (status === "ACTIVE" ? "On air" : status === "PAUSED" ? "Paused" : "Off air");
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -58,14 +57,13 @@ export default async function DashboardPage() {
     where: { ownerId: user.id },
     include: {
       _count: {
-        select: { tracks: true, playlists: true },
+        select: { tracks: true, playlists: true, schedules: true },
       },
     },
     orderBy: { createdAt: "desc" },
   });
 
   const totalStations = stations.length;
-  const activeStations = stations.filter((s) => s.status === "ACTIVE").length;
   const totalTracks = stations.reduce((sum, s) => sum + s._count.tracks, 0);
   const stationIds = stations.map((station) => station.id);
 
@@ -105,6 +103,7 @@ export default async function DashboardPage() {
           currentListeners: source?.listeners ?? 0,
           peakListeners: source?.listener_peak ?? source?.listeners ?? 0,
           isLive: Boolean(source),
+          title: source?.title ?? source?.song ?? null,
         },
       ];
     }),
@@ -120,6 +119,8 @@ export default async function DashboardPage() {
     if (typeof live === "number" && live > 0) return live;
     return latestMetricByStation.get(stationId)?.currentListeners ?? 0;
   };
+  const getUptime = (stationId: string) =>
+    Math.round(latestMetricByStation.get(stationId)?.uptimePercent ?? (liveByStation.get(stationId)?.isLive ? 100 : 0));
 
   const currentListeners = stations.reduce((sum, station) => sum + getStationListenerCount(station.id), 0);
 
@@ -152,258 +153,229 @@ export default async function DashboardPage() {
   const thisWeekTotal = thisWeek.reduce((sum, point) => sum + point.value, 0);
   const lastWeekTotal = lastWeek.reduce((sum, point) => sum + point.value, 0);
   const pctChange = lastWeekTotal > 0 ? ((thisWeekTotal - lastWeekTotal) / lastWeekTotal) * 100 : 0;
+  const trendMax = Math.max(1, ...thisWeek.map((d) => d.value), ...lastWeek.map((d) => d.value));
+  const hasTrend = thisWeekTotal > 0 || lastWeekTotal > 0;
 
-  const statCards = [
-    {
-      label: "Total Stations",
-      value: totalStations.toString(),
-      change: null,
-    },
-    {
-      label: "Live Now",
-      value: activeStations.toString(),
-      change: null,
-    },
-    {
-      label: "Total Tracks",
-      value: totalTracks.toLocaleString(),
-      change: null,
-    },
-    {
-      label: "Current Listeners",
-      value: currentListeners.toLocaleString(),
-      change: null,
-    },
-  ];
+  // The monitor follows the station that is on air (or the newest one).
+  const monitor = stations.find((s) => liveByStation.get(s.id)?.isLive) ?? stations.find((s) => s.status === "ACTIVE") ?? stations[0] ?? null;
+  const recentPlays = monitor
+    ? await db.playLog.findMany({
+        where: { stationId: monitor.id },
+        orderBy: { playedAt: "desc" },
+        take: 5,
+        select: { id: true, title: true, artist: true, playedAt: true },
+      })
+    : [];
+  const monitorLive = monitor ? liveByStation.get(monitor.id) : null;
+  const nowTitle = monitorLive?.title ?? (recentPlays[0] ? `${recentPlays[0].artist ? `${recentPlays[0].artist} – ` : ""}${recentPlays[0].title}` : null);
+
+  const firstName = user.name.split(" ")[0] || user.name;
 
   return (
-    <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
-      <div style={{ marginBottom: "40px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px", flexWrap: "wrap" }}>
+    <div className="desk">
+      <header className="desk-head">
         <div>
-          <h1 style={{ fontSize: "32px", fontWeight: "700", color: "var(--text)", marginBottom: "8px", letterSpacing: "-0.02em" }}>
-            Hey {user.name.split(" ")[0]} 👋
-          </h1>
-          <p style={{ color: "var(--text-muted)", fontSize: "16px" }}>
+          <p className="desk-kicker">
+            <StudioClock /> <span className="dot-sep" aria-hidden="true">·</span> Studio desk
+          </p>
+          <h1 className="desk-title">Welcome back, {firstName}</h1>
+          <p className="desk-sub">
             {stations.length === 0
-              ? "Ready to launch your radio station? It only takes a minute."
-              : `You have ${totalStations} station${totalStations !== 1 ? "s" : ""} · ${currentListeners} listener${currentListeners !== 1 ? "s" : ""} right now`}
+              ? "No station yet. Create one, add music and you can be on air today."
+              : `${totalStations} station${totalStations !== 1 ? "s" : ""} · ${currentListeners} listener${currentListeners !== 1 ? "s" : ""} right now · ${totalTracks.toLocaleString()} tracks in your library`}
           </p>
         </div>
-        <Link href="/dashboard/stations/new" className="btn btn-primary" style={{ whiteSpace: "nowrap" }}>
-          + Create Station
-        </Link>
-      </div>
+        <div className="desk-head-actions">
+          {monitor ? (
+            <Link href="/dashboard/music" className="btn btn-secondary">
+              <Icon name="upload" size={16} /> Upload music
+            </Link>
+          ) : null}
+          <Link href="/dashboard/stations/new" className="btn btn-primary">
+            <Icon name="plus" size={16} /> New station
+          </Link>
+        </div>
+      </header>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "20px", marginBottom: "40px" }}>
-        {statCards.map((stat) => (
-          <div
-            key={stat.label}
-            className="card"
-            style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "8px" }}
-          >
-            <div style={{ fontSize: "13px", fontWeight: "600", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              {stat.label}
-            </div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: "12px" }}>
-              <div style={{ fontSize: "32px", fontWeight: "700", color: "var(--text)", letterSpacing: "-0.02em" }}>
-                {stat.value}
+      {!monitor ? (
+        <section className="desk-empty" aria-labelledby="first-station">
+          <div className="desk-empty-copy">
+            <h2 id="first-station">Set up your first station</h2>
+            <p>A station gets its own stream address, public page and embeddable player. It takes about a minute.</p>
+            <Link href="/dashboard/stations/new" className="btn btn-primary btn-lg">
+              Create a station <Icon name="arrow-right" size={16} />
+            </Link>
+          </div>
+          <ol className="flow-steps" aria-label="How it works">
+            <li><span className="flow-num">01</span><Icon name="upload" size={20} /><strong>Upload</strong><span>Add MP3s to your library and group them into playlists.</span></li>
+            <li><span className="flow-num">02</span><Icon name="schedule" size={20} /><strong>Schedule</strong><span>Place playlists, episodes and shows on the weekly grid.</span></li>
+            <li><span className="flow-num">03</span><Icon name="live" size={20} /><strong>Broadcast</strong><span>AutoDJ plays around the clock; go live from any Icecast encoder.</span></li>
+          </ol>
+        </section>
+      ) : (
+        <>
+          <section className={`monitor${monitorLive?.isLive ? " is-live" : ""}`} aria-labelledby="monitor-title">
+            <div className="monitor-main">
+              <div className="monitor-top">
+                <span className={`onair-pill onair-${monitorLive?.isLive ? "on" : monitor.status === "PAUSED" ? "paused" : "off"}`}>
+                  <span className="onair-lamp" aria-hidden="true" />
+                  <span className="onair-text">{monitorLive?.isLive ? "ON AIR" : monitor.status === "ACTIVE" ? "ACTIVE · NO SOURCE" : labelOf(monitor.status).toUpperCase()}</span>
+                </span>
+                <span className="monitor-mount mono">{monitor.mountPath}</span>
               </div>
-              {stat.change !== null && (
-                <div
-                  style={{
-                    fontSize: "14px",
-                    fontWeight: "600",
-                    color: stat.change >= 0 ? "var(--green)" : "var(--red)",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "4px",
-                  }}
-                >
-                  <span>{stat.change >= 0 ? "↑" : "↓"}</span>
-                  <span>{Math.abs(stat.change).toFixed(1)}%</span>
+              <h2 id="monitor-title" className="monitor-station">{monitor.name}</h2>
+              <div className="monitor-now">
+                <div className="eq" aria-hidden="true" data-live={monitorLive?.isLive ? "true" : undefined}>
+                  {Array.from({ length: 24 }, (_, i) => <span key={i} style={{ animationDelay: `${(i % 7) * 0.11}s`, height: `${30 + ((i * 37) % 60)}%` }} />)}
+                </div>
+                <div className="monitor-now-text">
+                  <p className="monitor-label">{monitorLive?.title ? "Now playing" : recentPlays[0] ? "Last played" : "Now playing"}</p>
+                  <p className="monitor-track">{nowTitle ?? "Nothing logged yet"}</p>
+                </div>
+              </div>
+              <div className="monitor-actions">
+                <Link href={`/dashboard/stations/${monitor.id}?tab=overview`} className="btn btn-primary btn-sm">
+                  <Icon name="live" size={16} /> Live controls
+                </Link>
+                <Link href={`/dashboard/stations/${monitor.id}/scheduler`} className="btn btn-secondary btn-sm">
+                  <Icon name="schedule" size={16} /> Schedule
+                </Link>
+                <Link href={`/stations/${monitor.slug}`} className="btn btn-secondary btn-sm">
+                  <Icon name="external" size={16} /> Public page
+                </Link>
+              </div>
+            </div>
+
+            <dl className="monitor-meters">
+              <div>
+                <dt>Listeners now</dt>
+                <dd className="mono">{getStationListenerCount(monitor.id)}</dd>
+              </div>
+              <div>
+                <dt>Peak (source)</dt>
+                <dd className="mono">{monitorLive?.peakListeners ?? 0}</dd>
+              </div>
+              <div>
+                <dt>Uptime</dt>
+                <dd className="mono">{getUptime(monitor.id)}%</dd>
+                <span className="vu-bar" aria-hidden="true"><span style={{ width: `${getUptime(monitor.id)}%` }} /></span>
+              </div>
+              <div>
+                <dt>Stream health</dt>
+                <dd className={`health ${monitorLive?.isLive ? "is-ok" : "is-idle"}`}>
+                  <span className="mini-lamp" aria-hidden="true" />
+                  {monitorLive?.isLive ? "Source connected" : "No source on mount"}
+                </dd>
+              </div>
+            </dl>
+          </section>
+
+          <div className="desk-grid">
+            <section className="panel" aria-labelledby="trend-title">
+              <div className="panel-head">
+                <h2 id="trend-title">Listener trend</h2>
+                <span className={`delta ${pctChange >= 0 ? "is-up" : "is-down"}`}>
+                  {pctChange >= 0 ? "+" : "−"}{Math.abs(pctChange).toFixed(1)}% vs last week
+                </span>
+              </div>
+              {hasTrend ? (
+                <>
+                  <div className="trend-bars" role="img" aria-label={`Listener samples this week: ${thisWeek.map((d) => `${d.label} ${d.value}`).join(", ")}`}>
+                    {thisWeek.map((d, i) => (
+                      <div key={d.label + i} className="trend-col">
+                        <div className="trend-stack">
+                          <span className="trend-ghost" style={{ height: `${(lastWeek[i]?.value ?? 0) / trendMax * 100}%` }} />
+                          <span className="trend-bar" style={{ height: `${d.value / trendMax * 100}%` }} />
+                        </div>
+                        <span className="trend-label mono">{d.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="panel-foot mono">This week {thisWeekTotal.toLocaleString()} · last week {lastWeekTotal.toLocaleString()} (sum of listener samples)</p>
+                </>
+              ) : (
+                <div className="panel-empty">
+                  <Icon name="chart" size={28} />
+                  <p>No listener samples yet. They appear after the metrics job polls your stream (every 5 minutes).</p>
                 </div>
               )}
-            </div>
+            </section>
+
+            <section className="panel" aria-labelledby="log-title">
+              <div className="panel-head">
+                <h2 id="log-title">Play log</h2>
+                <span className="panel-meta mono">{monitor.name}</span>
+              </div>
+              {recentPlays.length > 0 ? (
+                <ol className="playlog">
+                  {recentPlays.map((p) => (
+                    <li key={p.id}>
+                      <span className="playlog-time mono">{timeAgo(p.playedAt)}</span>
+                      <span className="playlog-track">
+                        <strong>{p.title}</strong>
+                        {p.artist ? <span>{p.artist}</span> : null}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <div className="panel-empty">
+                  <Icon name="playlist" size={28} />
+                  <p>Tracks played by AutoDJ are logged here.</p>
+                </div>
+              )}
+            </section>
           </div>
-        ))}
-      </div>
 
-      <div style={{ marginBottom: "40px" }}>
-        <DashboardStats
-          thisWeek={thisWeek}
-          lastWeek={lastWeek}
-          thisWeekTotal={thisWeekTotal}
-          lastWeekTotal={lastWeekTotal}
-          pctChange={pctChange}
-        />
-      </div>
-
-      <div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "20px" }}>
-          <div>
-            <h2 style={{ fontSize: "24px", fontWeight: "700", color: "var(--text)", letterSpacing: "-0.01em", marginBottom: "4px" }}>
-              Your Stations
-            </h2>
-            {stations.length > 0 && (
-              <p style={{ fontSize: "14px", color: "var(--text-muted)" }}>
-                Click a station to manage it, upload music, schedule shows, or go live.
-              </p>
-            )}
-          </div>
-          {stations.length > 0 && (
-            <Link href="/dashboard/stations/new" style={{ color: "var(--brand)", fontSize: "14px", fontWeight: "600", textDecoration: "none", whiteSpace: "nowrap" }}>
-              + Add another
-            </Link>
-          )}
-        </div>
-
-        {stations.length === 0 ? (
-          <div
-            className="card"
-            style={{
-              padding: "60px 40px",
-              textAlign: "center",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "24px",
-            }}
-          >
-            <div style={{ fontSize: "64px" }}>📻</div>
-            <div>
-              <h3 style={{ fontSize: "22px", fontWeight: "700", color: "var(--text)", marginBottom: "10px" }}>
-                Create your first radio station
-              </h3>
-              <p style={{ color: "var(--text-muted)", fontSize: "15px", marginBottom: "28px", maxWidth: "420px", lineHeight: "1.6" }}>
-                Set up a station in minutes. Upload your music, schedule shows, and go live — all in one place.
-              </p>
-              <Link href="/dashboard/stations/new" className="btn btn-primary" style={{ fontSize: "16px", padding: "12px 28px" }}>
-                Create Your First Station
+          <section aria-labelledby="rack-title">
+            <div className="section-head">
+              <h2 id="rack-title">Your stations</h2>
+              <Link href="/dashboard/stations/new" className="text-link">
+                <Icon name="plus" size={16} /> Add another
               </Link>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px", maxWidth: "500px", width: "100%", marginTop: "8px" }}>
-              {[
-                { icon: "🎵", text: "Upload music & create playlists" },
-                { icon: "📅", text: "Schedule shows by day & time" },
-                { icon: "🎙️", text: "Go live from any encoder" },
-              ].map((step) => (
-                <div key={step.text} style={{ padding: "16px 12px", background: "var(--bg-elevated)", borderRadius: "10px", fontSize: "13px", color: "var(--text-muted)", lineHeight: "1.5" }}>
-                  <div style={{ fontSize: "22px", marginBottom: "8px" }}>{step.icon}</div>
-                  {step.text}
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "20px" }}>
-            {stations.map((station) => {
-              const streamUrl = getPublicStreamUrl(station.id);
-              const statusColors = {
-                ACTIVE: { bg: "rgba(16, 185, 129, 0.1)", text: "var(--green)", border: "rgba(16, 185, 129, 0.3)" },
-                PAUSED: { bg: "rgba(251, 191, 36, 0.1)", text: "#fbbf24", border: "rgba(251, 191, 36, 0.3)" },
-                DRAFT: { bg: "rgba(107, 114, 128, 0.1)", text: "#9ca3af", border: "rgba(107, 114, 128, 0.3)" },
-              };
-              const statusStyle = statusColors[station.status as keyof typeof statusColors] || statusColors.DRAFT;
-
-              return (
-                <div key={station.id} className="card" style={{ padding: "0", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-                  <div style={{ height: "6px", background: getStationColor(station.id) }} />
-
-                  <div style={{ padding: "24px", flex: 1, display: "flex", flexDirection: "column", gap: "16px" }}>
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
-                        <h3 style={{ fontSize: "18px", fontWeight: "600", color: "var(--text)", letterSpacing: "-0.01em" }}>
-                          {station.name}
-                        </h3>
-                        <div
-                          style={{
-                            padding: "4px 10px",
-                            borderRadius: "6px",
-                            fontSize: "11px",
-                            fontWeight: "600",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.05em",
-                            background: statusStyle.bg,
-                            color: statusStyle.text,
-                            border: `1px solid ${statusStyle.border}`,
-                          }}
-                        >
-                          {station.status}
-                        </div>
-                      </div>
-                      {station.genre && (
-                        <div style={{ fontSize: "13px", color: "var(--text-muted)" }}>
-                          {station.genre}
-                        </div>
-                      )}
-                    </div>
-
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" }}>
-                      <div>
-                        <div style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-dim)", textTransform: "uppercase", marginBottom: "4px" }}>
-                          Listeners
-                        </div>
-                        <div style={{ fontSize: "20px", fontWeight: "700", color: "var(--text)" }}>
-                          {getStationListenerCount(station.id)}
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-dim)", textTransform: "uppercase", marginBottom: "4px" }}>
-                          Tracks
-                        </div>
-                        <div style={{ fontSize: "20px", fontWeight: "700", color: "var(--text)" }}>
-                          {station._count.tracks}
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-dim)", textTransform: "uppercase", marginBottom: "4px" }}>
-                          Uptime
-                        </div>
-                        <div style={{ fontSize: "20px", fontWeight: "700", color: "var(--text)" }}>
-                          {`${Math.round(latestMetricByStation.get(station.id)?.uptimePercent ?? (liveByStation.get(station.id)?.isLive ? 100 : 0))}%`}
-                        </div>
+            <ul className="rack">
+              {stations.map((station) => {
+                const live = liveByStation.get(station.id);
+                return (
+                  <li key={station.id} className="rack-unit">
+                    <div className="rack-id">
+                      <span className={`mini-lamp lamp-${live?.isLive ? "on" : lampOf(station.status)}`} aria-hidden="true" />
+                      <span className="station-art station-art-sm" aria-hidden="true">
+                        {station.logoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={station.logoUrl} alt="" />
+                        ) : (
+                          station.name.charAt(0).toUpperCase()
+                        )}
+                      </span>
+                      <div className="rack-name">
+                        <Link href={`/dashboard/stations/${station.id}?tab=overview`}>{station.name}</Link>
+                        <span>{labelOf(station.status)}{station.genre ? ` · ${station.genre}` : ""}</span>
                       </div>
                     </div>
-
-                    <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "auto", paddingTop: "8px" }}>
-                      <Link
-                        href={`/dashboard/stations/${station.id}`}
-                        className="btn btn-primary"
-                        style={{ textAlign: "center" }}
-                      >
-                        Manage Station
+                    <dl className="rack-stats">
+                      <div><dt>Listeners</dt><dd className="mono">{getStationListenerCount(station.id)}</dd></div>
+                      <div><dt>Tracks</dt><dd className="mono">{station._count.tracks}</dd></div>
+                      <div><dt>Playlists</dt><dd className="mono">{station._count.playlists}</dd></div>
+                      <div><dt>Uptime</dt><dd className="mono">{getUptime(station.id)}%</dd></div>
+                    </dl>
+                    <div className="rack-actions">
+                      <Link href={`/dashboard/stations/${station.id}?tab=overview`} className="btn btn-primary btn-sm">Manage</Link>
+                      <Link href={`/dashboard/stations/${station.id}?tab=autodj`} className="btn btn-secondary btn-sm" aria-label={`Playlists for ${station.name}`}>
+                        <Icon name="playlist" size={16} /><span className="hide-sm">Playlists</span>
                       </Link>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "6px" }}>
-                        <Link
-                          href={`/dashboard/stations/${station.id}?tab=autodj`}
-                          className="btn btn-secondary"
-                          style={{ fontSize: "12px", padding: "6px 8px", textAlign: "center" }}
-                        >
-                          🎵 Music
-                        </Link>
-                        <Link
-                          href={`/dashboard/stations/${station.id}/scheduler`}
-                          className="btn btn-secondary"
-                          style={{ fontSize: "12px", padding: "6px 8px", textAlign: "center" }}
-                        >
-                          📅 Schedule
-                        </Link>
-                        <Link
-                          href={`/dashboard/stations/${station.id}?tab=overview`}
-                          className="btn btn-secondary"
-                          style={{ fontSize: "12px", padding: "6px 8px", textAlign: "center" }}
-                        >
-                          🎙️ Go Live
-                        </Link>
-                      </div>
+                      <Link href={`/dashboard/stations/${station.id}/scheduler`} className="btn btn-secondary btn-sm" aria-label={`Schedule for ${station.name}`}>
+                        <Icon name="schedule" size={16} /><span className="hide-sm">Schedule</span>
+                      </Link>
                     </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        </>
+      )}
     </div>
   );
 }

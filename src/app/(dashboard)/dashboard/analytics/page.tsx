@@ -185,7 +185,7 @@ export default function AnalyticsPage() {
             display: "flex", alignItems: "center", justifyContent: "center",
             flexDirection: "column", gap: "0.5rem",
           }}>
-            <span style={{ fontSize: "2rem" }}>📊</span>
+            <span className="empty-icon" aria-hidden="true" />
             <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-muted)" }}>
               No listener data for this period. Data populates as Icecast metrics are ingested.
             </p>

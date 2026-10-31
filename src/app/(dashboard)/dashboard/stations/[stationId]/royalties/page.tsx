@@ -55,7 +55,7 @@ export default async function RoyaltiesPage({ params }: Props) {
 
       {logs.length === 0 ? (
         <div className="card empty-state">
-          <span className="empty-icon">🎵</span>
+          <span className="empty-icon" aria-hidden="true" />
           <h3 style={{ margin: 0 }}>No play history yet</h3>
           <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.9rem" }}>
             Play logs are recorded when your AutoDJ or encoder reports what&apos;s playing.

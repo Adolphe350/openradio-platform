@@ -41,7 +41,9 @@ import {
 import { UploadTrackForm } from "@/components/upload-track-form";
 import { LogoUploadForm } from "@/components/logo-upload-form";
 import { LiveListeners } from "@/components/live-listeners";
-import { DashboardMobileShell } from "@/components/dashboard-mobile-shell";
+import { StationHeader } from "@/components/station-header";
+import { CopyButton } from "@/components/copy-button";
+import { Icon } from "@/components/icons";
 
 type Props = {
   params: Promise<{ stationId: string }>;
@@ -135,141 +137,24 @@ export default async function StationDetailPage({ params, searchParams }: Props)
   const isLive = station.status === StationStatus.ACTIVE;
   const activeRecording = station.recordings.find((r) => r.status === "recording");
 
-  const navItems = [
-    { id: "overview",  icon: "🎙️", label: "On Air" },
-    { id: "autodj",    icon: "🎵", label: "Music & Playlists" },
-    { id: "tracks",    icon: "🎶", label: "Track Library" },
-    { id: "widget",    icon: "🔗", label: "Share & Embed" },
-    { id: "ctl",       icon: "🌐", label: "Advanced" },
-  ];
-
-  const gradH1 = (station.id.charCodeAt(0) * 47 + station.id.charCodeAt(1) * 31) % 360;
-  const gradH2 = (gradH1 + 40) % 360;
-  const grad = `linear-gradient(135deg,hsl(${gradH1},55%,48%),hsl(${gradH2},60%,35%))`;
-
-  const stationSidebar = (
-    <>
-      <Link href="/dashboard" className="station-sidebar-brand">
-        <div className="station-sidebar-brand-icon">OR</div>
-        <span className="station-sidebar-brand-text">openradio</span>
-      </Link>
-
-      <div className="station-sidebar-header">
-        <div style={{ width: 36, height: 36, borderRadius: 8, background: station.logoUrl ? undefined : grad, overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem" }}>
-          {station.logoUrl
-            // eslint-disable-next-line @next/next/no-img-element
-            ? <img src={station.logoUrl} alt={station.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            : station.name.charAt(0).toUpperCase()}
-        </div>
-        <div style={{ minWidth: 0 }}>
-          <p className="station-sidebar-name">{station.name}</p>
-          <p className="station-sidebar-owner">{user.name}</p>
-        </div>
-      </div>
-
-      <nav className="station-sidebar-nav">
-        {navItems.map((item) => (
-          <Link
-            key={item.id}
-            href={`/dashboard/stations/${stationId}?tab=${item.id}`}
-            className={`station-sidebar-link${tab === item.id ? " active" : ""}`}
-          >
-            <span className="station-sidebar-icon">{item.icon}</span>
-            {item.label}
-          </Link>
-        ))}
-
-        <div style={{ height: "1px", background: "var(--border)", margin: "0.5rem 0.25rem" }} />
-
-        <Link href={`/dashboard/stations/${stationId}/scheduler`} className="station-sidebar-link">
-          <span className="station-sidebar-icon">📅</span>
-          Show Scheduler
-        </Link>
-        <Link href={`/stations/${station.slug}`} className="station-sidebar-link">
-          <span className="station-sidebar-icon">🌐</span>
-          View Public Page
-        </Link>
-        <Link href={`/dashboard/stations/${stationId}/royalties`} className="station-sidebar-link">
-          <span className="station-sidebar-icon">📊</span>
-          Royalties Report
-        </Link>
-
-        <div style={{ height: "1px", background: "var(--border)", margin: "0.5rem 0.25rem" }} />
-
-        <Link
-          href={`/dashboard/stations/${stationId}?tab=settings`}
-          className={`station-sidebar-link${tab === "settings" ? " active" : ""}`}
-        >
-          <span className="station-sidebar-icon">⚙️</span>
-          Settings
-        </Link>
-      </nav>
-
-      <div className="station-sidebar-footer" />
-    </>
-  );
+  const sectionTitles: Record<string, { title: string; sub: string }> = {
+    overview: { title: "Live", sub: "Encoder connection, stream health and on-air controls." },
+    autodj: { title: "Playlists", sub: "Build AutoDJ playlists and order what plays when you are off the mic." },
+    tracks: { title: "Library", sub: "Every track uploaded to this station." },
+    widget: { title: "Embed & share", sub: "Put your player on any website and share direct stream links." },
+    ctl: { title: "Relays & geo", sub: "Relay outputs and country blocking for this stream." },
+    settings: { title: "Settings", sub: "Station profile, timezone, artwork and announcements." },
+  };
+  const section = sectionTitles[tab] ?? sectionTitles.overview;
+  const embedCode = `<iframe src="${(process.env.APP_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "")}/embed/${station.slug}" width="320" height="120" frameborder="0" allow="autoplay"></iframe>`;
 
   return (
-    <div className="station-detail-layout">
-
-      <DashboardMobileShell title={station.name}>
-        <aside className="station-sidebar station-sidebar-drawer">{stationSidebar}</aside>
-      </DashboardMobileShell>
-
-      {/* ── Station Sidebar ──────────────────────────────────────── */}
-      <aside className="station-sidebar station-sidebar-desktop">{stationSidebar}</aside>
-
-      {/* ── Main Content ─────────────────────────────────────────── */}
-      <main className="station-main">
-
-      {/* Top header: breadcrumb + global nav links */}
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "0",
-        marginBottom: "1.75rem",
-        background: "var(--bg-surface)",
-        border: "1px solid var(--border)",
-        borderRadius: "10px",
-        padding: "0 1rem",
-        height: "44px",
-        overflow: "hidden",
-      }}>
-        {/* Breadcrumb */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.82rem", flexShrink: 0 }}>
-          <Link href="/dashboard" style={{ color: "var(--text-muted)", textDecoration: "none", display: "flex", alignItems: "center", gap: "0.25rem" }}>
-            <span>←</span>
-            <span>All Stations</span>
-          </Link>
-          <span style={{ color: "var(--text-dim)" }}>/</span>
-          <span style={{ color: "var(--text)", fontWeight: 600 }}>{station.name}</span>
-        </div>
-
-        {/* Divider */}
-        <div style={{ width: "1px", height: "20px", background: "var(--border)", margin: "0 1rem", flexShrink: 0 }} />
-
-        {/* Global nav links */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.15rem", overflowX: "auto", flex: 1 }}>
-          {[
-            { href: "/dashboard",              icon: "🏠", label: "Home" },
-            { href: "/dashboard/stations/new", icon: "➕", label: "Create Station" },
-            { href: "/dashboard/music",        icon: "🎵", label: "Upload Music" },
-            { href: "/dashboard/podcasts",     icon: "🎙️", label: "Podcasts" },
-            { href: "/dashboard/analytics",    icon: "📈", label: "Analytics" },
-            { href: "/dashboard/settings",     icon: "⚙️", label: "Settings" },
-            { href: "/dashboard/settings/billing", icon: "💳", label: "Billing" },
-          ].map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="station-topbar-link"
-            >
-              <span style={{ fontSize: "0.85rem" }}>{item.icon}</span>
-              {item.label}
-            </Link>
-          ))}
-        </div>
-      </div>
+    <div className="station-page">
+      <StationHeader
+        station={{ ...station, status: String(station.status) }}
+        section={section.title}
+        sub={section.sub}
+      />
 
       {error && <div className="alert alert-error" style={{ margin: "0 0 1rem" }}>{decodeURIComponent(error)}</div>}
 
@@ -279,49 +164,42 @@ export default async function StationDetailPage({ params, searchParams }: Props)
       {tab === "overview" && (
         <div style={{ display: "grid", gap: "1.25rem" }}>
 
-          {/* ON AIR / OFF AIR banner */}
-          <div className="card" style={{ padding: "1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
-              <div style={{ width: 48, height: 48, borderRadius: 10, background: station.logoUrl ? undefined : grad, overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem" }}>
-                {station.logoUrl
-                  // eslint-disable-next-line @next/next/no-img-element
-                  ? <img src={station.logoUrl} alt={station.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  : station.name.charAt(0).toUpperCase()}
-              </div>
+          {/* On-air console */}
+          <section className={`onair-console ${isLive ? "is-live" : ""}`} aria-label="On-air status">
+            <div className="onair-console-lamp">
+              <span className={`onair-bulb ${isLive ? "is-on" : station.status === StationStatus.PAUSED ? "is-paused" : ""}`} aria-hidden="true" />
               <div>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                  <span className={`badge ${isLive ? "badge-green" : "badge-red"}`} style={{ fontSize: "0.8rem", padding: "0.3rem 0.8rem" }}>
-                    {isLive && <span className="live-dot" style={{ width: 6, height: 6, marginRight: 4 }} />}
-                    {isLive ? "ON AIR" : "OFF AIR"}
-                  </span>
-                </div>
-                <p style={{ margin: "0.3rem 0 0", fontSize: "0.82rem", color: "var(--text-muted)" }}>
-                  {station.description || `${station.genre || "Radio"} station`}
-                </p>
+                <p className="onair-console-state">{isLive ? "ON AIR" : station.status === StationStatus.PAUSED ? "PAUSED" : "OFF AIR"}</p>
+                <p className="onair-console-desc">{station.description || `${station.genre || "Radio"} station`}</p>
               </div>
             </div>
-            <form action={updateStationStatusAction} style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <form action={updateStationStatusAction} className="onair-console-form">
               <input type="hidden" name="stationId" value={station.id} />
-              <select name="status" defaultValue={station.status} style={{ borderRadius: 8, padding: "0.45rem 0.7rem", fontSize: "0.875rem" }}>
+              <label htmlFor="station-status" className="sr-only">Station status</label>
+              <select id="station-status" name="status" defaultValue={station.status}>
                 {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
-              <button className="btn btn-primary btn-sm" type="submit">Update</button>
+              <button className="btn btn-primary btn-sm" type="submit">Update status</button>
             </form>
-          </div>
+          </section>
 
-          {/* Stats row */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: "1rem" }}>
-            <div className="stat-card">
+          {/* Meter strip */}
+          <div className="meter-strip">
+            <div className="meter-cell">
               <LiveListeners stationId={station.id} initialCount={metricState.metric.currentListeners} />
             </div>
             {[
-              { label: "Auto DJ", value: `${autoDjPct}%`, sub: "last 7 days" },
-              { label: "Peak Listeners (all time)", value: metricState.metric.peakListeners, sub: "" },
-              { label: "Listening Hours", value: `${metricState.metric.totalListeningHours.toFixed(1)}h`, sub: "" },
+              { label: "AutoDJ share", value: `${autoDjPct}%`, sub: "last 7 days", pct: autoDjPct },
+              { label: "Peak listeners", value: String(metricState.metric.peakListeners), sub: "all time", pct: null },
+              { label: "Listening hours", value: `${metricState.metric.totalListeningHours.toFixed(1)}h`, sub: "total", pct: null },
             ].map((s) => (
-              <div key={s.label} className="stat-card">
-                <div className="stat-value">{s.value}</div>
-                <div className="stat-label">{s.label}</div>
+              <div key={s.label} className="meter-cell">
+                <p className="meter-label">{s.label}</p>
+                <p className="meter-value">{s.value}</p>
+                {s.pct !== null ? (
+                  <span className="vu-bar" aria-hidden="true"><span style={{ width: `${Math.min(100, Math.max(0, s.pct))}%` }} /></span>
+                ) : null}
+                <p className="meter-sub">{s.sub}</p>
               </div>
             ))}
           </div>
@@ -344,7 +222,7 @@ export default async function StationDetailPage({ params, searchParams }: Props)
                 { label: "PLS", value: plsUrl },
               ].map(({ label, value }) => (
                 <div key={label} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.65rem 0.85rem", background: "var(--bg-page)", borderRadius: 8, border: "1px solid var(--border)" }}>
-                  <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--brand)", background: "rgba(0,200,160,0.12)", padding: "0.15rem 0.5rem", borderRadius: 4, flexShrink: 0 }}>{label}</span>
+                  <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--brand)", background: "rgba(230, 57, 70, 0.12)", padding: "0.15rem 0.5rem", borderRadius: 4, flexShrink: 0 }}>{label}</span>
                   <code style={{ fontSize: "0.82rem", wordBreak: "break-all", flex: 1 }}>{value}</code>
                 </div>
               ))}
@@ -393,12 +271,12 @@ export default async function StationDetailPage({ params, searchParams }: Props)
           <div className="card" style={{ padding: "1.25rem" }}>
             <h2 style={{ fontSize: "0.95rem", margin: "0 0 0.85rem" }}>First broadcast checklist</h2>
             <div style={{ height: 4, background: "var(--border)", borderRadius: 999, marginBottom: "0.9rem", overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${(checkDone / checklist.length) * 100}%`, background: "var(--brand)", borderRadius: 999 }} />
+              <div style={{ height: "100%", width: `${(checkDone / checklist.length) * 100}%`, background: "var(--brand-fill)", borderRadius: 999 }} />
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: "0.6rem" }}>
               {checklist.map((c) => (
-                <div key={c.label} className="checklist-item" style={{ background: c.done ? "rgba(0,200,160,0.08)" : undefined, borderColor: c.done ? "rgba(0,200,160,0.25)" : undefined }}>
-                  <div className={`checklist-circle${c.done ? " done" : ""}`}>{c.done ? "✓" : ""}</div>
+                <div key={c.label} className="checklist-item" data-done={c.done ? "true" : undefined}>
+                  <div className={`checklist-circle${c.done ? " done" : ""}`} aria-hidden="true">{c.done ? "✓" : ""}</div>
                   <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 600 }}>{c.label}</p>
                 </div>
               ))}
@@ -518,7 +396,7 @@ export default async function StationDetailPage({ params, searchParams }: Props)
             <div key={pl.id} className="card" style={{ overflow: "hidden" }}>
               <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: "0.975rem" }}>{pl.name} {pl.isDefault && <span style={{ fontSize: "0.7rem", background: "rgba(0,200,160,0.12)", color: "var(--brand)", padding: "0.1rem 0.5rem", borderRadius: 999, marginLeft: 6 }}>Default</span>}</h3>
+                  <h3 style={{ margin: 0, fontSize: "0.975rem" }}>{pl.name} {pl.isDefault && <span style={{ fontSize: "0.7rem", background: "rgba(230, 57, 70, 0.12)", color: "var(--brand)", padding: "0.1rem 0.5rem", borderRadius: 999, marginLeft: 6 }}>Default</span>}</h3>
                   {pl.description && <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--text-muted)" }}>{pl.description}</p>}
                 </div>
                 <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
@@ -575,7 +453,7 @@ export default async function StationDetailPage({ params, searchParams }: Props)
                       <input type="hidden" name="stationId" value={station.id} />
                       <input type="hidden" name="playlistId" value={pl.id} />
                       <input type="hidden" name="playlistTrackId" value={pt.id} />
-                      <button className="btn btn-danger btn-sm" type="submit" style={{ padding: "0.3rem 0.6rem" }}>✕</button>
+                      <button className="btn btn-danger btn-sm" type="submit" style={{ padding: "0.3rem 0.6rem" }} aria-label="Remove from playlist">✕</button>
                     </form>
                   </div>
                 </div>
@@ -728,17 +606,20 @@ export default async function StationDetailPage({ params, searchParams }: Props)
       {tab === "widget" && (
         <div style={{ display: "grid", gap: "1.25rem" }}>
           <div className="card" style={{ padding: "1.25rem" }}>
-            <h2 style={{ fontSize: "1rem", margin: "0 0 0.25rem" }}>Embed Widget</h2>
+            <h2 style={{ fontSize: "1rem", margin: "0 0 0.25rem" }}>Embed player</h2>
             <p style={{ margin: "0 0 1rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
-              Copy this iframe to embed a player on any website.
+              Paste this HTML into any website. The preview below is the live player.
             </p>
-            <div style={{ background: "var(--bg-page)", borderRadius: 10, padding: "0.85rem 1rem", border: "1px solid var(--border)" }}>
-              <code style={{ fontSize: "0.82rem", wordBreak: "break-all", display: "block" }}>
-                {`<iframe src="${process.env.APP_BASE_URL ?? "http://localhost:3000"}/embed/${station.slug}" width="320" height="120" frameborder="0" allow="autoplay"></iframe>`}
-              </code>
+            <div className="copy-field">
+              <pre><code>{embedCode}</code></pre>
+              <CopyButton text={embedCode} label="Copy code" />
             </div>
-            <div style={{ marginTop: "0.75rem" }}>
-              <Link href={`/embed/${station.slug}`} className="btn btn-secondary btn-sm" target="_blank">Preview widget</Link>
+            <div className="embed-preview" style={{ marginTop: "1rem" }}>
+              <span className="meter-label">Preview</span>
+              <iframe src={`/embed/${station.slug}`} title={`${station.name} embedded player preview`} loading="lazy" />
+              <Link href={`/embed/${station.slug}`} className="text-link" target="_blank">
+                Open the player on its own <Icon name="external" size={14} />
+              </Link>
             </div>
           </div>
 
@@ -755,7 +636,7 @@ export default async function StationDetailPage({ params, searchParams }: Props)
                 { label: "PLS", value: plsUrl },
               ].map(({ label, value }) => (
                 <div key={label} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.65rem 0.85rem", background: "var(--bg-page)", borderRadius: 8, border: "1px solid var(--border)" }}>
-                  <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--brand)", background: "rgba(0,200,160,0.12)", padding: "0.15rem 0.5rem", borderRadius: 4, flexShrink: 0 }}>{label}</span>
+                  <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--brand)", background: "rgba(230, 57, 70, 0.12)", padding: "0.15rem 0.5rem", borderRadius: 4, flexShrink: 0 }}>{label}</span>
                   <code style={{ fontSize: "0.82rem", wordBreak: "break-all", flex: 1 }}>{value}</code>
                 </div>
               ))}
@@ -910,10 +791,6 @@ export default async function StationDetailPage({ params, searchParams }: Props)
                 <label>Stream metadata description</label>
                 <input name="streamDescription" defaultValue={station.streamDescription ?? ""} placeholder="Shown by some encoder clients" />
               </div>
-              <div style={{ gridColumn: "1 / -1" }}>
-                <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", fontWeight: 600 }}>Station Logo</p>
-                <LogoUploadForm stationId={station.id} currentLogoUrl={station.logoUrl} />
-              </div>
               <div className="field" style={{ gridColumn: "1 / -1" }}>
                 <label>Logo URL</label>
                 <input name="logoUrl" type="url" defaultValue={station.logoUrl ?? ""} placeholder="https://… (square image, 300x300px+)" />
@@ -935,6 +812,11 @@ export default async function StationDetailPage({ params, searchParams }: Props)
                 <button className="btn btn-primary" type="submit">Save profile</button>
               </div>
             </form>
+            {/* Logo upload has its own form, so it must sit outside the profile form. */}
+            <div style={{ marginTop: "1.25rem", paddingTop: "1.25rem", borderTop: "1px solid var(--border)" }}>
+              <p className="meter-label" style={{ marginBottom: "0.6rem" }}>Station logo</p>
+              <LogoUploadForm stationId={station.id} currentLogoUrl={station.logoUrl} />
+            </div>
           </div>
 
           {/* Announcements */}
@@ -998,7 +880,6 @@ export default async function StationDetailPage({ params, searchParams }: Props)
         </div>
       )}
 
-      </main>
     </div>
   );
 }

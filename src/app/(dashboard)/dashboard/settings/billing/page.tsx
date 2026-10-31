@@ -144,7 +144,7 @@ export default async function BillingPage() {
                 {isCurrent && (
                   <span style={{
                     position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)",
-                    background: "var(--brand)", color: "#fff", fontSize: "0.68rem", fontWeight: 700,
+                    background: "var(--brand-fill)", color: "#fff", fontSize: "0.68rem", fontWeight: 700,
                     padding: "0.15rem 0.6rem", borderRadius: 999, whiteSpace: "nowrap",
                   }}>
                     Current plan
