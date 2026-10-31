@@ -2,15 +2,16 @@ import Link from "next/link";
 
 import { requireSuperAdmin } from "@/lib/admin";
 import { signOutAction } from "@/app/(auth)/auth-actions";
-import { DashboardMobileShell } from "@/components/dashboard-mobile-shell";
+import { Icon, LogoMark, type IconName } from "@/components/icons";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export const metadata = { title: "Super Admin – OpenRadio" };
 
-const links = [
-  { href: "/admin", label: "Overview", icon: "🛡️" },
-  { href: "/admin/stations", label: "Stations", icon: "📻" },
-  { href: "/admin/users", label: "Users", icon: "👥" },
-  { href: "/dashboard", label: "My Studio", icon: "🎛️" },
+const links: { href: string; label: string; icon: IconName }[] = [
+  { href: "/admin", label: "Overview", icon: "admin" },
+  { href: "/admin/stations", label: "Stations", icon: "radio" },
+  { href: "/admin/users", label: "Users", icon: "users" },
+  { href: "/dashboard", label: "My studio", icon: "dashboard" },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -22,52 +23,50 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     .slice(0, 2)
     .toUpperCase();
 
-  const sidebar = (
-    <>
-      <Link href="/admin" className="sidebar-logo">
-        <div className="sidebar-logo-icon">O</div>
-        <span className="sidebar-logo-text">openradio</span>
-      </Link>
-
-      <nav className="sidebar-nav">
-        <div>
-          <p className="sidebar-section-label">Super Admin</p>
-          {links.map((link) => (
-            <Link key={link.href} href={link.href} className="sidebar-link">
-              <span style={{ fontSize: "0.95rem", width: 20, textAlign: "center", flexShrink: 0 }}>{link.icon}</span>
-              {link.label}
-            </Link>
-          ))}
+  return (
+    <div className="studio-shell admin-shell">
+      <aside className="studio-sidebar admin-sidebar" aria-label="Admin menu">
+        <div className="studio-side-head">
+          <Link href="/admin" className="studio-brand" aria-label="OpenRadio Cloud admin">
+            <LogoMark size={30} />
+            <span className="studio-brand-text">OpenRadio<span>Admin</span></span>
+          </Link>
         </div>
-      </nav>
-
-      <div className="sidebar-bottom">
-        <div className="sidebar-user">
-          <div className="sidebar-avatar">{initials}</div>
-          <div style={{ minWidth: 0 }}>
-            <p className="sidebar-user-name">{user.name}</p>
-            <p className="sidebar-user-role">Super Admin</p>
+        <nav className="studio-nav" aria-label="Super admin">
+          <p className="studio-nav-group">Super admin</p>
+          <ul>
+            {links.map((link) => (
+              <li key={link.href}>
+                <Link href={link.href} className="studio-nav-link">
+                  <Icon name={link.icon} size={18} />
+                  <span className="studio-nav-label">{link.label}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <div className="studio-side-foot">
+          <div className="studio-user">
+            <span className="studio-avatar" aria-hidden="true">{initials}</span>
+            <span className="studio-user-text">
+              <span className="studio-user-name">{user.name}</span>
+              <span className="studio-user-mail">Super admin</span>
+            </span>
+          </div>
+          <div className="studio-foot-actions">
+            <ThemeToggle />
+            <form action={signOutAction}>
+              <button className="studio-icon-btn" type="submit" aria-label="Sign out" title="Sign out">
+                <Icon name="logout" size={18} />
+              </button>
+            </form>
           </div>
         </div>
-        <form action={signOutAction} style={{ marginTop: "0.4rem" }}>
-          <button className="sidebar-link" type="submit" style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.825rem" }}>
-            <span style={{ fontSize: "0.9rem", width: 20, textAlign: "center" }}>→</span>
-            Sign out
-          </button>
-        </form>
+      </aside>
+
+      <div className="studio-main">
+        <main id="main" className="studio-content">{children}</main>
       </div>
-    </>
-  );
-
-  return (
-    <div className="dashboard-shell">
-      <DashboardMobileShell title="Admin Menu">
-        <aside className="dashboard-sidebar dashboard-sidebar-drawer">{sidebar}</aside>
-      </DashboardMobileShell>
-
-      <aside className="dashboard-sidebar dashboard-sidebar-desktop">{sidebar}</aside>
-
-      <div className="dashboard-content">{children}</div>
     </div>
   );
 }
