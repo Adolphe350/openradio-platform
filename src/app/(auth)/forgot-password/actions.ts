@@ -49,7 +49,7 @@ export async function forgotPasswordAction(formData: FormData) {
       <div style="font-family:Inter,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#fff">
         <div style="margin-bottom:24px">
           <span style="display:inline-flex;align-items:center;gap:8px">
-            <span style="width:28px;height:28px;border-radius:7px;background:#00c8a0;display:inline-flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:14px">O</span>
+            <span style="width:28px;height:28px;border-radius:7px;background:#E63946;display:inline-flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:14px">O</span>
             <strong style="font-size:16px">openradio</strong>
           </span>
         </div>
@@ -57,7 +57,7 @@ export async function forgotPasswordAction(formData: FormData) {
         <p style="color:#6b7280;margin:0 0 24px;line-height:1.6">
           Hi ${user.name}, we received a request to reset your password. Click the button below — the link expires in <strong>1 hour</strong>.
         </p>
-        <a href="${resetUrl}" style="display:inline-block;background:#00c8a0;color:#fff;text-decoration:none;padding:12px 28px;border-radius:999px;font-weight:700;font-size:15px">
+        <a href="${resetUrl}" style="display:inline-block;background:#E63946;color:#fff;text-decoration:none;padding:12px 28px;border-radius:999px;font-weight:700;font-size:15px">
           Reset Password
         </a>
         <p style="color:#9ca3af;margin:24px 0 0;font-size:13px;line-height:1.6">

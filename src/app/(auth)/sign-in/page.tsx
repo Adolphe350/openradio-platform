@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { signInAction } from "../auth-actions";
 import { getCurrentSession } from "@/lib/auth";
+import { AuthFrame, authErrorText } from "@/components/auth-frame";
 
 export const metadata = {
   title: "Sign In - OpenRadio",
@@ -18,87 +19,43 @@ export default async function SignInPage({
   }
 
   const params = await searchParams;
-  const error = params.error;
+  const error = authErrorText(params.error);
 
   return (
-    <div className="auth-page">
-      <div className="auth-image-panel">
-        <div className="auth-image-content">
-          <Link href="/" className="auth-logo">
-            <div className="auth-logo-icon">O</div>
-            <span>openradio</span>
-          </Link>
-
-          <div className="auth-illustration">📻</div>
-
-          <h2 className="auth-illustration-title">
-            Welcome Back to OpenRadio
-          </h2>
-          <p className="auth-illustration-text">
-            Continue broadcasting to your global audience. Sign in to access
-            your dashboard, analytics, and streaming tools.
-          </p>
+    <AuthFrame
+      title="Sign in to your studio"
+      lede="Manage your stations, library, schedule and stream."
+      sideTitle="Your station is one sign-in away."
+      sideText="Pick up where you left off: check who is listening, line up the next show, or open the encoder settings and go live."
+    >
+      {error ? (
+        <div className="auth-alert" role="alert">
+          {error}
         </div>
-      </div>
+      ) : null}
 
-      <div className="auth-form-panel">
-        <div className="auth-form-container">
-          <div className="auth-form-header">
-            <h1>Sign in to your account</h1>
-            <p>
-              New to OpenRadio?{" "}
-              <Link href="/sign-up">Create an account</Link>
-            </p>
-          </div>
-
-          {error && (
-            <div className="auth-error">
-              {error === "invalid" && "Invalid email or password"}
-              {error === "server" && "Server error. Please try again."}
-              {error === "credentials" && "Invalid credentials"}
-            </div>
-          )}
-
-          <form action={signInAction} className="auth-form">
-            <div className="field">
-              <label htmlFor="email">Email address</label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                placeholder="you@example.com"
-                required
-                autoComplete="email"
-              />
-            </div>
-
-            <div className="field">
-              <label htmlFor="password">Password</label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                placeholder="••••••••"
-                required
-                autoComplete="current-password"
-              />
-            </div>
-
-            <button type="submit" className="btn btn-primary" style={{ width: "100%" }}>
-              Sign in
-            </button>
-          </form>
-
-          <div style={{ marginTop: "20px", textAlign: "center" }}>
-            <Link
-              href="/forgot-password"
-              style={{ fontSize: "14px", color: "var(--text-muted)" }}
-            >
-              Forgot your password?
-            </Link>
-          </div>
+      <form action={signInAction} className="auth-fields">
+        <div className="field">
+          <label htmlFor="email">Email</label>
+          <input type="email" id="email" name="email" placeholder="you@station.com" required autoComplete="email" />
         </div>
-      </div>
-    </div>
+
+        <div className="field">
+          <div className="field-row">
+            <label htmlFor="password">Password</label>
+            <Link href="/forgot-password" className="field-link">Forgot password?</Link>
+          </div>
+          <input type="password" id="password" name="password" required autoComplete="current-password" />
+        </div>
+
+        <button type="submit" className="btn btn-primary btn-full btn-lg">
+          Sign in
+        </button>
+      </form>
+
+      <p className="auth-switch">
+        New to OpenRadio Cloud? <Link href="/sign-up">Create your station</Link>
+      </p>
+    </AuthFrame>
   );
 }
