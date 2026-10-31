@@ -43,7 +43,7 @@ export default async function PublicPodcastPage({ params }: Props) {
                   {podcast.imageUrl
                     // eslint-disable-next-line @next/next/no-img-element
                     ? <img src={podcast.imageUrl} alt={podcast.title} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 12 }} />
-                    : "🎙"}
+                    : podcast.title.charAt(0).toUpperCase()}
                 </div>
                 <div style={{ flex: 1 }}>
                   <h1 style={{ margin: "0 0 0.4rem", fontSize: "1.5rem" }}>{podcast.title}</h1>

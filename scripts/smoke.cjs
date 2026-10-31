@@ -13,10 +13,12 @@ const PASSWORD = process.env.PASSWORD || "";
 const SHOTS = process.env.SHOTS !== "0";
 const ONLY = process.env.ONLY ? process.env.ONLY.split(",") : null;
 
-const sizes = [
-  { tag: "desk", width: 1440, height: 900 },
-  { tag: "phone", width: 390, height: 844 },
-];
+const sizes = process.env.SIZES === "tablet"
+  ? [{ tag: "tablet", width: 900, height: 1000 }]
+  : [
+      { tag: "desk", width: 1440, height: 900 },
+      { tag: "phone", width: 390, height: 844 },
+    ];
 
 const publicPages = [
   ["landing", "/"],
@@ -85,6 +87,9 @@ async function visit(page, name, url, tag, errors) {
   for (const s of sizes) {
     const ctx = await browser.newContext({ viewport: { width: s.width, height: s.height } });
     const page = await ctx.newPage();
+    if (process.env.THEME) {
+      await ctx.addInitScript((t) => { try { localStorage.setItem("or-theme", t); } catch (e) {} }, process.env.THEME);
+    }
     const errors = [];
     page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
     page.on("pageerror", (e) => errors.push(String(e)));

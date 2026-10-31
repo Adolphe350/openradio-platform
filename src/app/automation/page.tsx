@@ -8,17 +8,17 @@ export const metadata = {
 };
 
 const live = [
-  { icon: "🎵", title: "Track Library", desc: "Upload MP3, FLAC, OGG, WAV, or AAC files directly to your station. Metadata is auto-detected from filename." },
-  { icon: "📋", title: "Playlist Builder", desc: "Create multiple playlists, add tracks, and reorder. The AutoDJ plays from your playlists 24/7." },
-  { icon: "🗓️", title: "Schedule Blocks", desc: "Define time-based programming slots. Assign a playlist to each block — mornings, evenings, weekends." },
-  { icon: "🔀", title: "Random Rotation", desc: "The Liquidsoap AutoDJ engine shuffles your playlist so listeners always hear something fresh." },
+  { icon: "", title: "Track Library", desc: "Upload MP3, FLAC, OGG, WAV, or AAC files directly to your station. Metadata is auto-detected from filename." },
+  { icon: "", title: "Playlist Builder", desc: "Create multiple playlists, add tracks, and reorder. The AutoDJ plays from your playlists 24/7." },
+  { icon: "", title: "Schedule Blocks", desc: "Define time-based programming slots. Assign a playlist to each block — mornings, evenings, weekends." },
+  { icon: "", title: "Random Rotation", desc: "The Liquidsoap AutoDJ engine shuffles your playlist so listeners always hear something fresh." },
 ];
 
 const roadmap = [
-  { icon: "🎙️", title: "Show Recording", desc: "Automatically record live shows and publish them as on-demand podcast episodes.", state: "Coming soon" },
-  { icon: "⏱️", title: "Jingle Insertion", desc: "Schedule station IDs, ads, or jingles to play at defined intervals automatically.", state: "Coming soon" },
-  { icon: "📊", title: "Rotation Rules", desc: "Set category rotations, repeat spacing, and artist separation rules.", state: "Planned" },
-  { icon: "🤖", title: "Per-station Workers", desc: "Dedicated Liquidsoap process per station with Redis-backed queue orchestration.", state: "Planned" },
+  { icon: "", title: "Show Recording", desc: "Automatically record live shows and publish them as on-demand podcast episodes.", state: "Coming soon" },
+  { icon: "", title: "Jingle Insertion", desc: "Schedule station IDs, ads, or jingles to play at defined intervals automatically.", state: "Coming soon" },
+  { icon: "", title: "Rotation Rules", desc: "Set category rotations, repeat spacing, and artist separation rules.", state: "Planned" },
+  { icon: "", title: "Per-station Workers", desc: "Dedicated Liquidsoap process per station with Redis-backed queue orchestration.", state: "Planned" },
 ];
 
 const steps = [
@@ -57,7 +57,7 @@ export default function AutomationPage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: "1rem" }}>
             {live.map((f) => (
               <div key={f.title} className="card" style={{ padding: "1.25rem", display: "flex", gap: "0.85rem" }}>
-                <div className="feature-icon">{f.icon}</div>
+                <div className="feature-icon" aria-hidden="true" />
                 <div>
                   <p style={{ margin: "0 0 0.25rem", fontWeight: 700, fontSize: "0.95rem" }}>{f.title}</p>
                   <p style={{ margin: 0, fontSize: "0.845rem", color: "var(--text-muted)", lineHeight: 1.55 }}>{f.desc}</p>
@@ -74,7 +74,7 @@ export default function AutomationPage() {
           <div className="card" style={{ overflow: "hidden" }}>
             {steps.map((step, i) => (
               <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: "1rem", padding: "1rem 1.25rem", borderBottom: i < steps.length - 1 ? "1px solid var(--border)" : "none" }}>
-                <span style={{ width: 26, height: 26, borderRadius: "50%", background: "var(--brand)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.78rem", fontWeight: 800, flexShrink: 0 }}>{i + 1}</span>
+                <span style={{ width: 26, height: 26, borderRadius: "50%", background: "var(--brand-fill)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.78rem", fontWeight: 800, flexShrink: 0 }}>{i + 1}</span>
                 <p style={{ margin: 0, fontSize: "0.9rem", lineHeight: 1.6 }}>{step}</p>
               </div>
             ))}
@@ -91,7 +91,7 @@ export default function AutomationPage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: "1rem" }}>
             {roadmap.map((f) => (
               <div key={f.title} className="card" style={{ padding: "1.25rem", display: "flex", gap: "0.85rem", opacity: 0.75 }}>
-                <div className="feature-icon" style={{ background: "#f1f5f9", color: "var(--text-muted)" }}>{f.icon}</div>
+                <div className="feature-icon" aria-hidden="true" style={{ background: "var(--text-dim)", boxShadow: "none" }} />
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
                     <p style={{ margin: 0, fontWeight: 700, fontSize: "0.95rem" }}>{f.title}</p>

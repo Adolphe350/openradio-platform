@@ -48,13 +48,13 @@ export function NowPlaying({ mountPath }: Props) {
         alignItems: "center",
         gap: "0.75rem",
         padding: "0.75rem 1rem",
-        background: "rgba(0,200,160,0.08)",
-        border: "1px solid rgba(0,200,160,0.2)",
+        background: "rgba(230, 57, 70, 0.08)",
+        border: "1px solid rgba(230, 57, 70, 0.2)",
         borderRadius: "var(--radius-md)",
         marginBottom: "0.75rem",
       }}
     >
-      <span style={{ fontSize: "1.2rem" }}>🎵</span>
+      <span className="mini-lamp lamp-on" aria-hidden="true" />
       <div style={{ minWidth: 0 }}>
         <p style={{ margin: 0, fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--brand)" }}>
           Now Playing

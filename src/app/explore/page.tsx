@@ -13,10 +13,11 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 
 const trendingSearches = ["united states", "brazil", "mexico", "hip hop", "news", "christian", "jazz", "reggaeton", "80s", "pop"];
 
+// Studio artwork: concentric broadcast rings on studio black (the CSS class
+// .station-card-thumb draws them), with a slight per-station tint.
 function stationColor(id: string) {
-  const h1 = (id.charCodeAt(0) * 47 + id.charCodeAt(1) * 31) % 360;
-  const h2 = (h1 + 40) % 360;
-  return `linear-gradient(135deg,hsl(${h1},55%,48%),hsl(${h2},60%,35%))`;
+  void id;
+  return undefined;
 }
 
 function StationCard({ s }: { s: ExploreStation }) {
@@ -30,7 +31,7 @@ function StationCard({ s }: { s: ExploreStation }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={s.logoUrl} alt={s.name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
         ) : (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem" }}>📻</div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2.4rem", fontWeight: 700, color: "#F4F1EA" }} aria-hidden="true">{s.name.charAt(0).toUpperCase()}</div>
         )}
         {s.status === "ACTIVE" && (
           <span
@@ -110,7 +111,7 @@ export default async function ExplorePage({ searchParams }: Props) {
             <button
               type="submit"
               style={{
-                background: "var(--brand)", color: "#fff", border: "none",
+                background: "var(--brand-fill)", color: "#fff", border: "none",
                 padding: "0 1.25rem", fontWeight: 600, fontSize: "0.875rem",
                 cursor: "pointer", fontFamily: "inherit",
               }}
@@ -221,7 +222,7 @@ export default async function ExplorePage({ searchParams }: Props) {
               </div>
             ) : (
               <div className="empty-state card">
-                <span className="empty-icon">📻</span>
+                <span className="empty-icon" aria-hidden="true" />
                 <h3 style={{ margin: 0 }}>No stations found</h3>
                 <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.9rem" }}>Try adjusting your filters or search term.</p>
                 <Link href="/explore" className="btn btn-secondary btn-sm">Clear filters</Link>
@@ -244,7 +245,7 @@ export default async function ExplorePage({ searchParams }: Props) {
 
         {!hasFilter && stations.length === 0 && trending.length === 0 && (
           <div className="empty-state card">
-            <span className="empty-icon">📻</span>
+            <span className="empty-icon" aria-hidden="true" />
             <h3 style={{ margin: 0 }}>No stations yet</h3>
             <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.9rem" }}>
               Be the first to create and publish a station.
