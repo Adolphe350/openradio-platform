@@ -7,13 +7,14 @@ export type StationTimezoneOption = {
 export const STATION_TIMEZONES: StationTimezoneOption[] = [
   { value: "UTC", label: "UTC / Coordinated Universal Time", region: "Global" },
 
-  { value: "Africa/Kigali", label: "Rwanda — Kigali", region: "Africa" },
-  { value: "Africa/Nairobi", label: "East Africa — Nairobi / Kampala / Dar es Salaam", region: "Africa" },
-  { value: "Africa/Lagos", label: "West Africa — Lagos", region: "Africa" },
-  { value: "Africa/Accra", label: "Ghana — Accra", region: "Africa" },
-  { value: "Africa/Johannesburg", label: "South Africa — Johannesburg", region: "Africa" },
-  { value: "Africa/Cairo", label: "Egypt — Cairo", region: "Africa" },
-  { value: "Africa/Casablanca", label: "Morocco — Casablanca", region: "Africa" },
+  { value: "Europe/London", label: "United Kingdom — London", region: "Europe" },
+  { value: "Europe/Paris", label: "France — Paris", region: "Europe" },
+  { value: "Europe/Berlin", label: "Germany — Berlin", region: "Europe" },
+  { value: "Europe/Madrid", label: "Spain — Madrid", region: "Europe" },
+  { value: "Europe/Rome", label: "Italy — Rome", region: "Europe" },
+  { value: "Europe/Brussels", label: "Belgium — Brussels", region: "Europe" },
+  { value: "Europe/Amsterdam", label: "Netherlands — Amsterdam", region: "Europe" },
+  { value: "Europe/Istanbul", label: "Türkiye — Istanbul", region: "Europe" },
 
   { value: "America/New_York", label: "US Eastern — New York", region: "Americas" },
   { value: "America/Chicago", label: "US Central — Chicago", region: "Americas" },
@@ -26,15 +27,6 @@ export const STATION_TIMEZONES: StationTimezoneOption[] = [
   { value: "America/Bogota", label: "Colombia — Bogotá", region: "Americas" },
   { value: "America/Argentina/Buenos_Aires", label: "Argentina — Buenos Aires", region: "Americas" },
 
-  { value: "Europe/London", label: "United Kingdom — London", region: "Europe" },
-  { value: "Europe/Paris", label: "France — Paris", region: "Europe" },
-  { value: "Europe/Berlin", label: "Germany — Berlin", region: "Europe" },
-  { value: "Europe/Madrid", label: "Spain — Madrid", region: "Europe" },
-  { value: "Europe/Rome", label: "Italy — Rome", region: "Europe" },
-  { value: "Europe/Brussels", label: "Belgium — Brussels", region: "Europe" },
-  { value: "Europe/Amsterdam", label: "Netherlands — Amsterdam", region: "Europe" },
-  { value: "Europe/Istanbul", label: "Türkiye — Istanbul", region: "Europe" },
-
   { value: "Asia/Dubai", label: "UAE — Dubai", region: "Asia" },
   { value: "Asia/Kolkata", label: "India — Kolkata", region: "Asia" },
   { value: "Asia/Tokyo", label: "Japan — Tokyo", region: "Asia" },
@@ -45,6 +37,14 @@ export const STATION_TIMEZONES: StationTimezoneOption[] = [
 
   { value: "Australia/Sydney", label: "Australia — Sydney", region: "Oceania" },
   { value: "Pacific/Auckland", label: "New Zealand — Auckland", region: "Oceania" },
+
+  { value: "Africa/Johannesburg", label: "South Africa — Johannesburg", region: "Africa" },
+  { value: "Africa/Cairo", label: "Egypt — Cairo", region: "Africa" },
+  { value: "Africa/Casablanca", label: "Morocco — Casablanca", region: "Africa" },
+  { value: "Africa/Lagos", label: "West Africa — Lagos", region: "Africa" },
+  { value: "Africa/Accra", label: "Ghana — Accra", region: "Africa" },
+  { value: "Africa/Nairobi", label: "East Africa — Nairobi / Kampala / Dar es Salaam", region: "Africa" },
+  { value: "Africa/Kigali", label: "Rwanda — Kigali", region: "Africa" },
 ];
 
 export function isValidTimeZone(timeZone: string): boolean {
